@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Household Budget Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f1efe8;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+    --text3: #888780;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --green: #3b6d11;
+    --green-bg: #eaf3de;
+    --red: #a32d2d;
+    --red-bg: #fcebeb;
+    --amber: #854f0b;
+    --amber-bg: #faeeda;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --surface: #252523;
+      --surface2: #2c2c2a;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+      --text: #f1efe8;
+      --text2: #b4b2a9;
+      --text3: #888780;
+      --accent: #85b7eb;
+      --accent-bg: #042c53;
+      --green: #97c459;
+      --green-bg: #173404;
+      --red: #f09595;
+      --red-bg: #501313;
+      --amber: #ef9f27;
+      --amber-bg: #412402;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; }
+  header { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 17px; font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .tabs { display: flex; gap: 2px; background: var(--surface2); padding: 3px; border-radius: var(--radius-sm); }
+  .tab { padding: 5px 14px; border-radius: 5px; font-size: 13px; cursor: pointer; color: var(--text2); border: none; background: none; transition: all 0.15s; }
+  .tab.active { background: var(--surface); color: var(--text); font-weight: 500; }
+  .tab:hover:not(.active) { color: var(--text); }
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  select, input[type="text"], input[type="number"] {
+    background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius-sm);
+    color: var(--text); padding: 7px 12px; font-size: 14px; outline: none; transition: border-color 0.15s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  btn, .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); transition: all 0.15s; }
+  .btn:hover { background: var(--surface2); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn.primary:hover { opacity: 0.88; }
+  .btn.success { background: var(--green-bg); color: var(--green); border-color: transparent; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: var(--surface2); border-radius: var(--radius); padding: 14px 16px; }
+  .card-label { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .card-value { font-size: 22px; font-weight: 500; }
+  .card-value.pos { color: var(--green); }
+  .card-value.neg { color: var(--red); }
+  .card-value.neu { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 0.5px solid var(--border); font-size: 14px; }
+  th { background: var(--surface2); font-weight: 500; font-size: 12px; color: var(--text2); text-align: left; padding: 10px 14px; border-bottom: 0.5px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge.income { background: var(--green-bg); color: var(--green); }
+  .badge.expense { background: var(--red-bg); color: var(--red); }
+  .text-right { text-align: right; }
+  .text-pos { color: var(--green); font-weight: 500; }
+  .text-neg { color: var(--red); font-weight: 500; }
+  .text-muted { color: var(--text3); font-size: 13px; }
+  .row-total td { font-weight: 500; background: var(--surface2); }
+  .row-total.income td { color: var(--green); }
+  .row-total.expense td { color: var(--red); }
+  .row-net td { font-weight: 500; font-size: 15px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-group input, .form-group select { width: 100%; }
+  .actions-row { display: flex; gap: 8px; align-items: flex-end; }
+  .bar-wrap { margin-bottom: 24px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; color: var(--text2); }
+  .bar-track { background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .month-nav { display: flex; align-items: center; gap: 12px; }
+  .month-nav button { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 10px; cursor: pointer; color: var(--text); font-size: 14px; }
+  .month-nav button:hover { background: var(--surface2); }
+  .month-nav span { font-size: 15px; font-weight: 500; min-width: 120px; text-align: center; }
+  .shopping-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+  .bought { text-decoration: line-through; color: var(--text3); }
+  .empty { text-align: center; padding: 40px; color: var(--text3); }
+  @media (max-width: 640px) {
+    header { padding: 0 12px; }
+    .main { padding: 16px 10px; }
+    .cards { grid-template-columns: 1fr 1fr; }
+    table { font-size: 13px; }
+    th, td { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Household Budget</h1>
+  <div class="header-actions">
+    <div class="tabs">
+      <button class="tab active" onclick="showSection('budget')">Budget</button>
+      <button class="tab" onclick="showSection('entries')">Entries</button>
+      <button class="tab" onclick="showSection('shopping')">Shopping</button>
+    </div>
+    <button class="btn primary" onclick="exportExcel()">Export Excel</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- BUDGET SECTION -->
+  <div id="sec-budget" class="section active">
+    <div class="toolbar">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">&#8592;</button>
+        <span id="month-label"></span>
+        <button onclick="changeMonth(1)">&#8594;</button>
+      </div>
+      <select id="year-select" onchange="renderBudget()"></select>
+    </div>
+    <div class="cards" id="summary-cards"></div>
+    <div id="bar-charts"></div>
+    <table id="budget-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th class="text-right">Budget</th>
+          <th class="text-right">Actual</th>
+          <th class="text-right">Difference</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody id="budget-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ENTRIES SECTION -->
+  <div id="sec-entries" class="section">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="text" id="ent-date" placeholder="DD/MM/YYYY">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="ent-cat">
+          <option>Salary</option>
+          <option>Freelancing</option>
+          <option>Investments</option>
+          <option>Rent/Mortgage</option>
+          <option>Utilities</option>
+          <option>Groceries</option>
+          <option>Transportation</option>
+          <option>Entertainment</option>
+          <option>Clothing</option>
+          <option>Miscellaneous</option>
+          <option>Insurance</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="ent-desc" placeholder="e.g. Spar groceries">
+      </div>
+      <div class="form-group">
+        <label>Amount (€)</label>
+        <input type="number" id="ent-amt" placeholder="0.00" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="ent-type">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+      </div>
+      <div class="form-group actions-row">
+        <button class="btn primary" onclick="addEntry()" style="width:100%;">Add Entry</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <select id="filter-month" onchange="renderEntries()">
+        <option value="">All months</option>
+      </select>
+      <select id="filter-cat" onchange="renderEntries()">
+        <option value="">All categories</option>
+      </select>
+      <select id="filter-type" onchange="renderEntries()">
+        <option value="">All types</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+      <input type="text" id="filter-search" placeholder="Search..." oninput="renderEntries()" style="flex:1;min-width:120px;">
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th class="text-right">Amount</th>
+          <th>Type</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="entries-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- SHOPPING SECTION -->
+  <div id="sec-shopping" class="section">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Item</label>
+        <input type="text" id="sh-item" placeholder="e.g. Spar - Eggs">
+      </div>
+      <div class="form-group">
+        <label>Store</label>
+        <input type="text" id="sh-store" placeholder="Spar / Lidl / Billa…">
+      </div>
+      <div class="form-group">
+        <label>Qty</label>
+        <input type="number" id="sh-qty" value="1" min="1" step="1">
+      </div>
+      <div class="form-group">
+        <label>Price per unit (€)</label>
+        <input type="number" id="sh-price" placeholder="0.00" step="0.01">
+      </div>
+      <div class="form-group actions-row">
+        <button class="btn primary" onclick="addShopItem()" style="width:100%;">Add Item</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn" onclick="clearBought()">Clear bought</button>
+      <span id="shop-total" class="text-muted"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px;"></th>
+          <th>Item</th>
+          <th>Store</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Unit (€)</th>
+          <th class="text-right">Total (€)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="shop-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const INCOME_CATS = ['Salary','Freelancing','Investments'];
+const EXPENSE_CATS = ['Rent/Mortgage','Utilities','Groceries','Transportation','Entertainment','Clothing','Miscellaneous','Insurance'];
+const BUDGETS = {
+  'Salary':3400,'Freelancing':200,'Investments':0,
+  'Rent/Mortgage':780,'Utilities':30,'Groceries':250,'Transportation':200,
+  'Entertainment':150,'Clothing':50,'Miscellaneous':300,'Insurance':20
+};
+const BAR_COLORS = {'Groceries':'#3b6d11','Transportation':'#185fa5','Entertainment':'#854f0b','Miscellaneous':'#5f5e5a','Rent/Mortgage':'#993556','Utilities':'#0f6e56','Clothing':'#533ab7','Insurance':'#a32d2d'};
+
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+let entries = JSON.parse(localStorage.getItem('hb_entries') || '[]');
+let shopping = JSON.parse(localStorage.getItem('hb_shopping') || '[]');
+
+function save() {
+  localStorage.setItem('hb_entries', JSON.stringify(entries));
+  localStorage.setItem('hb_shopping', JSON.stringify(shopping));
+}
+
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'budget') renderBudget();
+  if (name === 'entries') renderEntries();
+  if (name === 'shopping') renderShopping();
+}
+
+function initYearSelect() {
+  const sel = document.getElementById('year-select');
+  const years = [...new Set(entries.map(e => e.year))];
+  if (!years.includes(currentYear)) years.push(currentYear);
+  years.sort();
+  sel.innerHTML = years.map(y => `<option${y===currentYear?' selected':''}>${y}</option>`).join('');
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  document.getElementById('year-select').value = currentYear;
+  renderBudget();
+}
+
+function renderBudget() {
+  currentYear = parseInt(document.getElementById('year-select').value) || currentYear;
+  document.getElementById('month-label').textContent = MONTHS[currentMonth] + ' ' + currentYear;
+  const month_entries = entries.filter(e => e.month === currentMonth && e.year === currentYear);
+
+  const totIncome = month_entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const totExpense = month_entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const net = totIncome - totExpense;
+  const savRate = totIncome > 0 ? Math.round((net/totIncome)*100) : 0;
+
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="card"><div class="card-label">Total income</div><div class="card-value pos">€${fmt(totIncome)}</div></div>
+    <div class="card"><div class="card-label">Total expenses</div><div class="card-value neg">€${fmt(totExpense)}</div></div>
+    <div class="card"><div class="card-label">Net</div><div class="card-value ${net>=0?'pos':'neg'}">€${fmt(net)}</div></div>
+    <div class="card"><div class="card-label">Savings rate</div><div class="card-value neu">${savRate}%</div></div>
+  `;
+
+  const bars = EXPENSE_CATS.filter(c => BUDGETS[c]>0).map(c => {
+    const actual = month_entries.filter(e=>e.category===c).reduce((s,e)=>s+e.amount,0);
+    const pct = Math.min(100, Math.round((actual / BUDGETS[c]) * 100));
+    const over = actual > BUDGETS[c];
+    const color = over ? '#a32d2d' : (BAR_COLORS[c] || '#185fa5');
+    return `<div class="bar-wrap">
+      <div class="bar-label"><span>${c}</span><span style="color:${over?'var(--red)':'var(--text2)'}">€${fmt(actual)} / €${fmt(BUDGETS[c])} (${pct}%)</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('bar-charts').innerHTML = bars;
+
+  const allCats = [...INCOME_CATS, ...EXPENSE_CATS];
+  let rows = '';
+  let budgetInc = 0, actualInc = 0, budgetExp = 0, actualExp = 0;
+  allCats.forEach(c => {
+    const isIncome = INCOME_CATS.includes(c);
+    const actual = month_entries.filter(e=>e.category===c).reduce((s,e)=>s+e.amount,0);
+    const budget = BUDGETS[c] || 0;
+    const diff = isIncome ? actual - budget : budget - actual;
+    const cls = diff >= 0 ? 'text-pos' : 'text-neg';
+    if (isIncome) { budgetInc += budget; actualInc += actual; }
+    else { budgetExp += budget; actualExp += actual; }
+    rows += `<tr>
+      <td>${c}</td>
+      <td class="text-right">€${fmt(budget)}</td>
+      <td class="text-right">€${fmt(actual)}</td>
+      <td class="text-right ${cls}">${diff>=0?'+':''}€${fmt(diff)}</td>
+      <td><span class="badge ${isIncome?'income':'expense'}">${isIncome?'Income':'Expense'}</span></td>
+    </tr>`;
+  });
+  const netBudget = budgetInc - budgetExp, netActual = actualInc - actualExp;
+  rows += `<tr class="row-total income"><td>Total income</td><td class="text-right">€${fmt(budgetInc)}</td><td class="text-right">€${fmt(actualInc)}</td><td></td><td></td></tr>`;
+  rows += `<tr class="row-total expense"><td>Total expenses</td><td class="text-right">€${fmt(budgetExp)}</td><td class="text-right">€${fmt(actualExp)}</td><td></td><td></td></tr>`;
+  rows += `<tr class="row-net"><td>Net</td><td class="text-right ${netBudget>=0?'text-pos':'text-neg'}">€${fmt(netBudget)}</td><td class="text-right ${netActual>=0?'text-pos':'text-neg'}">€${fmt(netActual)}</td><td></td><td></td></tr>`;
+  document.getElementById('budget-tbody').innerHTML = rows;
+  initYearSelect();
+}
+
+function fmt(n) { return Math.abs(n).toLocaleString('de-AT', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function addEntry() {
+  const date = document.getElementById('ent-date').value.trim() || today();
+  const cat = document.getElementById('ent-cat').value;
+  const desc = document.getElementById('ent-desc').value.trim();
+  const amt = parseFloat(document.getElementById('ent-amt').value);
+  const type = document.getElementById('ent-type').value;
+  if (!amt || isNaN(amt) || amt <= 0) { alert('Please enter a valid amount.'); return; }
+  const parts = date.split('/');
+  const d = parts.length === 3 ? new Date(parts[2], parts[1]-1, parts[0]) : new Date();
+  entries.unshift({ id: Date.now(), date, month: d.getMonth(), year: d.getFullYear(), category: cat, description: desc, amount: amt, type });
+  save(); renderEntries(); populateFilters();
+  document.getElementById('ent-amt').value = '';
+  document.getElementById('ent-desc').value = '';
+}
+
+function today() {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function deleteEntry(id) { entries = entries.filter(e => e.id !== id); save(); renderEntries(); renderBudget(); }
+
+function populateFilters() {
+  const months = [...new Set(entries.map(e => `${e.year}-${String(e.month+1).padStart(2,'0')}`))].sort().reverse();
+  const fm = document.getElementById('filter-month');
+  const prev = fm.value;
+  fm.innerHTML = '<option value="">All months</option>' + months.map(m => {
+    const [y, mo] = m.split('-');
+    return `<option value="${m}" ${m===prev?'selected':''}>${MONTHS[parseInt(mo)-1]} ${y}</option>`;
+  }).join('');
+  const cats = [...new Set(entries.map(e => e.category))].sort();
+  const fc = document.getElementById('filter-cat');
+  const prevc = fc.value;
+  fc.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option${c===prevc?' selected':''}>${c}</option>`).join('');
+}
+
+function renderEntries() {
+  populateFilters();
+  let filtered = [...entries];
+  const fm = document.getElementById('filter-month').value;
+  const fc = document.getElementById('filter-cat').value;
+  const ft = document.getElementById('filter-type').value;
+  const fs = document.getElementById('filter-search').value.toLowerCase();
+  if (fm) { const [y,m] = fm.split('-'); filtered = filtered.filter(e => e.year===parseInt(y) && e.month===parseInt(m)-1); }
+  if (fc) filtered = filtered.filter(e => e.category === fc);
+  if (ft) filtered = filtered.filter(e => e.type === ft);
+  if (fs) filtered = filtered.filter(e => (e.description||'').toLowerCase().includes(fs) || e.category.toLowerCase().includes(fs));
+  if (filtered.length === 0) {
+    document.getElementById('entries-tbody').innerHTML = `<tr><td colspan="6" class="empty">No entries yet. Add one above.</td></tr>`;
+    return;
+  }
+  document.getElementById('entries-tbody').innerHTML = filtered.map(e => `<tr>
+    <td class="text-muted">${e.date}</td>
+    <td>${e.category}</td>
+    <td>${e.description || '<span class="text-muted">—</span>'}</td>
+    <td class="text-right ${e.type==='income'?'text-pos':'text-neg'}">${e.type==='income'?'+':'−'}€${fmt(e.amount)}</td>
+    <td><span class="badge ${e.type}">${e.type}</span></td>
+    <td><button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;" onclick="deleteEntry(${e.id})">✕</button></td>
+  </tr>`).join('');
+}
+
+function addShopItem() {
+  const item = document.getElementById('sh-item').value.trim();
+  if (!item) { alert('Please enter an item name.'); return; }
+  const store = document.getElementById('sh-store').value.trim();
+  const qty = parseInt(document.getElementById('sh-qty').value) || 1;
+  const price = parseFloat(document.getElementById('sh-price').value) || 0;
+  shopping.push({ id: Date.now(), item, store, qty, price, bought: false });
+  save(); renderShopping();
+  document.getElementById('sh-item').value = '';
+  document.getElementById('sh-store').value = '';
+  document.getElementById('sh-qty').value = '1';
+  document.getElementById('sh-price').value = '';
+}
+
+function toggleBought(id) {
+  const s = shopping.find(s => s.id === id);
+  if (s) s.bought = !s.bought;
+  save(); renderShopping();
+}
+
+function deleteShop(id) { shopping = shopping.filter(s => s.id !== id); save(); renderShopping(); }
+
+function clearBought() { shopping = shopping.filter(s => !s.bought); save(); renderShopping(); }
+
+function renderShopping() {
+  const total = shopping.filter(s=>!s.bought).reduce((sum,s) => sum + s.qty * s.price, 0);
+  const boughtTotal = shopping.filter(s=>s.bought).reduce((sum,s) => sum + s.qty * s.price, 0);
+  document.getElementById('shop-total').textContent = `To buy: €${fmt(total)} · Bought: €${fmt(boughtTotal)}`;
+  if (shopping.length === 0) {
+    document.getElementById('shop-tbody').innerHTML = `<tr><td colspan="7" class="empty">Shopping list is empty.</td></tr>`;
+    return;
+  }
+  const sorted = [...shopping].sort((a,b) => a.bought - b.bought);
+  document.getElementById('shop-tbody').innerHTML = sorted.map(s => `<tr>
+    <td><input type="checkbox" class="shopping-check" ${s.bought?'checked':''} onchange="toggleBought(${s.id})"></td>
+    <td class="${s.bought?'bought':''}">${s.item}</td>
+    <td class="text-muted">${s.store || '—'}</td>
+    <td class="text-right">${s.qty}</td>
+    <td class="text-right">${s.price>0?'€'+fmt(s.price):'—'}</td>
+    <td class="text-right ${s.bought?'text-muted':''}">${s.price>0?'€'+fmt(s.qty*s.price):'—'}</td>
+    <td><button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;" onclick="deleteShop(${s.id})">✕</button></td>
+  </tr>`).join('');
+}
+
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: All Entries
+  const entData = [['Date','Year','Month','Category','Description','Amount','Type']];
+  entries.forEach(e => entData.push([e.date, e.year, MONTHS[e.month], e.category, e.description||'', e.amount, e.type]));
+  const ws1 = XLSX.utils.aoa_to_sheet(entData);
+  ws1['!cols'] = [{wch:12},{wch:6},{wch:12},{wch:18},{wch:30},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Entries');
+
+  // Sheet 2: Monthly Summary per year
+  const years = [...new Set(entries.map(e => e.year))].sort();
+  years.forEach(yr => {
+    const header = ['Category', ...MONTHS];
+    const rows = [header];
+    const allCats = [...INCOME_CATS, ...EXPENSE_CATS];
+    allCats.forEach(cat => {
+      const row = [cat];
+      MONTHS.forEach((_, mi) => {
+        const total = entries.filter(e=>e.year===yr&&e.month===mi&&e.category===cat).reduce((s,e)=>s+e.amount,0);
+        row.push(total || '');
+      });
+      rows.push(row);
+    });
+    // Totals
+    ['Total Income','Total Expenses','Net'].forEach(label => {
+      const row = [label];
+      MONTHS.forEach((_, mi) => {
+        const inc = entries.filter(e=>e.year===yr&&e.month===mi&&INCOME_CATS.includes(e.category)).reduce((s,e)=>s+e.amount,0);
+        const exp = entries.filter(e=>e.year===yr&&e.month===mi&&EXPENSE_CATS.includes(e.category)).reduce((s,e)=>s+e.amount,0);
+        if (label==='Total Income') row.push(inc||'');
+        else if (label==='Total Expenses') row.push(exp||'');
+        else row.push(inc-exp||'');
+      });
+      rows.push(row);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:20},...Array(12).fill({wch:11})];
+    XLSX.utils.book_append_sheet(wb, ws, `Budget ${yr}`);
+  });
+
+  // Sheet 3: Shopping List
+  const shopData = [['Item','Store','Qty','Unit Price (€)','Total (€)','Bought']];
+  shopping.forEach(s => shopData.push([s.item, s.store||'', s.qty, s.price||'', s.price ? s.qty*s.price : '', s.bought?'Yes':'No']));
+  const ws3 = XLSX.utils.aoa_to_sheet(shopData);
+  ws3['!cols'] = [{wch:35},{wch:12},{wch:6},{wch:14},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Shopping List');
+
+  XLSX.writeFile(wb, `household_budget_${new Date().getFullYear()}.xlsx`);
+}
+
+// Seed some sample data if empty
+function seedSample() {
+  if (entries.length > 0) return;
+  const now = new Date();
+  const yr = now.getFullYear(), mo = now.getMonth();
+  const sample = [
+    {cat:'Salary',desc:'Monthly salary',amt:3400,type:'income',m:mo,y:yr},
+    {cat:'Freelancing',desc:'Side project',amt:150,type:'income',m:mo,y:yr},
+    {cat:'Rent/Mortgage',desc:'Monthly rent',amt:758,type:'expense',m:mo,y:yr},
+    {cat:'Utilities',desc:'Phone bill',amt:4.9,type:'expense',m:mo,y:yr},
+    {cat:'Groceries',desc:'Spar weekly shop',amt:87.5,type:'expense',m:mo,y:yr},
+    {cat:'Groceries',desc:'Billa top-up',amt:23.4,type:'expense',m:mo,y:yr},
+    {cat:'Transportation',desc:'Monthly pass',amt:59.7,type:'expense',m:mo,y:yr},
+    {cat:'Entertainment',desc:'Burgerista dinner',amt:18.9,type:'expense',m:mo,y:yr},
+    {cat:'Miscellaneous',desc:'Haircut',amt:25,type:'expense',m:mo,y:yr},
+  ];
+  sample.forEach(s => {
+    const d = new Date(s.y, s.m, 1);
+    entries.push({id:Date.now()+Math.random(),date:`01/${String(s.m+1).padStart(2,'0')}/${s.y}`,month:s.m,year:s.y,category:s.cat,description:s.desc,amount:s.amt,type:s.type});
+  });
+  // Sample shopping
+  shopping = [
+    {id:1,item:'Spar - Eggs (M)',store:'Spar',qty:1,price:2.99,bought:false},
+    {id:2,item:'Spar - Gauda cheese 400g',store:'Spar',qty:2,price:3.29,bought:false},
+    {id:3,item:'Spar - mandel milch',store:'Spar',qty:3,price:2.99,bought:true},
+    {id:4,item:'Nespresso Capsuls',store:'Nespresso',qty:2,price:5.40,bought:false},
+    {id:5,item:'Spar - Tuna Rio 160x2',store:'Spar',qty:1,price:5.79,bought:false},
+  ];
+  save();
+}
+
+seedSample();
+renderBudget();
+renderEntries();
+renderShopping();
+initYearSelect();
+</script>
+</body>
+</html>
