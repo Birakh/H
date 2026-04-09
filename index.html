@@ -9,13 +9,14 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f4f3ee;--s0:#ffffff;--s1:#eeede7;--s2:#e5e4dd;
+  --bg:#f4f3ee;--s0:#fff;--s1:#eeede7;--s2:#e5e4dd;
   --bdr:rgba(0,0,0,.09);--bdr2:rgba(0,0,0,.16);
   --ink:#17160f;--ink2:#6a6960;--ink3:#a5a49c;
   --G:#2a6318;--Gbg:#e4f3de;--Gm:#3d8f25;
   --A:#74470b;--Abg:#fef2d9;--Am:#b06e18;
   --R:#7e1e1e;--Rbg:#fde8e8;--Rm:#b83535;
   --B:#1a4d87;--Bbg:#e6f0fb;--Bm:#2a6ccb;
+  --T:#0d6b5a;--Tbg:#e0f4ef;--Tm:#14967e;
   --r:9px;--rs:5px;
   --ff:'Plus Jakarta Sans',sans-serif;
   --mono:'JetBrains Mono',monospace;
@@ -23,34 +24,43 @@
 *{font-family:var(--ff)}
 body{background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 
-/* ── CONNECT ── */
+/* connect */
 #screen-connect{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .connect-card{background:var(--s0);border:.5px solid var(--bdr2);border-radius:16px;padding:36px 32px;width:min(460px,100%);box-shadow:0 4px 24px rgba(0,0,0,.07)}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .brand-mark{width:32px;height:32px;background:var(--ink);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .brand-name{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .brand-sub{font-size:12px;color:var(--ink3);margin-top:1px}
-.section-title{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:8px;border-bottom:.5px solid var(--bdr)}
-.fg{margin-bottom:10px}
-label,.lbl{display:block;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
-input,select{background:var(--s0);border:.5px solid var(--bdr2);border-radius:var(--rs);color:var(--ink);padding:8px 11px;font-size:13px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s;font-family:var(--ff)}
-input[type=password]{font-family:var(--mono);letter-spacing:.06em}
-input:focus,select:focus{border-color:var(--Bm);box-shadow:0 0 0 3px rgba(42,108,203,.1)}
-input[type=checkbox]{width:auto;accent-color:var(--Bm)}
-input[type=date],input[type=month]{width:auto}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.g3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s0);color:var(--ink);transition:all .15s;white-space:nowrap;font-family:var(--ff)}
+/* typography */
+label,.lbl{display:block;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.sec-title{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:8px;border-bottom:.5px solid var(--bdr)}
+.fg{margin-bottom:10px}
+
+/* inputs */
+input,select,textarea{background:var(--s0);border:.5px solid var(--bdr2);border-radius:var(--rs);color:var(--ink);padding:8px 11px;font-size:13px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s;font-family:var(--ff)}
+input[type=password]{font-family:var(--mono);letter-spacing:.06em}
+input:focus,select:focus,textarea:focus{border-color:var(--Bm);box-shadow:0 0 0 3px rgba(42,108,203,.1)}
+input[type=checkbox]{width:auto;accent-color:var(--Bm)}
+input[type=date],input[type=month],input[type=number]{width:auto}
+textarea{resize:none;height:60px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s0);color:var(--ink);transition:all .15s;white-space:nowrap}
 .btn:hover{background:var(--s1)}.btn:active{transform:scale(.985)}
 .btn.primary{background:var(--ink);color:var(--bg);border-color:transparent}.btn.primary:hover{opacity:.82}
 .btn.success{background:var(--Gbg);color:var(--G);border-color:transparent}
 .btn.info{background:var(--Bbg);color:var(--B);border-color:transparent}
 .btn.danger{background:var(--Rbg);color:var(--R);border-color:transparent}
+.btn.warn{background:var(--Abg);color:var(--A);border-color:transparent}
 .btn.xs{padding:4px 10px;font-size:12px}
 .btn.full{width:100%}
 .btn:disabled{opacity:.38;cursor:not-allowed;pointer-events:none}
 
+/* status */
 .status-row{display:none;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-top:12px}
 .status-row.ok{background:var(--Gbg);color:var(--G)}
 .status-row.err{background:var(--Rbg);color:var(--R)}
@@ -60,30 +70,32 @@ input[type=date],input[type=month]{width:auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 .pat-note{font-size:11px;color:var(--ink3);line-height:1.65;margin-top:7px;padding:8px 11px;background:var(--s1);border-radius:var(--rs)}
 
-/* ── APP ── */
+/* app shell */
 #screen-app{display:none;flex-direction:column;min-height:100vh}
-header{background:var(--s0);border-bottom:.5px solid var(--bdr);padding:0 20px;display:flex;align-items:center;gap:12px;height:50px;position:sticky;top:0;z-index:100;flex-shrink:0}
+header{background:var(--s0);border-bottom:.5px solid var(--bdr);padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;position:sticky;top:0;z-index:100;flex-shrink:0}
 .h-brand{font-size:14px;font-weight:600;letter-spacing:-.02em;flex-shrink:0}
 .h-brand span{color:var(--Gm)}
 .tabs{display:flex;gap:1px;background:var(--s1);padding:3px;border-radius:6px}
-.tab{padding:4px 14px;border-radius:4px;font-size:13px;cursor:pointer;color:var(--ink2);border:none;background:none;font-weight:500;transition:all .15s;white-space:nowrap}
+.tab{padding:4px 13px;border-radius:4px;font-size:13px;cursor:pointer;color:var(--ink2);border:none;background:none;font-weight:500;transition:all .15s;white-space:nowrap}
 .tab.active{background:var(--s0);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .h-right{margin-left:auto;display:flex;align-items:center;gap:6px}
-.sync-badge{font-size:11px;color:var(--ink3);font-family:var(--mono);padding:3px 8px;background:var(--s1);border-radius:4px;min-width:55px;text-align:center}
-main{max-width:960px;margin:0 auto;padding:20px 16px;width:100%;flex:1}
+.sync-badge{font-size:11px;color:var(--ink3);font-family:var(--mono);padding:3px 8px;background:var(--s1);border-radius:4px;min-width:52px;text-align:center}
+main{max-width:980px;margin:0 auto;padding:20px 16px;width:100%;flex:1}
 .section{display:none}.section.active{display:block}
 
+/* cards */
 .card{background:var(--s0);border:.5px solid var(--bdr);border-radius:var(--r);padding:16px 18px;margin-bottom:14px}
-.card-title{font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+.card-title{font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 
+/* stats */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
 .stat{background:var(--s1);border-radius:var(--r);padding:13px 15px}
 .stat-lbl{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
 .stat-val{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-.02em;line-height:1.2}
-.g{color:var(--G)}.r{color:var(--R)}.b{color:var(--B)}
+.cg{color:var(--G)}.cr{color:var(--R)}.cb{color:var(--B)}.ca{color:var(--Am)}
 
 /* bars */
-.bar-block{margin-bottom:12px}
+.bar-block{margin-bottom:13px}
 .bar-meta{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
 .bar-lbl{font-size:13px;font-weight:500}
 .bar-nums{font-family:var(--mono);font-size:11px;color:var(--ink2)}
@@ -92,13 +104,17 @@ main{max-width:960px;margin:0 auto;padding:20px 16px;width:100%;flex:1}
 .bar-foot{font-size:11px;margin-top:3px;color:var(--ink3);font-family:var(--mono)}
 .bar-foot.over{color:var(--R)}
 
+/* chart */
+.chart-wrap{overflow-x:auto;margin-top:4px}
+.chart-wrap svg{display:block}
+
 /* table */
 .tbl-wrap{border:.5px solid var(--bdr);border-radius:var(--r);overflow:hidden;background:var(--s0);margin-bottom:14px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-size:10px;font-weight:600;color:var(--ink3);text-align:left;padding:9px 13px;border-bottom:.5px solid var(--bdr);background:var(--s1);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 td{padding:9px 13px;border-bottom:.5px solid var(--bdr);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(0,0,0,.018)}
+tr:hover td{background:rgba(0,0,0,.016)}
 .num{font-family:var(--mono);font-size:12px}
 .amt-p{color:var(--G);font-weight:600;font-family:var(--mono)}
 .amt-n{color:var(--R);font-weight:600;font-family:var(--mono)}
@@ -108,11 +124,12 @@ tr:hover td{background:rgba(0,0,0,.018)}
 .editable{cursor:text;border-radius:3px;transition:background .1s}.editable:hover{background:var(--Bbg)}
 .edit-in{border:none;background:transparent;font-size:13px;color:var(--ink);padding:0;outline:1px solid var(--Bm);border-radius:2px;width:100%;min-width:50px;font-family:var(--ff)}
 .formula-pill{font-family:var(--mono);font-size:10px;background:var(--Bbg);color:var(--B);padding:1px 6px;border-radius:3px}
-.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase}
 .badge.needs{background:var(--Bbg);color:var(--B)}
 .badge.wants{background:var(--Abg);color:var(--A)}
 .badge.savings{background:var(--Gbg);color:var(--G)}
-.badge.income{background:#e0f4ef;color:#0d6b5a}
+.badge.income{background:var(--Tbg);color:var(--T)}
+.recur-badge{font-size:10px;color:var(--Am);font-family:var(--mono);background:var(--Abg);padding:1px 5px;border-radius:3px}
 
 /* dropdown */
 .sw{position:relative}
@@ -126,34 +143,46 @@ tr:hover td{background:rgba(0,0,0,.018)}
 .ddi-p{font-family:var(--mono);font-size:12px;color:var(--ink2)}
 .ddi-s{font-size:10px;color:var(--ink3)}
 
+/* banner */
+.banner{background:var(--Abg);border:.5px solid rgba(176,110,24,.25);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;font-size:13px;color:var(--A)}
+.banner .bb{font-weight:500}
+
 .gcheck{width:15px;height:15px;cursor:pointer;accent-color:var(--Gm)}
 .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .toolbar input[type=text]{flex:1;min-width:80px}
-.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
 .empty{text-align:center;padding:36px;color:var(--ink3);font-size:13px}
+.cat-chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s1);color:var(--ink2);transition:all .12s}
+.cat-chip.active{background:var(--ink);color:var(--bg);border-color:transparent}
 
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(6px);padding:9px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:all .2s;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-@media(max-width:600px){
-  header{padding:0 10px;gap:8px}
+.settings-section{margin-bottom:20px}
+.split-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.split-row label{min-width:80px;margin:0;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0}
+.split-row input[type=number]{width:70px}
+.split-row .split-bar{flex:1;height:6px;border-radius:100px;background:var(--s2)}
+.split-row .split-fill{height:100%;border-radius:100px;transition:width .3s}
+
+@media(max-width:640px){
+  header{padding:0 10px;gap:6px}
+  .tab{padding:4px 8px;font-size:12px}
   main{padding:12px 8px}
-  .g2,.g3{grid-template-columns:1fr}
+  .g2,.g3,.g4{grid-template-columns:1fr}
   th,td{padding:7px 9px;font-size:12px}
   .stat-grid{grid-template-columns:1fr 1fr}
+  .h-right .sync-badge{display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════ CONNECT SCREEN ═══════════════ -->
+<!-- ═══════════ CONNECT ═══════════ -->
 <div id="screen-connect">
 <div class="connect-card">
   <div class="brand">
     <div class="brand-mark">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-        <path d="M8 1.5L2 4.5v4c0 3.2 2.5 5.9 6 7 3.5-1.1 6-3.8 6-7v-4L8 1.5z"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1.5L2 4.5v4c0 3.2 2.5 5.9 6 7 3.5-1.1 6-3.8 6-7v-4Z"/></svg>
     </div>
     <div>
       <div class="brand-name">Vault Finance</div>
@@ -161,18 +190,16 @@ tr:hover td{background:rgba(0,0,0,.018)}
     </div>
   </div>
 
-  <div class="section-title">GitHub connection</div>
+  <div class="sec-title">GitHub connection</div>
 
   <div class="fg">
     <label>Personal Access Token</label>
     <input type="password" id="c-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
-    <div class="pat-note">
-      ⚿ PAT is held <strong>in memory only</strong> — never written to disk, localStorage, or uploaded to GitHub. You will re-enter it each session.
-    </div>
+    <div class="pat-note">⚿ PAT is held <strong>in memory only</strong> — never written to disk or uploaded to GitHub. Re-enter each session.</div>
   </div>
 
-  <div class="g2" style="margin-bottom:12px">
-    <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="github-username"></div>
+  <div class="g2" style="margin-bottom:14px">
+    <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="username"></div>
     <div class="fg" style="margin:0"><label>Repository</label><input type="text" id="c-repo" placeholder="my-budget"></div>
   </div>
 
@@ -182,20 +209,20 @@ tr:hover td{background:rgba(0,0,0,.018)}
   </div>
 
   <div class="status-row" id="c-status">
-    <span id="c-indicator" class="dot"></span>
-    <span id="c-msg"></span>
+    <span id="c-ind" class="dot"></span><span id="c-msg"></span>
   </div>
 </div>
 </div>
 
-<!-- ═══════════════ APP SCREEN ═══════════════ -->
+<!-- ═══════════ APP ═══════════ -->
 <div id="screen-app">
   <header>
     <span class="h-brand">vault<span>.</span>fin</span>
     <div class="tabs">
-      <button class="tab active" data-s="dash"    onclick="nav('dash')">Overview</button>
-      <button class="tab"        data-s="entries" onclick="nav('entries')">Entries</button>
-      <button class="tab"        data-s="grocery" onclick="nav('grocery')">Grocery</button>
+      <button class="tab active" data-s="dash"     onclick="nav('dash')">Overview</button>
+      <button class="tab"        data-s="entries"  onclick="nav('entries')">Entries</button>
+      <button class="tab"        data-s="grocery"  onclick="nav('grocery')">Grocery</button>
+      <button class="tab"        data-s="settings" onclick="nav('settings')">Settings</button>
     </div>
     <div class="h-right">
       <span class="sync-badge" id="sync-badge">idle</span>
@@ -213,8 +240,10 @@ tr:hover td{background:rgba(0,0,0,.018)}
         <div>
           <label>Base monthly income</label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <input type="text" id="d-income" placeholder="3400 or =40*85" style="width:185px;font-family:var(--mono);font-size:16px;font-weight:500" oninput="onIncomeInput()" onblur="renderDash()">
-            <span style="font-size:11px;color:var(--ink3)">=expr supported</span>
+            <input type="text" id="d-income" placeholder="3400 or =40*85"
+              style="width:185px;font-family:var(--mono);font-size:16px;font-weight:500"
+              oninput="onIncomeInput()" onblur="renderDash()">
+            <span style="font-size:11px;color:var(--ink3)">=expr ok</span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -222,14 +251,23 @@ tr:hover td{background:rgba(0,0,0,.018)}
           <input type="month" id="d-month" onchange="renderDash()">
         </div>
       </div>
+
+      <div id="recur-banner" style="display:none"></div>
       <div class="stat-grid" id="d-stats"></div>
+
       <div class="card">
         <div class="card-title">50 / 30 / 20 breakdown</div>
         <div id="d-bars-split"></div>
       </div>
+
       <div class="card">
-        <div class="card-title">By category</div>
+        <div class="card-title">Spending by category</div>
         <div id="d-bars-cat"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Monthly history — last 12 months</div>
+        <div class="chart-wrap" id="d-chart"></div>
       </div>
     </section>
 
@@ -239,7 +277,7 @@ tr:hover td{background:rgba(0,0,0,.018)}
         <div class="card-title">Add entry</div>
         <div class="g3" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
-            <label>Date <span class="muted" style="text-transform:none;letter-spacing:0;font-size:10px">(manual — not auto-set)</span></label>
+            <label>Date <span class="muted" style="text-transform:none;letter-spacing:0">(manual)</span></label>
             <input type="date" id="ef-date">
           </div>
           <div class="fg" style="margin:0"><label>Type</label>
@@ -248,7 +286,7 @@ tr:hover td{background:rgba(0,0,0,.018)}
               <option value="income">Income</option>
             </select>
           </div>
-          <div class="fg" id="fg-cat" style="margin:0"><label>Category</label>
+          <div class="fg" id="fg-cat" style="margin:0"><label>Budget category</label>
             <select id="ef-cat">
               <option value="needs">Needs (50%)</option>
               <option value="wants">Wants (30%)</option>
@@ -258,9 +296,10 @@ tr:hover td{background:rgba(0,0,0,.018)}
         </div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
-            <label>Description (search catalog)</label>
+            <label>Description</label>
             <div class="sw">
-              <input type="text" id="ef-desc" placeholder="Start typing to search grocery list…" oninput="descSearch()" onblur="setTimeout(closeDescDD,200)" autocomplete="off">
+              <input type="text" id="ef-desc" placeholder="Start typing to search catalog…"
+                oninput="descSearch()" onblur="setTimeout(closeDescDD,200)" autocomplete="off">
               <span class="sw-icon">⌕</span>
               <div class="dd" id="desc-dd"></div>
             </div>
@@ -270,46 +309,64 @@ tr:hover td{background:rgba(0,0,0,.018)}
             <input type="text" id="ef-amt" placeholder="87.50  or  =45*2" style="font-family:var(--mono)">
           </div>
         </div>
-        <button class="btn primary" onclick="addEntry()">Add entry</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn primary" onclick="addEntry()">Add entry</button>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+            <input type="checkbox" id="ef-recur"> Save as recurring (monthly)
+          </label>
+        </div>
+      </div>
+
+      <!-- Recurring entries manager -->
+      <div class="card" id="recur-card">
+        <div class="card-title">
+          Recurring entries
+          <span id="recur-count" style="font-size:11px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0"></span>
+        </div>
+        <div id="recur-list"></div>
       </div>
 
       <div class="toolbar">
         <select id="ef-fm" style="width:auto" onchange="renderEntries()"><option value="">All months</option></select>
         <select id="ef-fc" style="width:auto" onchange="renderEntries()">
-          <option value="">All</option>
-          <option value="needs">Needs</option>
-          <option value="wants">Wants</option>
-          <option value="savings">Savings</option>
+          <option value="">All</option><option value="needs">Needs</option>
+          <option value="wants">Wants</option><option value="savings">Savings</option>
           <option value="income">Income</option>
         </select>
         <input type="text" id="ef-fs" placeholder="Search…" oninput="renderEntries()">
       </div>
+
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Category</th><th>Formula</th><th></th></tr></thead>
+        <thead><tr>
+          <th>Date</th><th>Description</th><th>Amount</th>
+          <th>Category</th><th>Formula</th><th></th>
+        </tr></thead>
         <tbody id="ent-body"></tbody>
       </table></div>
     </section>
 
     <!-- GROCERY -->
     <section id="sec-grocery" class="section">
-
       <div class="card">
         <div class="card-title">Product catalog — import from Excel</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <label class="btn info" style="cursor:pointer">
             Import Excel / CSV
-            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(this)">
+            <input type="file" accept=".xlsx,.xls,.csv" id="excel-input" style="display:none" onchange="importExcel(this)">
           </label>
           <span id="catalog-info" style="font-size:12px;color:var(--ink2)">No catalog loaded</span>
         </div>
         <div id="col-map-ui" style="display:none;margin-top:14px">
-          <div class="section-title">Map columns</div>
-          <div class="g3" style="margin-bottom:10px">
-            <div class="fg" style="margin:0"><label>Name column</label><select id="map-n"></select></div>
-            <div class="fg" style="margin:0"><label>Price column</label><select id="map-p"></select></div>
-            <div class="fg" style="margin:0"><label>Store column <span style="font-weight:400">(optional)</span></label><select id="map-s"></select></div>
+          <div class="sec-title">Map columns</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Name column</label>
+              <select id="map-n" onchange="showColPreview()"></select></div>
+            <div class="fg" style="margin:0"><label>Price column</label>
+              <select id="map-p" onchange="showColPreview()"></select></div>
+            <div class="fg" style="margin:0"><label>Store column</label>
+              <select id="map-s" onchange="showColPreview()"></select></div>
           </div>
-          <div id="col-preview" style="font-size:12px;color:var(--ink2);margin-bottom:10px;font-family:var(--mono)"></div>
+          <div id="col-preview" style="font-size:12px;color:var(--ink2);margin-bottom:10px;font-family:var(--mono);padding:6px 8px;background:var(--s1);border-radius:var(--rs)"></div>
           <button class="btn primary xs" onclick="applyColMap()">Apply mapping</button>
         </div>
       </div>
@@ -318,31 +375,94 @@ tr:hover td{background:rgba(0,0,0,.018)}
         <div class="card-title">Add to shopping list</div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
-            <label>Search catalog or enter custom item</label>
+            <label>Search catalog or type item</label>
             <div class="sw">
-              <input type="text" id="gr-search" placeholder="e.g. Eggs, Gauda…" oninput="catSearch()" onblur="setTimeout(closeCatDD,200)" autocomplete="off">
+              <input type="text" id="gr-search" placeholder="e.g. Eggs, Gauda…"
+                oninput="catSearch()" onblur="setTimeout(closeCatDD,200)" autocomplete="off">
               <span class="sw-icon">⌕</span>
               <div class="dd" id="cat-dd"></div>
             </div>
           </div>
-          <div class="fg" style="margin:0"><label>Store</label><input type="text" id="gr-store" placeholder="Spar / Lidl…"></div>
+          <div class="fg" style="margin:0"><label>Store</label>
+            <input type="text" id="gr-store" placeholder="Spar / Lidl…"></div>
         </div>
-        <div class="g3" style="margin-bottom:10px">
-          <div class="fg" style="margin:0"><label>Qty</label><input type="number" id="gr-qty" value="1" min="1" step="1"></div>
-          <div class="fg" style="margin:0"><label>Unit price (€)</label><input type="text" id="gr-price" placeholder="auto-filled" style="font-family:var(--mono)"></div>
-          <div class="fg" style="margin:0;display:flex;align-items:flex-end"><button class="btn primary full" onclick="addShopItem()">Add to list</button></div>
+        <div class="g4" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Category</label>
+            <select id="gr-cat">
+              <option value="other">Other</option>
+              <option value="produce">Produce</option>
+              <option value="meat">Meat &amp; Fish</option>
+              <option value="dairy">Dairy &amp; Eggs</option>
+              <option value="bakery">Bakery</option>
+              <option value="frozen">Frozen</option>
+              <option value="drinks">Drinks</option>
+              <option value="household">Household</option>
+              <option value="snacks">Snacks</option>
+            </select>
+          </div>
+          <div class="fg" style="margin:0"><label>Qty</label>
+            <input type="number" id="gr-qty" value="1" min="1" step="1" style="width:100%"></div>
+          <div class="fg" style="margin:0"><label>Unit price (€)</label>
+            <input type="text" id="gr-price" placeholder="auto-fill" style="font-family:var(--mono);width:100%"></div>
+          <div class="fg" style="margin:0;display:flex;align-items:flex-end">
+            <button class="btn primary full" onclick="addShopItem()">Add</button></div>
         </div>
       </div>
 
-      <div class="toolbar">
+      <div class="toolbar" style="flex-wrap:wrap;gap:6px">
         <button class="btn xs" onclick="clearBought()">Clear bought</button>
         <button class="btn xs" onclick="exportGroceryCSV()">Export CSV</button>
-        <span id="gr-totals" style="font-size:12px;color:var(--ink2);font-family:var(--mono)"></span>
+        <div id="gr-cat-filter" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <span id="gr-totals" style="font-size:12px;color:var(--ink2);font-family:var(--mono);margin-left:auto"></span>
       </div>
+
       <div class="tbl-wrap"><table>
-        <thead><tr><th style="width:28px"></th><th>Item</th><th>Store</th><th>Qty</th><th>Unit</th><th>Total</th><th>Bought</th><th></th></tr></thead>
+        <thead><tr>
+          <th style="width:28px"></th><th>Item</th><th>Category</th>
+          <th>Store</th><th>Qty</th><th>Unit</th><th>Total</th><th>Bought</th><th></th>
+        </tr></thead>
         <tbody id="gr-body"></tbody>
       </table></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="sec-settings" class="section">
+      <div class="card">
+        <div class="card-title">Budget splits</div>
+        <div id="splits-ui"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+          <button class="btn primary" onclick="saveSplits()">Save splits</button>
+          <span id="split-err" style="font-size:12px;color:var(--R);display:none">Must sum to 100%</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Export data</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="exportExcel()">Download Excel</button>
+          <button class="btn" onclick="exportJSON()">Download JSON</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Excel includes entries sheet, monthly summary, and grocery list.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Sync</div>
+        <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">
+          Connected to <strong id="cfg-label"></strong> · file <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="ghPull()">↓ Pull from GitHub</button>
+          <button class="btn primary" onclick="ghPush()">↑ Push to GitHub</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="color:var(--R)">Danger zone</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn danger" onclick="clearEntries()">Clear all entries</button>
+          <button class="btn danger" onclick="clearAll()">Clear everything</button>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -351,298 +471,395 @@ tr:hover td{background:rgba(0,0,0,.018)}
 <script>
 'use strict';
 
-// ═══════════════════════════ SCHEMA ═══════════════════════════
+// ══════════════════════════════════════════════════════════
+// SCHEMA
+// ══════════════════════════════════════════════════════════
 const FRESH = () => ({
-  v:2, income:{amount:0,formula:''},
-  splits:{needs:50,wants:30,savings:20},
-  entries:[], grocery:[], catalog:[],
-  meta:{sha:null}
+  v: 3,
+  income:   { amount: 0, formula: null },
+  splits:   { needs: 50, wants: 30, savings: 20 },
+  entries:  [],   // {id,date,desc,amount,formula,type,category,recurId?}
+  recurring:[],   // {id,desc,amount,formula,type,category,day}
+  grocery:  [],   // {id,name,store,category,qty,price,bought,boughtDate}
+  catalog:  [],   // {name,store,price}
+  meta:     { sha: null }
 });
 
-// ═══════════════════════════ CRYPTO ═══════════════════════════
-// File format: base64( salt[16] | iv[12] | AES-GCM-ciphertext )
-// Salt is embedded so any device + PAT can decrypt from GitHub.
+const GR_CATS = {
+  other:'Other', produce:'Produce', meat:'Meat & Fish', dairy:'Dairy & Eggs',
+  bakery:'Bakery', frozen:'Frozen', drinks:'Drinks', household:'Household', snacks:'Snacks'
+};
+
+// ══════════════════════════════════════════════════════════
+// CRYPTO  —  AES-256-GCM · PBKDF2(120k)
+// Format on disk: base64( salt[16] | iv[12] | ciphertext )
+// Bug fixed: b64e uses loop, not spread (avoids stack overflow on large vaults)
+// ══════════════════════════════════════════════════════════
 const CX = (() => {
-  const te=new TextEncoder(), td=new TextDecoder();
-  const b64e=u=>btoa(String.fromCharCode(...u));
-  const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  const te = new TextEncoder(), td = new TextDecoder();
+
+  function b64e(u8) {
+    let s = '';
+    for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return btoa(s);
+  }
+  function b64d(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
 
   async function kdf(pat, salt) {
     const raw = await crypto.subtle.importKey('raw', te.encode(pat), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
-      {name:'PBKDF2', salt, iterations:120000, hash:'SHA-256'},
-      raw, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+      { name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' },
+      raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
     );
   }
 
-  // Returns {b64, salt} — salt is reused across pushes, regenerated on first use
   async function seal(obj, pat, existingSalt) {
     const salt = existingSalt || crypto.getRandomValues(new Uint8Array(16));
     const iv   = crypto.getRandomValues(new Uint8Array(12));
     const key  = await kdf(pat, salt);
-    const ct   = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, te.encode(JSON.stringify(obj)));
-    const out  = new Uint8Array(16+12+ct.byteLength);
-    out.set(salt); out.set(iv,16); out.set(new Uint8Array(ct),28);
-    return {b64:b64e(out), salt};
+    const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(obj)));
+    const out  = new Uint8Array(16 + 12 + ct.byteLength);
+    out.set(salt); out.set(iv, 16); out.set(new Uint8Array(ct), 28);
+    return { b64: b64e(out), salt };
   }
 
-  // Returns {data, salt}
   async function open(b64, pat) {
     const buf  = b64d(b64);
-    const salt = buf.slice(0,16), iv=buf.slice(16,28), ct=buf.slice(28);
+    const salt = buf.slice(0, 16), iv = buf.slice(16, 28), ct = buf.slice(28);
     const key  = await kdf(pat, salt);
-    const pt   = await crypto.subtle.decrypt({name:'AES-GCM',iv}, key, ct);
-    return {data:JSON.parse(td.decode(pt)), salt};
+    const pt   = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    return { data: JSON.parse(td.decode(pt)), salt };
   }
 
-  return {seal, open};
+  return { seal, open };
 })();
 
-// ═══════════════════════════ UTILS ═══════════════════════════
+// ══════════════════════════════════════════════════════════
+// UTILS  —  defined first so IIFE below can use el()
+// ══════════════════════════════════════════════════════════
 const el  = id => document.getElementById(id);
-const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-const ymd = () => new Date().toISOString().slice(0,10);
-const ym  = d  => (d||'').slice(0,7);
-const fmt = n  => '€'+Math.abs(+n||0).toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const ymd = () => new Date().toISOString().slice(0, 10);
+const ym  = d  => (d || '').slice(0, 7);
+const fmt = n  => '€' + Math.abs(+n || 0).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// ═══════════════════════════ STATE ═══════════════════════════
-let PAT=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
-const LS_CFG='vf2_cfg', LS_ENC='vf2_enc';
-
-// ═══════════════════════════ CONNECT ═══════════════════════════
-(function loadCfg(){
-  try{CFG=JSON.parse(localStorage.getItem(LS_CFG)||'{}');}catch{CFG={};}
-  if(CFG.owner) el('c-owner').value=CFG.owner;
-  if(CFG.repo)  el('c-repo').value=CFG.repo;
-})();
-
-function cfgFromInputs(){
-  return {owner:el('c-owner').value.trim(), repo:el('c-repo').value.trim(), path:'budget.enc'};
+function evalExpr(s) {
+  s = String(s || '').trim();
+  if (!s) return 0;
+  if (!s.startsWith('=')) return parseFloat(s) || 0;
+  try { return +Function('"use strict";return(' + s.slice(1) + ')')() || 0; } catch { return 0; }
 }
-
-async function testConn(){
-  const pat=el('c-pat').value.trim();
-  if(!pat) return cStatus('err','Enter your PAT first.');
-  const cfg=cfgFromInputs();
-  if(!cfg.owner||!cfg.repo) return cStatus('err','Enter owner and repository.');
-  cStatus('loading','Testing…'); el('btn-test').disabled=true;
-  try{
-    const r=await ghReq(`repos/${cfg.owner}/${cfg.repo}`,pat);
-    if(!r.ok) throw new Error(`GitHub ${r.status}`);
-    cStatus('ok',`Connected to ${cfg.owner}/${cfg.repo}`);
-    el('btn-enter').disabled=false;
-  }catch(e){cStatus('err',e.message);}
-  finally{el('btn-test').disabled=false;}
-}
-
-async function enterApp(){
-  const pat=el('c-pat').value.trim();
-  if(!pat) return cStatus('err','PAT required.');
-  const cfg=cfgFromInputs();
-  if(!cfg.owner||!cfg.repo) return cStatus('err','Owner and repo required.');
-  PAT=pat; CFG=cfg;
-  localStorage.setItem(LS_CFG, JSON.stringify(cfg)); // cfg is NOT sensitive
-  cStatus('loading','Opening vault…');
-  try{
-    const pulled=await doPull(true);
-    if(!pulled){
-      const local=localStorage.getItem(LS_ENC);
-      if(local){
-        try{const {data,salt}=await CX.open(local,PAT); DATA=migrate(data); SALT=salt;}
-        catch{DATA=FRESH(); SALT=null; toast('Could not decrypt local — starting fresh',1);}
-      } else {DATA=FRESH(); SALT=null;}
-    }
-    el('screen-connect').style.display='none';
-    el('screen-app').style.display='flex';
-    boot(); nav(VIEW);
-  }catch(e){cStatus('err',e.message||'Failed'); PAT=null;}
-}
-
-function cStatus(type,msg){
-  const el2=el('c-status'), ind=el('c-indicator');
-  el2.className=`status-row ${type}`; el2.style.display='flex';
-  ind.className=type==='loading'?'spinner':'dot';
-  el('c-msg').textContent=msg;
-}
-
-function disconnect(){
-  PAT=DATA=SALT=null;
-  el('screen-app').style.display='none';
-  el('screen-connect').style.display='flex';
-  el('c-pat').value=''; el('btn-enter').disabled=true;
-  cStatus('ok','Disconnected — PAT cleared from memory');
-}
-
-el('c-pat').addEventListener('keydown', e=>{if(e.key==='Enter') testConn();});
-
-// ═══════════════════════════ GITHUB API ═══════════════════════════
-function ghReq(endpoint, pat, opts={}){
-  return fetch(`https://api.github.com/${endpoint}`, {
-    ...opts,
-    headers:{Authorization:`token ${pat}`,'Content-Type':'application/json',
-             Accept:'application/vnd.github.v3+json',...(opts.headers||{})}
-  });
-}
-
-async function doPull(silent=false){
-  const {owner,repo,path}=CFG;
-  const r=await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT);
-  if(r.status===404) return false;
-  if(!r.ok) throw new Error(`GitHub ${r.status}`);
-  const j=await r.json();
-  const raw=j.content.replace(/\n/g,'');
-  const {data,salt}=await CX.open(atob(raw), PAT);
-  DATA=migrate(data); SALT=salt; DATA.meta.sha=j.sha;
-  await saveLocal();
-  if(!silent) toast('Pulled from GitHub');
-  return true;
-}
-
-async function doPush(){
-  const {owner,repo,path}=CFG;
-  const payload={...DATA}; // PAT is not in DATA ever
-  const {b64,salt}=await CX.seal(payload, PAT, SALT);
-  SALT=salt;
-  const body={
-    message:`vault sync ${ymd()}`, content:btoa(b64),
-    ...(DATA.meta.sha?{sha:DATA.meta.sha}:{})
-  };
-  const r=await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT, {method:'PUT',body:JSON.stringify(body)});
-  if(!r.ok){const e=await r.json(); throw new Error(e.message||`GitHub ${r.status}`);}
-  const j=await r.json();
-  DATA.meta.sha=j.content.sha; await saveLocal();
-}
-
-async function ghPull(){
-  setSyncBadge('pulling…');
-  try{await doPull(); nav(VIEW); setSyncBadge('');}
-  catch(e){toast(e.message,1); setSyncBadge('error');}
-}
-async function ghPush(){
-  setSyncBadge('pushing…');
-  try{await doPush(); toast('Pushed to GitHub'); setSyncBadge('');}
-  catch(e){toast(e.message,1); setSyncBadge('error');}
-}
-function setSyncBadge(s){el('sync-badge').textContent=s||'idle';}
-
-// ═══════════════════════════ LOCAL SAVE ═══════════════════════════
-let _st;
-async function saveLocal(){
-  clearTimeout(_st);
-  _st=setTimeout(async()=>{
-    const {b64,salt}=await CX.seal(DATA,PAT,SALT);
-    SALT=salt; localStorage.setItem(LS_ENC,b64);
-  },300);
-}
-
-// ═══════════════════════════ MIGRATIONS ═══════════════════════════
-function migrate(d){
-  if(!d.splits)  d.splits={needs:50,wants:30,savings:20};
-  if(!d.grocery) d.grocery=[];
-  if(!d.catalog) d.catalog=[];
-  if(!d.meta)    d.meta={sha:null};
-  if(!d.income)  d.income={amount:0,formula:''};
-  return d;
-}
-
-function evalExpr(s){
-  s=String(s||'').trim();
-  if(!s) return 0;
-  if(!s.startsWith('=')) return parseFloat(s)||0;
-  try{return +Function('"use strict";return('+s.slice(1)+')')()||0;}catch{return 0;}
-}
-function parseAmt(s){
-  const str=String(s||'').trim();
-  return {amount:evalExpr(str), formula:str.startsWith('=')?str:null};
+function parseAmt(s) {
+  const str = String(s || '').trim();
+  return { amount: evalExpr(str), formula: str.startsWith('=') ? str : null };
 }
 
 let _toastT;
-function toast(msg,err=0){
-  const t=el('toast');
-  t.textContent=msg; t.style.background=err?'#b83535':'#17160f'; t.style.color='#f4f3ee';
-  t.classList.add('show'); clearTimeout(_toastT);
-  _toastT=setTimeout(()=>t.classList.remove('show'),3000);
+function toast(msg, err = 0) {
+  const t = el('toast');
+  t.textContent = msg;
+  t.style.background = err ? '#b83535' : '#17160f';
+  t.style.color = '#f4f3ee';
+  t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), 3000);
 }
-function dl(content,name,type){
-  const a=Object.assign(document.createElement('a'),
-    {href:URL.createObjectURL(new Blob([content],{type})),download:name});
+
+function dl(content, name, type) {
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([content], { type })), download: name
+  });
   a.click(); URL.revokeObjectURL(a.href);
 }
 
-// ═══════════════════════════ BOOT ═══════════════════════════
-function boot(){
-  el('d-month').value=new Date().toISOString().slice(0,7);
-  el('ef-date').value=ymd();
-  const {amount,formula}=DATA.income;
-  el('d-income').value=formula||(amount>0?amount:'');
+// ══════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════
+let PAT = null, CFG = {}, DATA = null, SALT = null, VIEW = 'dash';
+let _grCatFilter = 'all';
+const LS_CFG = 'vf3_cfg', LS_ENC = 'vf3_enc';
+
+// ══════════════════════════════════════════════════════════
+// CONNECT
+// ══════════════════════════════════════════════════════════
+(function loadCfg() {
+  try { CFG = JSON.parse(localStorage.getItem(LS_CFG) || '{}'); } catch { CFG = {}; }
+  if (CFG.owner) el('c-owner').value = CFG.owner;
+  if (CFG.repo)  el('c-repo').value  = CFG.repo;
+})();
+
+function cfgFromInputs() {
+  return { owner: el('c-owner').value.trim(), repo: el('c-repo').value.trim(), path: 'budget.enc' };
+}
+
+async function testConn() {
+  const pat = el('c-pat').value.trim();
+  if (!pat) return cStatus('err', 'Enter your PAT first.');
+  const cfg = cfgFromInputs();
+  if (!cfg.owner || !cfg.repo) return cStatus('err', 'Enter owner and repository.');
+  cStatus('loading', 'Testing…'); el('btn-test').disabled = true;
+  try {
+    const r = await ghReq(`repos/${cfg.owner}/${cfg.repo}`, pat);
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    cStatus('ok', `Connected to ${cfg.owner}/${cfg.repo}`);
+    el('btn-enter').disabled = false;
+  } catch (e) { cStatus('err', e.message); }
+  finally { el('btn-test').disabled = false; }
+}
+
+async function enterApp() {
+  const pat = el('c-pat').value.trim();
+  if (!pat) return cStatus('err', 'PAT required.');
+  const cfg = cfgFromInputs();
+  if (!cfg.owner || !cfg.repo) return cStatus('err', 'Owner and repo required.');
+  PAT = pat; CFG = cfg;
+  localStorage.setItem(LS_CFG, JSON.stringify(cfg));
+  cStatus('loading', 'Opening vault…');
+  try {
+    const pulled = await doPull(true);
+    if (!pulled) {
+      const local = localStorage.getItem(LS_ENC);
+      if (local) {
+        try {
+          const { data, salt } = await CX.open(local, PAT);
+          DATA = migrate(data); SALT = salt;
+        } catch {
+          DATA = FRESH(); SALT = null;
+          toast('Could not decrypt local cache — starting fresh', 1);
+        }
+      } else {
+        DATA = FRESH(); SALT = null;
+      }
+    }
+    el('screen-connect').style.display = 'none';
+    el('screen-app').style.display = 'flex';
+    boot(); nav(VIEW);
+  } catch (e) { cStatus('err', e.message || 'Failed'); PAT = null; }
+}
+
+function cStatus(type, msg) {
+  const row = el('c-status'), ind = el('c-ind');
+  row.className = `status-row ${type}`; row.style.display = 'flex';
+  ind.className = type === 'loading' ? 'spinner' : 'dot';
+  el('c-msg').textContent = msg;
+}
+
+function disconnect() {
+  clearTimeout(_st); // Bug fix: cancel pending save timer before clearing PAT
+  PAT = DATA = SALT = null;
+  el('screen-app').style.display = 'none';
+  el('screen-connect').style.display = 'flex';
+  el('c-pat').value = ''; el('btn-enter').disabled = true;
+  cStatus('ok', 'Disconnected — PAT cleared from memory');
+}
+
+el('c-pat').addEventListener('keydown', e => { if (e.key === 'Enter') testConn(); });
+
+// ══════════════════════════════════════════════════════════
+// GITHUB API
+// ══════════════════════════════════════════════════════════
+function ghReq(endpoint, pat, opts = {}) {
+  return fetch(`https://api.github.com/${endpoint}`, {
+    ...opts,
+    headers: {
+      Authorization: `token ${pat}`, 'Content-Type': 'application/json',
+      Accept: 'application/vnd.github.v3+json', ...(opts.headers || {})
+    }
+  });
+}
+
+async function doPull(silent = false) {
+  const { owner, repo, path } = CFG;
+  const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT);
+  if (r.status === 404) return false;
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+  const j = await r.json();
+  const raw = j.content.replace(/\n/g, '');
+  const { data, salt } = await CX.open(atob(raw), PAT);
+  DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
+  await saveLocalNow();
+  if (!silent) toast('Pulled from GitHub');
+  return true;
+}
+
+async function doPush() {
+  const { owner, repo, path } = CFG;
+  const { b64, salt } = await CX.seal(DATA, PAT, SALT);
+  SALT = salt;
+  const body = {
+    message: `vault sync ${ymd()}`, content: btoa(b64),
+    ...(DATA.meta.sha ? { sha: DATA.meta.sha } : {})
+  };
+  const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT, { method: 'PUT', body: JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || `GitHub ${r.status}`); }
+  const j = await r.json();
+  DATA.meta.sha = j.content.sha;
+  await saveLocalNow();
+}
+
+async function ghPull() {
+  setSyncBadge('pulling…');
+  try { await doPull(); nav(VIEW); setSyncBadge(''); }
+  catch (e) { toast(e.message, 1); setSyncBadge('error'); }
+}
+async function ghPush() {
+  setSyncBadge('pushing…');
+  try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); }
+  catch (e) { toast(e.message, 1); setSyncBadge('error'); }
+}
+function setSyncBadge(s) { el('sync-badge').textContent = s || 'idle'; }
+
+// ══════════════════════════════════════════════════════════
+// LOCAL SAVE
+// Bug fixed: saveLocalNow() is truly async; saveLocal() debounces it.
+// disconnect() clears the timer to prevent post-lock writes.
+// ══════════════════════════════════════════════════════════
+let _st;
+async function saveLocalNow() {
+  if (!PAT || !DATA) return;
+  const { b64, salt } = await CX.seal(DATA, PAT, SALT);
+  SALT = salt;
+  localStorage.setItem(LS_ENC, b64);
+}
+function saveLocal() {
+  clearTimeout(_st);
+  _st = setTimeout(saveLocalNow, 300);
+}
+
+// ══════════════════════════════════════════════════════════
+// MIGRATIONS
+// ══════════════════════════════════════════════════════════
+function migrate(d) {
+  if (!d.splits)    d.splits    = { needs: 50, wants: 30, savings: 20 };
+  if (!d.grocery)   d.grocery   = [];
+  if (!d.catalog)   d.catalog   = [];
+  if (!d.meta)      d.meta      = { sha: null };
+  if (!d.income)    d.income    = { amount: 0, formula: null };
+  if (!d.recurring) d.recurring = [];
+  // normalize formula: '' → null
+  if (d.income.formula === '') d.income.formula = null;
+  d.entries?.forEach(e => { if (e.formula === '') e.formula = null; });
+  d.recurring?.forEach(r => { if (r.formula === '') r.formula = null; });
+  // add category to grocery items that lack it
+  d.grocery?.forEach(g => { if (!g.category) g.category = 'other'; });
+  return d;
+}
+
+// ══════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════
+function boot() {
+  el('d-month').value = new Date().toISOString().slice(0, 7);
+  el('ef-date').value = ymd();
+  const { amount, formula } = DATA.income;
+  el('d-income').value = formula || (amount > 0 ? amount : '');
   updateCatalogInfo();
+  renderSplitsUI();
+  el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
+  buildGrCatFilter();
 }
 
-// ═══════════════════════════ NAV ═══════════════════════════
-function nav(sec){
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el('sec-'+sec).classList.add('active');
+// ══════════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════════
+const RENDERS = {
+  dash:     renderDash,
+  entries:  renderEntries,
+  grocery:  renderGrocery,
+  settings: renderSettings
+};
+
+function nav(sec) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el('sec-' + sec).classList.add('active');
   document.querySelector(`.tab[data-s="${sec}"]`).classList.add('active');
-  VIEW=sec;
-  ({dash:renderDash, entries:renderEntries, grocery:renderGrocery})[sec]?.();
+  VIEW = sec;
+  RENDERS[sec]?.();
 }
-function render(){({dash:renderDash, entries:renderEntries, grocery:renderGrocery})[VIEW]?.();}
+function render() { RENDERS[VIEW]?.(); }
 
-// ═══════════════════════════ OVERVIEW ═══════════════════════════
-function onIncomeInput(){
-  const {amount,formula}=parseAmt(el('d-income').value);
-  DATA.income={amount,formula}; saveLocal(); renderSplitBars();
+// ══════════════════════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════════════════════
+function onIncomeInput() {
+  const { amount, formula } = parseAmt(el('d-income').value);
+  DATA.income = { amount, formula };
+  saveLocal();
+  renderSplitBars();
 }
 
-function renderDash(){
-  const {amount:base,formula}=DATA.income;
-  el('d-income').value=formula||(base>0?base:'');
-  const month=el('d-month').value;
-  const mes=DATA.entries.filter(e=>ym(e.date)===month);
-  const addInc=mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const totalInc=base+addInc;
-  const act={needs:0,wants:0,savings:0};
-  mes.filter(e=>e.type==='expense').forEach(e=>{if(e.category in act) act[e.category]+=e.amount;});
-  const spent=act.needs+act.wants+act.savings;
-  const net=totalInc-spent;
-  const savePct=totalInc>0?Math.round(net/totalInc*100):0;
-  el('d-stats').innerHTML=`
-    <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val b">${fmt(totalInc)}</div></div>
-    <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val r">${fmt(spent)}</div></div>
-    <div class="stat"><div class="stat-lbl">Net balance</div><div class="stat-val ${net>=0?'g':'r'}">${fmt(net)}</div></div>
-    <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=0?'g':'r'}">${savePct}%</div></div>`;
-  renderSplitBars(totalInc,act);
+function renderDash() {
+  const { amount: base, formula } = DATA.income;
+  el('d-income').value = formula || (base > 0 ? base : '');
+
+  const month   = el('d-month').value;
+  const mes     = DATA.entries.filter(e => ym(e.date) === month);
+  const addInc  = mes.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const totalInc = base + addInc;
+  const act     = { needs: 0, wants: 0, savings: 0 };
+  mes.filter(e => e.type === 'expense').forEach(e => { if (e.category in act) act[e.category] += e.amount; });
+  const spent   = act.needs + act.wants + act.savings;
+  const net     = totalInc - spent;
+  const savePct = totalInc > 0 ? Math.round(net / totalInc * 100) : 0;
+
+  // Recurring banner
+  checkRecurringBanner(month);
+
+  el('d-stats').innerHTML = `
+    <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div></div>
+    <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(spent)}</div></div>
+    <div class="stat"><div class="stat-lbl">Net balance</div><div class="stat-val ${net >= 0 ? 'cg' : 'cr'}">${fmt(net)}</div></div>
+    <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct >= 0 ? 'cg' : 'cr'}">${savePct}%</div></div>`;
+
+  renderSplitBars(totalInc, act);
   renderCatBars(mes);
+  renderChart();
 }
 
-function renderSplitBars(totalInc,act){
-  if(totalInc===undefined){
-    const month=el('d-month').value;
-    const mes=DATA.entries.filter(e=>ym(e.date)===month);
-    totalInc=DATA.income.amount+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    act={needs:0,wants:0,savings:0};
-    mes.filter(e=>e.type==='expense').forEach(e=>{if(e.category in act) act[e.category]+=e.amount;});
+function checkRecurringBanner(month) {
+  const banner = el('recur-banner');
+  if (!DATA.recurring.length) { banner.style.display = 'none'; return; }
+  const applied = new Set(DATA.entries.filter(e => ym(e.date) === month && e.recurId).map(e => e.recurId));
+  const pending = DATA.recurring.filter(r => !applied.has(r.id));
+  if (!pending.length) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  banner.innerHTML = `<div class="banner">
+    <span><span class="bb">${pending.length} recurring</span> entr${pending.length === 1 ? 'y' : 'ies'} not yet applied for ${month}</span>
+    <button class="btn xs warn" onclick="applyRecurring('${month}')">Apply now</button>
+  </div>`;
+}
+
+function renderSplitBars(totalInc, act) {
+  if (totalInc === undefined) {
+    const month = el('d-month').value;
+    const mes = DATA.entries.filter(e => ym(e.date) === month);
+    totalInc = DATA.income.amount + mes.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    act = { needs: 0, wants: 0, savings: 0 };
+    mes.filter(e => e.type === 'expense').forEach(e => { if (e.category in act) act[e.category] += e.amount; });
   }
-  const {splits}=DATA;
-  const defs=[
-    {key:'needs',  label:'Needs',  pct:splits.needs,  color:'var(--Bm)'},
-    {key:'wants',  label:'Wants',  pct:splits.wants,  color:'var(--Am)'},
-    {key:'savings',label:'Savings',pct:splits.savings,color:'var(--Gm)'}
+  const { splits } = DATA;
+  const defs = [
+    { key: 'needs',   label: 'Needs',   pct: splits.needs,   color: 'var(--Bm)' },
+    { key: 'wants',   label: 'Wants',   pct: splits.wants,   color: 'var(--Am)' },
+    { key: 'savings', label: 'Savings', pct: splits.savings, color: 'var(--Gm)' }
   ];
-  el('d-bars-split').innerHTML=defs.map(({key,label,pct,color})=>{
-    const target=totalInc*pct/100, actual=act[key]||0;
-    const fill=target>0?Math.min(100,Math.round(actual/target*100)):0;
-    const over=actual>target&&target>0;
-    const barC=over?'var(--Rm)':color;
-    const foot=target>0
-      ?(over?`<div class="bar-foot over">over by ${fmt(actual-target)}</div>`
-            :`<div class="bar-foot">remaining ${fmt(target-actual)}</div>`)
-      :`<div class="bar-foot">set income to activate</div>`;
+  el('d-bars-split').innerHTML = defs.map(({ key, label, pct, color }) => {
+    const target = totalInc * pct / 100;
+    const actual = act[key] || 0;
+    const fill   = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
+    const over   = actual > target && target > 0;
+    const barC   = over ? 'var(--Rm)' : color;
+    const foot   = target > 0
+      ? (over
+        ? `<div class="bar-foot over">over by ${fmt(actual - target)}</div>`
+        : `<div class="bar-foot">remaining ${fmt(target - actual)}</div>`)
+      : `<div class="bar-foot">set income to see targets</div>`;
     return `<div class="bar-block">
       <div class="bar-meta">
         <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span></span>
-        <span class="bar-nums" style="color:${over?'var(--R)':'var(--ink2)'}">${fmt(actual)} / ${fmt(target)}</span>
+        <span class="bar-nums" style="color:${over ? 'var(--R)' : 'var(--ink2)'}">${fmt(actual)} / ${fmt(target)}</span>
       </div>
       <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${barC}"></div></div>
       ${foot}
@@ -650,265 +867,558 @@ function renderSplitBars(totalInc,act){
   }).join('');
 }
 
-function renderCatBars(mes){
-  const cats=['needs','wants','savings'];
-  const labels={needs:'Needs',wants:'Wants',savings:'Savings'};
-  const colors={needs:'var(--Bm)',wants:'var(--Am)',savings:'var(--Gm)'};
-  const totals={needs:0,wants:0,savings:0};
-  (mes||[]).filter(e=>e.type==='expense').forEach(e=>{if(e.category in totals) totals[e.category]+=e.amount;});
-  const max=Math.max(...Object.values(totals),1);
-  el('d-bars-cat').innerHTML=cats.map(k=>{
-    const v=totals[k]||0, fill=Math.round(v/max*100);
+function renderCatBars(mes) {
+  const CATS = { needs: { label: 'Needs', color: 'var(--Bm)' }, wants: { label: 'Wants', color: 'var(--Am)' }, savings: { label: 'Savings', color: 'var(--Gm)' } };
+  const totals = { needs: 0, wants: 0, savings: 0 };
+  (mes || []).filter(e => e.type === 'expense').forEach(e => { if (e.category in totals) totals[e.category] += e.amount; });
+  const max = Math.max(...Object.values(totals), 1);
+  el('d-bars-cat').innerHTML = Object.entries(CATS).map(([k, { label, color }]) => {
+    const v = totals[k] || 0, fill = Math.round(v / max * 100);
     return `<div class="bar-block">
-      <div class="bar-meta">
-        <span class="bar-lbl">${labels[k]}</span>
-        <span class="bar-nums">${fmt(v)}</span>
-      </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${colors[k]}"></div></div>
+      <div class="bar-meta"><span class="bar-lbl">${label}</span><span class="bar-nums">${fmt(v)}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${color}"></div></div>
     </div>`;
   }).join('');
 }
 
-// ═══════════════════════════ ENTRIES ═══════════════════════════
-function onTypeChange(){
-  el('fg-cat').style.display=el('ef-type').value==='expense'?'':'none';
+// ══════════════════════════════════════════════════════════
+// HISTORY CHART  —  last 12 months, SVG bar chart
+// ══════════════════════════════════════════════════════════
+function renderChart() {
+  const W = 820, H = 180, PL = 50, PB = 32, PT = 14;
+  const IW = W - PL - 10;
+
+  // build last 12 months
+  const now  = new Date();
+  const mons = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    mons.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  const income = mons.map(m => DATA.income.amount + DATA.entries.filter(e => ym(e.date) === m && e.type === 'income').reduce((s, e) => s + e.amount, 0));
+  const expense = mons.map(m => DATA.entries.filter(e => ym(e.date) === m && e.type === 'expense').reduce((s, e) => s + e.amount, 0));
+  const maxVal = Math.max(...income, ...expense, 1);
+
+  const bw   = IW / mons.length;
+  const gap  = bw * 0.15;
+  const bPad = gap / 2;
+  const GH   = H - PB - PT;
+
+  const barH = (v) => Math.round(v / maxVal * GH);
+
+  // Y axis ticks
+  const ticks = 4;
+  const tickLines = Array.from({ length: ticks + 1 }, (_, i) => {
+    const val = Math.round(maxVal * i / ticks);
+    const y   = PT + GH - Math.round(GH * i / ticks);
+    return `<line x1="${PL}" y1="${y}" x2="${W - 10}" y2="${y}" stroke="rgba(0,0,0,.06)" stroke-width="1"/>
+            <text x="${PL - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="#a5a49c" font-family="JetBrains Mono,monospace">${val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val}</text>`;
+  }).join('');
+
+  const bars = mons.map((m, i) => {
+    const x    = PL + i * bw + bPad;
+    const bw2  = bw - 2 * bPad;
+    const half = bw2 / 2 - gap / 4;
+    const iH   = barH(income[i]);
+    const eH   = barH(expense[i]);
+    const iY   = PT + GH - iH;
+    const eY   = PT + GH - eH;
+    const lY   = H - PB + 14;
+    const lX   = x + bw2 / 2;
+    const mo   = m.slice(5);
+    const lbl  = MONTHS_SHORT[parseInt(mo) - 1];
+    return `<rect x="${x}" y="${iY}" width="${half}" height="${iH}" fill="#3d8f25" opacity=".7" rx="2"/>
+            <rect x="${x + half + gap / 2}" y="${eY}" width="${half}" height="${eH}" fill="#b83535" opacity=".7" rx="2"/>
+            <text x="${lX}" y="${lY}" text-anchor="middle" font-size="10" fill="#a5a49c" font-family="Plus Jakarta Sans,sans-serif">${lbl}</text>`;
+  }).join('');
+
+  const legend = `<g>
+    <rect x="${PL}" y="${H + 2}" width="10" height="10" fill="#3d8f25" opacity=".7" rx="2"/>
+    <text x="${PL + 14}" y="${H + 11}" font-size="11" fill="#6a6960" font-family="Plus Jakarta Sans,sans-serif">Income</text>
+    <rect x="${PL + 68}" y="${H + 2}" width="10" height="10" fill="#b83535" opacity=".7" rx="2"/>
+    <text x="${PL + 82}" y="${H + 11}" font-size="11" fill="#6a6960" font-family="Plus Jakarta Sans,sans-serif">Expenses</text>
+  </g>`;
+
+  el('d-chart').innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H + 20}" xmlns="http://www.w3.org/2000/svg">
+    ${tickLines}${bars}${legend}
+  </svg>`;
 }
 
-// Description field: search catalog
-function descSearch(){
-  const q=el('ef-desc').value.toLowerCase(), dd=el('desc-dd');
-  if(!q||!DATA.catalog.length){dd.classList.remove('open');return;}
-  const hits=DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,10);
-  if(!hits.length){dd.classList.remove('open');return;}
-  dd.innerHTML=hits.map(h=>`<div class="ddi" onmousedown="pickDesc(${JSON.stringify(h.name)},${h.price||0})">
-    <span>${h.name}</span>
-    <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span><span class="ddi-s">${h.store||''}</span></div>
+// ══════════════════════════════════════════════════════════
+// RECURRING ENTRIES
+// ══════════════════════════════════════════════════════════
+function onTypeChange() {
+  el('fg-cat').style.display = el('ef-type').value === 'expense' ? '' : 'none';
+}
+
+async function applyRecurring(month) {
+  const applied = new Set(DATA.entries.filter(e => ym(e.date) === month && e.recurId).map(e => e.recurId));
+  const pending = DATA.recurring.filter(r => !applied.has(r.id));
+  pending.forEach(r => {
+    const day  = String(r.day || 1).padStart(2, '0');
+    const date = `${month}-${day}`;
+    DATA.entries.unshift({ id: uid(), date, desc: r.desc, amount: r.amount, formula: r.formula, type: r.type, category: r.category, recurId: r.id });
+  });
+  saveLocal();
+  toast(`Applied ${pending.length} recurring entr${pending.length === 1 ? 'y' : 'ies'}`);
+  renderDash();
+  if (VIEW === 'entries') renderEntries();
+}
+
+function renderRecurList() {
+  const list = DATA.recurring;
+  el('recur-count').textContent = list.length ? `(${list.length})` : '';
+  if (!list.length) {
+    el('recur-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring entries yet. Check "Save as recurring" when adding an entry.</div>';
+    return;
+  }
+  el('recur-list').innerHTML = list.map(r => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
+    <span style="flex:1;font-size:13px">${r.desc || '—'}</span>
+    <span class="num ${r.type === 'income' ? 'amt-p' : 'amt-n'}">${r.type === 'income' ? '+' : '−'}${fmt(r.amount)}</span>
+    <span class="badge ${r.category}">${r.category}</span>
+    <span class="muted num" style="font-size:11px">day&nbsp;${r.day}</span>
+    <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
   </div>`).join('');
+}
+
+async function deleteRecur(id) {
+  DATA.recurring = DATA.recurring.filter(r => r.id !== id);
+  saveLocal(); renderEntries(); toast('Recurring removed');
+}
+
+// ══════════════════════════════════════════════════════════
+// ENTRIES
+// ══════════════════════════════════════════════════════════
+function descSearch() {
+  const q = el('ef-desc').value.toLowerCase(), dd = el('desc-dd');
+  if (!q || !DATA.catalog.length) { dd.classList.remove('open'); return; }
+  const hits = DATA.catalog.filter(c => c.name.toLowerCase().includes(q)).slice(0, 10);
+  if (!hits.length) { dd.classList.remove('open'); return; }
+  // Bug fix: use data-idx instead of JSON.stringify in onmousedown to avoid quote-in-name crash
+  dd.innerHTML = hits.map((h, i) => {
+    window._ddCache = window._ddCache || {};
+    window._ddCache['d' + i] = h;
+    return `<div class="ddi" onmousedown="pickDesc('d${i}')">
+      <span>${h.name}</span>
+      <div class="ddi-r"><span class="ddi-p">${h.price ? fmt(h.price) : ''}</span><span class="ddi-s">${h.store || ''}</span></div>
+    </div>`;
+  }).join('');
   dd.classList.add('open');
 }
-function closeDescDD(){el('desc-dd').classList.remove('open');}
-function pickDesc(name,price){
-  el('ef-desc').value=name;
-  if(price) el('ef-amt').value=price;
+function closeDescDD() { el('desc-dd').classList.remove('open'); }
+function pickDesc(key) {
+  const h = window._ddCache?.[key]; if (!h) return;
+  el('ef-desc').value = h.name;
+  if (h.price) el('ef-amt').value = h.price;
   closeDescDD();
 }
 
-async function addEntry(){
-  const date=el('ef-date').value||ymd();
-  const desc=el('ef-desc').value.trim();
-  const amtRaw=el('ef-amt').value.trim();
-  const type=el('ef-type').value;
-  const cat=el('ef-cat').value;
-  if(!amtRaw) return toast('Enter an amount.',1);
-  const {amount,formula}=parseAmt(amtRaw);
-  if(!amount||amount<=0) return toast('Invalid amount.',1);
-  const entry={id:uid(),date,desc,amount,formula,type,category:type==='income'?'income':cat};
+async function addEntry() {
+  const date   = el('ef-date').value || ymd();
+  const desc   = el('ef-desc').value.trim();
+  const amtRaw = el('ef-amt').value.trim();
+  const type   = el('ef-type').value;
+  const cat    = el('ef-cat').value;
+  if (!amtRaw) return toast('Enter an amount.', 1);
+  const { amount, formula } = parseAmt(amtRaw);
+  if (!amount || amount <= 0) return toast('Invalid amount.', 1);
+
+  const entry = { id: uid(), date, desc, amount, formula, type, category: type === 'income' ? 'income' : cat };
   DATA.entries.unshift(entry);
-  // auto-check matching grocery item
-  if(type==='expense'&&desc){
-    const m=DATA.grocery.find(g=>!g.bought&&g.name.toLowerCase()===desc.toLowerCase());
-    if(m){m.bought=true;m.boughtDate=date;toast(`Checked off: ${m.name}`);}
+
+  // Save as recurring
+  if (el('ef-recur').checked) {
+    const day = parseInt(date.slice(8)) || 1;
+    const rid = uid();
+    DATA.recurring.push({ id: rid, desc, amount, formula, type, category: entry.category, day });
+    entry.recurId = rid;
+    el('ef-recur').checked = false;
+    toast('Entry saved + added to recurring');
   }
-  await saveLocal();
-  el('ef-amt').value=''; el('ef-desc').value='';
-  render(); if(VIEW!=='entries') toast('Entry saved');
+
+  // Auto-check matching grocery item
+  if (type === 'expense' && desc) {
+    const m = DATA.grocery.find(g => !g.bought && g.name.toLowerCase() === desc.toLowerCase());
+    if (m) { m.bought = true; m.boughtDate = date; }
+  }
+
+  saveLocal();
+  el('ef-amt').value = ''; el('ef-desc').value = '';
+  render();
+  if (VIEW === 'dash') toast('Entry saved');
 }
 
-async function deleteEntry(id){
-  DATA.entries=DATA.entries.filter(e=>e.id!==id);
-  await saveLocal(); render();
+async function deleteEntry(id) {
+  DATA.entries = DATA.entries.filter(e => e.id !== id);
+  saveLocal(); render();
 }
 
-function makeEditable(td,id,field,cur){
-  const safe=String(cur||'').replace(/"/g,'&quot;');
-  td.innerHTML=`<input class="edit-in" value="${safe}"
+function makeEditable(td, id, field, cur) {
+  const safe = String(cur || '').replace(/"/g, '&quot;');
+  td.innerHTML = `<input class="edit-in" value="${safe}"
     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')render();"
     onblur="commitEdit('${id}','${field}',this.value)">`;
   td.querySelector('input').select();
 }
-async function commitEdit(id,field,val){
-  const e=DATA.entries.find(x=>x.id===id); if(!e) return;
-  if(field==='amount'){const {amount,formula}=parseAmt(val);e.amount=amount;e.formula=formula;}
-  else e[field]=val;
-  await saveLocal(); render();
+async function commitEdit(id, field, val) {
+  const e = DATA.entries.find(x => x.id === id); if (!e) return;
+  if (field === 'amount') { const { amount, formula } = parseAmt(val); e.amount = amount; e.formula = formula; }
+  else e[field] = val;
+  saveLocal(); render();
 }
 
-function renderEntries(){
-  const months=[...new Set(DATA.entries.map(e=>ym(e.date)))].sort().reverse();
-  const efm=el('ef-fm'), pM=efm.value;
-  efm.innerHTML='<option value="">All months</option>'+months.map(m=>`<option${m===pM?' selected':''}>${m}</option>`).join('');
-  let list=[...DATA.entries];
-  const fM=efm.value, fC=el('ef-fc').value, fS=el('ef-fs').value.toLowerCase();
-  if(fM) list=list.filter(e=>ym(e.date)===fM);
-  if(fC) list=list.filter(e=>e.category===fC);
-  if(fS) list=list.filter(e=>(e.desc||'').toLowerCase().includes(fS)||e.category.includes(fS));
-  if(!list.length){el('ent-body').innerHTML='<tr><td colspan="6" class="empty">No entries yet.</td></tr>';return;}
-  const sI=list.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const sE=list.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
-  el('ent-body').innerHTML=list.map(e=>{
-    const isI=e.type==='income';
+function renderEntries() {
+  renderRecurList();
+  const months = [...new Set(DATA.entries.map(e => ym(e.date)))].sort().reverse();
+  const efm = el('ef-fm'), pM = efm.value;
+  efm.innerHTML = '<option value="">All months</option>' +
+    months.map(m => `<option${m === pM ? ' selected' : ''}>${m}</option>`).join('');
+
+  let list = [...DATA.entries];
+  const fM = efm.value, fC = el('ef-fc').value, fS = el('ef-fs').value.toLowerCase();
+  if (fM) list = list.filter(e => ym(e.date) === fM);
+  if (fC) list = list.filter(e => e.category === fC);
+  if (fS) list = list.filter(e => (e.desc || '').toLowerCase().includes(fS) || e.category.includes(fS));
+
+  if (!list.length) {
+    el('ent-body').innerHTML = '<tr><td colspan="6" class="empty">No entries yet.</td></tr>';
+    return;
+  }
+
+  const sI = list.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const sE = list.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+
+  el('ent-body').innerHTML = list.map(e => {
+    const isI = e.type === 'income';
+    const recurTag = e.recurId ? '<span class="recur-badge">↻</span>' : '';
     return `<tr>
       <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${e.date}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${(e.desc||'').replace(/'/g,'&apos;')}')">${e.desc||'<span class="muted">—</span>'}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${e.formula||e.amount}')">
-        <span class="${isI?'amt-p':'amt-n'}">${isI?'+':'−'}${fmt(e.amount)}</span></td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${(e.desc||'').replace(/'/g,'&apos;')}')">${e.desc || '<span class="muted">—</span>'}${recurTag}</td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${e.formula || e.amount}')">
+        <span class="${isI ? 'amt-p' : 'amt-n'}">${isI ? '+' : '−'}${fmt(e.amount)}</span>
+      </td>
       <td><span class="badge ${e.category}">${e.category}</span></td>
-      <td>${e.formula?`<span class="formula-pill">${e.formula}</span>`:'<span class="muted">—</span>'}</td>
+      <td>${e.formula ? `<span class="formula-pill">${e.formula}</span>` : '<span class="muted">—</span>'}</td>
       <td><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
-  }).join('')+`<tr class="trow-sum">
+  }).join('') + `<tr class="trow-sum">
     <td colspan="2" style="color:var(--ink2);font-size:12px">${list.length} entries</td>
     <td><span class="amt-p">+${fmt(sI)}</span></td>
     <td><span class="amt-n">−${fmt(sE)}</span></td>
-    <td colspan="2" class="num" style="color:${sI-sE>=0?'var(--G)':'var(--R)'}">net ${fmt(sI-sE)}</td>
+    <td colspan="2" class="num" style="color:${sI-sE >= 0 ? 'var(--G)' : 'var(--R)'}">net ${fmt(sI - sE)}</td>
   </tr>`;
 }
 
-// ═══════════════════════════ EXCEL IMPORT ═══════════════════════════
-let _rawRows=[], _rawHeaders=[];
+// ══════════════════════════════════════════════════════════
+// EXCEL IMPORT
+// ══════════════════════════════════════════════════════════
+let _rawRows = [], _rawHeaders = [];
 
-function importExcel(input){
-  const file=input.files[0]; if(!file) return;
-  const rdr=new FileReader();
-  rdr.onload=e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      if(rows.length<2) return toast('File appears empty.',1);
-      _rawHeaders=rows[0].map(String);
-      _rawRows=rows.slice(1).filter(r=>r.some(c=>c!==''));
-      const detect=kws=>_rawHeaders.findIndex(h=>kws.some(k=>String(h).toLowerCase().includes(k)));
-      const ni=Math.max(0,detect(['name','item','product','artikel','bezeich','groceri']));
-      const pi=Math.max(0,detect(['price','preis','cost','€','euro','unit','pro 1']));
-      const si=detect(['store','shop','market','laden']);
-      populateMapSelects(ni,pi,si);
-      showColPreview(ni,pi,si<0?null:si);
-      el('col-map-ui').style.display='block';
-      el('catalog-info').textContent=`${_rawRows.length} rows — confirm mapping`;
-    }catch(err){toast('Could not parse: '+err.message,1);}
-    input.value='';
+function importExcel(input) {
+  const file = input.files[0]; if (!file) return;
+  const rdr = new FileReader();
+  rdr.onload = ev => {
+    try {
+      const wb   = XLSX.read(ev.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows.length < 2) return toast('File appears empty.', 1);
+      _rawHeaders = rows[0].map(String);
+      _rawRows    = rows.slice(1).filter(r => r.some(c => c !== ''));
+      const detect = kws => Math.max(0, _rawHeaders.findIndex(h => kws.some(k => String(h).toLowerCase().includes(k))));
+      const ni = detect(['name','item','product','artikel','bezeich','groceri']);
+      const pi = detect(['price','preis','cost','€','euro','unit','pro 1']);
+      const si = _rawHeaders.findIndex(h => ['store','shop','market','laden'].some(k => String(h).toLowerCase().includes(k)));
+      populateMapSelects(ni, pi, si < 0 ? 0 : si);
+      showColPreview();
+      el('col-map-ui').style.display = 'block';
+      el('catalog-info').textContent = `${_rawRows.length} rows — confirm mapping below`;
+    } catch (err) { toast('Parse error: ' + err.message, 1); }
+    // Bug fix: reset file input so same file can be re-imported
+    input.value = '';
   };
   rdr.readAsArrayBuffer(file);
 }
 
-function populateMapSelects(ni,pi,si){
-  const opts=['(none)',..._rawHeaders].map((h,i)=>`<option value="${i-1}">${i===0?'(none)':`[${i-1}] ${h}`}</option>`).join('');
-  ['map-n','map-p','map-s'].forEach(id=>el(id).innerHTML=opts);
-  el('map-n').value=ni; el('map-p').value=pi; el('map-s').value=si<0?-1:si;
-  ['map-n','map-p','map-s'].forEach(id=>el(id).addEventListener('change',()=>showColPreview(+el('map-n').value,+el('map-p').value,+el('map-s').value)));
+function populateMapSelects(ni, pi, si) {
+  // Bug fix: set innerHTML once, no stacking addEventListener
+  const opts = ['(none)', ..._rawHeaders].map((h, i) =>
+    `<option value="${i - 1}">${i === 0 ? '(none)' : `[${i-1}] ${h}`}</option>`
+  ).join('');
+  ['map-n', 'map-p', 'map-s'].forEach(id => el(id).innerHTML = opts);
+  el('map-n').value = ni; el('map-p').value = pi; el('map-s').value = si < 0 ? -1 : si;
 }
 
-function showColPreview(ni,pi,si){
-  const preview=_rawRows.slice(0,3).map(r=>{
-    const name=ni>=0?String(r[ni]||''):'?';
-    const price=pi>=0?String(r[pi]||''):'?';
-    const store=si>=0?String(r[si]||''):'';
-    return `${name} | ${price}${store?' | '+store:''}`;
-  }).join(' · ');
-  el('col-preview').textContent='Preview: '+preview;
+function showColPreview() {
+  const ni = +el('map-n').value, pi = +el('map-p').value, si = +el('map-s').value;
+  const preview = _rawRows.slice(0, 3).map(r => {
+    const name  = ni >= 0 ? String(r[ni] || '') : '?';
+    const price = pi >= 0 ? String(r[pi] || '') : '—';
+    const store = si >= 0 ? String(r[si] || '') : '';
+    return `${name} · ${price}${store ? ' · ' + store : ''}`;
+  }).join('   |   ');
+  el('col-preview').textContent = 'Preview: ' + (preview || '—');
 }
 
-async function applyColMap(){
-  const ni=+el('map-n').value, pi=+el('map-p').value, si=+el('map-s').value;
-  if(ni<0) return toast('Select a name column.',1);
-  DATA.catalog=_rawRows.map(row=>({
-    name:String(row[ni]||'').trim(),
-    price:pi>=0?parseFloat(String(row[pi]).replace(',','.'))||0:0,
-    store:si>=0?String(row[si]||'').trim():''
-  })).filter(r=>r.name);
-  el('col-map-ui').style.display='none';
+async function applyColMap() {
+  const ni = +el('map-n').value, pi = +el('map-p').value, si = +el('map-s').value;
+  if (ni < 0) return toast('Select a name column.', 1);
+  DATA.catalog = _rawRows.map(row => ({
+    name:  String(row[ni] || '').trim(),
+    price: pi >= 0 ? parseFloat(String(row[pi]).replace(',', '.')) || 0 : 0,
+    store: si >= 0 ? String(row[si] || '').trim() : ''
+  })).filter(r => r.name);
+  el('col-map-ui').style.display = 'none';
   updateCatalogInfo();
-  await saveLocal();
-  toast(`Catalog: ${DATA.catalog.length} products imported`);
+  saveLocal();
+  toast(`Imported ${DATA.catalog.length} products`);
 }
 
-function updateCatalogInfo(){
-  const n=DATA.catalog?.length||0;
-  el('catalog-info').textContent=n?`${n} products in catalog`:'No catalog loaded';
+function updateCatalogInfo() {
+  const n = DATA.catalog?.length || 0;
+  el('catalog-info').textContent = n ? `${n} products in catalog` : 'No catalog loaded';
 }
 
-// ═══════════════════════════ GROCERY ═══════════════════════════
-function catSearch(){
-  const q=el('gr-search').value.toLowerCase(), dd=el('cat-dd');
-  if(!q||!DATA.catalog.length){dd.classList.remove('open');return;}
-  const hits=DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,12);
-  if(!hits.length){dd.classList.remove('open');return;}
-  dd.innerHTML=hits.map(h=>`<div class="ddi" onmousedown="pickCat(${JSON.stringify(h)})">
-    <div><div>${h.name}</div>${h.store?`<div class="ddi-s">${h.store}</div>`:''}</div>
-    <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span></div>
-  </div>`).join('');
-  dd.classList.add('open');
-}
-function closeCatDD(){el('cat-dd').classList.remove('open');}
-function pickCat(h){
-  el('gr-search').value=h.name;
-  el('gr-store').value=h.store||'';
-  el('gr-price').value=h.price||'';
-  closeCatDD();
+// ══════════════════════════════════════════════════════════
+// GROCERY  —  catalog search + shopping list + categories
+// ══════════════════════════════════════════════════════════
+function buildGrCatFilter() {
+  const cats = ['all', ...Object.keys(GR_CATS)];
+  el('gr-cat-filter').innerHTML = cats.map(k =>
+    `<span class="cat-chip${k === _grCatFilter ? ' active' : ''}" onclick="setGrCat('${k}')">${k === 'all' ? 'All' : GR_CATS[k]}</span>`
+  ).join('');
 }
 
-async function addShopItem(){
-  const name=el('gr-search').value.trim();
-  if(!name) return toast('Enter an item.',1);
-  DATA.grocery.push({id:uid(),name,
-    store:el('gr-store').value.trim(),
-    qty:parseInt(el('gr-qty').value)||1,
-    price:parseFloat(el('gr-price').value)||0,
-    bought:false, boughtDate:null});
-  await saveLocal();
-  el('gr-search').value=''; el('gr-price').value=''; el('gr-qty').value='1';
+function setGrCat(k) {
+  _grCatFilter = k;
+  buildGrCatFilter();
   renderGrocery();
 }
 
-async function toggleGrocery(id){
-  const g=DATA.grocery.find(x=>x.id===id); if(!g) return;
-  g.bought=!g.bought; g.boughtDate=g.bought?ymd():null;
-  await saveLocal(); renderGrocery();
+function catSearch() {
+  const q = el('gr-search').value.toLowerCase(), dd = el('cat-dd');
+  if (!q || !DATA.catalog.length) { dd.classList.remove('open'); return; }
+  const hits = DATA.catalog.filter(c => c.name.toLowerCase().includes(q)).slice(0, 12);
+  if (!hits.length) { dd.classList.remove('open'); return; }
+  // Bug fix: use index cache, not JSON.stringify in attribute
+  window._catCache = {};
+  dd.innerHTML = hits.map((h, i) => {
+    window._catCache['c' + i] = h;
+    return `<div class="ddi" onmousedown="pickCat('c${i}')">
+      <div><div>${h.name}</div>${h.store ? `<div class="ddi-s">${h.store}</div>` : ''}</div>
+      <div class="ddi-r"><span class="ddi-p">${h.price ? fmt(h.price) : ''}</span></div>
+    </div>`;
+  }).join('');
+  dd.classList.add('open');
+}
+function closeCatDD() { el('cat-dd').classList.remove('open'); }
+function pickCat(key) {
+  const h = window._catCache?.[key]; if (!h) return;
+  el('gr-search').value = h.name;
+  el('gr-store').value  = h.store || '';
+  el('gr-price').value  = h.price || '';
+  closeCatDD();
 }
 
-async function deleteGrocery(id){
-  DATA.grocery=DATA.grocery.filter(g=>g.id!==id);
-  await saveLocal(); renderGrocery();
+async function addShopItem() {
+  const name = el('gr-search').value.trim();
+  if (!name) return toast('Enter an item name.', 1);
+  DATA.grocery.push({
+    id: uid(), name,
+    store:    el('gr-store').value.trim(),
+    category: el('gr-cat').value,
+    qty:      parseInt(el('gr-qty').value) || 1,
+    price:    parseFloat(el('gr-price').value) || 0,
+    bought: false, boughtDate: null
+  });
+  saveLocal();
+  el('gr-search').value = ''; el('gr-price').value = ''; el('gr-qty').value = '1';
+  renderGrocery();
 }
 
-async function clearBought(){
-  if(!DATA.grocery.some(g=>g.bought)) return toast('No bought items.');
-  DATA.grocery=DATA.grocery.filter(g=>!g.bought);
-  await saveLocal(); renderGrocery(); toast('Cleared bought items');
+async function toggleGrocery(id) {
+  const g = DATA.grocery.find(x => x.id === id); if (!g) return;
+  g.bought = !g.bought; g.boughtDate = g.bought ? ymd() : null;
+  saveLocal(); renderGrocery();
 }
 
-function renderGrocery(){
+async function deleteGrocery(id) {
+  DATA.grocery = DATA.grocery.filter(g => g.id !== id);
+  saveLocal(); renderGrocery();
+}
+
+async function clearBought() {
+  if (!DATA.grocery.some(g => g.bought)) return toast('No bought items.');
+  DATA.grocery = DATA.grocery.filter(g => !g.bought);
+  saveLocal(); renderGrocery(); toast('Cleared bought items');
+}
+
+function renderGrocery() {
   updateCatalogInfo();
-  const pending=DATA.grocery.filter(g=>!g.bought).reduce((s,g)=>s+g.qty*g.price,0);
-  const done=DATA.grocery.filter(g=>g.bought).reduce((s,g)=>s+g.qty*g.price,0);
-  el('gr-totals').textContent=`pending ${fmt(pending)} · bought ${fmt(done)}`;
-  const sorted=[...DATA.grocery].sort((a,b)=>a.bought-b.bought);
-  if(!sorted.length){el('gr-body').innerHTML='<tr><td colspan="8" class="empty">List empty — search the catalog or add items above.</td></tr>';return;}
-  el('gr-body').innerHTML=sorted.map(g=>`<tr>
-    <td><input type="checkbox" class="gcheck" ${g.bought?'checked':''} onchange="toggleGrocery('${g.id}')"></td>
-    <td class="${g.bought?'strike muted':''}">${g.name}</td>
-    <td class="muted">${g.store||'—'}</td>
+  buildGrCatFilter();
+  const all     = DATA.grocery;
+  const pending = all.filter(g => !g.bought).reduce((s, g) => s + g.qty * (g.price || 0), 0);
+  const done    = all.filter(g =>  g.bought).reduce((s, g) => s + g.qty * (g.price || 0), 0);
+  el('gr-totals').textContent = `pending ${fmt(pending)} · bought ${fmt(done)}`;
+
+  let show = [...all];
+  if (_grCatFilter !== 'all') show = show.filter(g => g.category === _grCatFilter);
+  show.sort((a, b) => a.bought - b.bought);
+
+  if (!show.length) {
+    el('gr-body').innerHTML = '<tr><td colspan="9" class="empty">No items. Add from catalog or type a custom name.</td></tr>';
+    return;
+  }
+  el('gr-body').innerHTML = show.map(g => `<tr>
+    <td><input type="checkbox" class="gcheck" ${g.bought ? 'checked' : ''} onchange="toggleGrocery('${g.id}')"></td>
+    <td class="${g.bought ? 'strike muted' : ''}">${g.name}</td>
+    <td><span style="font-size:11px;color:var(--ink3)">${GR_CATS[g.category] || g.category}</span></td>
+    <td class="muted">${g.store || '—'}</td>
     <td class="num">${g.qty}</td>
-    <td class="num">${g.price?fmt(g.price):'—'}</td>
-    <td class="num ${g.bought?'muted':''}">${g.price?fmt(g.qty*g.price):'—'}</td>
-    <td class="num muted">${g.boughtDate||'—'}</td>
+    <td class="num">${g.price ? fmt(g.price) : '—'}</td>
+    <td class="num ${g.bought ? 'muted' : ''}">${g.price ? fmt(g.qty * g.price) : '—'}</td>
+    <td class="num muted">${g.boughtDate || '—'}</td>
     <td><button class="btn xs danger" onclick="deleteGrocery('${g.id}')">✕</button></td>
   </tr>`).join('');
 }
 
-function exportGroceryCSV(){
-  const lines=['Item,Store,Qty,Unit Price,Total,Bought,Date Bought'];
-  DATA.grocery.forEach(g=>lines.push([`"${g.name}"`,`"${g.store||''}"`,g.qty,g.price||0,(g.qty*(g.price||0)).toFixed(2),g.bought?'Yes':'No',g.boughtDate||''].join(',')));
-  dl(lines.join('\n'),`grocery_${ymd()}.csv`,'text/csv');
+function exportGroceryCSV() {
+  const lines = ['Item,Category,Store,Qty,Unit Price,Total,Bought,Date Bought'];
+  DATA.grocery.forEach(g => lines.push(
+    [`"${g.name}"`, GR_CATS[g.category] || g.category, `"${g.store || ''}"`,
+     g.qty, g.price || 0, (g.qty * (g.price || 0)).toFixed(2),
+     g.bought ? 'Yes' : 'No', g.boughtDate || ''].join(',')
+  ));
+  dl(lines.join('\n'), `grocery_${ymd()}.csv`, 'text/csv');
 }
 
-// keyboard shortcuts
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-  if(e.key==='1') nav('dash');
-  if(e.key==='2') nav('entries');
-  if(e.key==='3') nav('grocery');
+// ══════════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════════
+function renderSplitsUI() {
+  const { splits } = DATA;
+  const defs = [
+    { key: 'needs',   label: 'Needs (50%)',   color: 'var(--Bm)' },
+    { key: 'wants',   label: 'Wants (30%)',   color: 'var(--Am)' },
+    { key: 'savings', label: 'Savings (20%)', color: 'var(--Gm)' }
+  ];
+  el('splits-ui').innerHTML = defs.map(({ key, label, color }) => {
+    const pct = splits[key];
+    return `<div class="split-row">
+      <label>${label}</label>
+      <input type="number" min="0" max="100" value="${pct}" id="split-${key}"
+        oninput="updateSplitBar('${key}','${color}')" style="width:70px">
+      <div class="split-bar"><div class="split-fill" id="sbar-${key}" style="width:${pct}%;background:${color}"></div></div>
+      <span style="font-size:12px;font-family:var(--mono);color:var(--ink2);min-width:34px" id="sval-${key}">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+function updateSplitBar(key, color) {
+  const v = Math.max(0, Math.min(100, parseInt(el('split-' + key).value) || 0));
+  el('sbar-' + key).style.width = v + '%';
+  el('sval-' + key).textContent = v + '%';
+  const sum = ['needs', 'wants', 'savings'].reduce((s, k) => s + (parseInt(el('split-' + k).value) || 0), 0);
+  el('split-err').style.display = sum !== 100 ? 'inline' : 'none';
+}
+
+async function saveSplits() {
+  const n = parseInt(el('split-needs').value) || 0;
+  const w = parseInt(el('split-wants').value) || 0;
+  const s = parseInt(el('split-savings').value) || 0;
+  if (n + w + s !== 100) return toast('Splits must add up to 100%.', 1);
+  DATA.splits = { needs: n, wants: w, savings: s };
+  saveLocal();
+  toast('Splits saved');
+  if (VIEW === 'dash') renderDash();
+}
+
+function renderSettings() {
+  renderSplitsUI();
+  el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
+}
+
+// ══════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ══════════════════════════════════════════════════════════
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: All entries
+  const eRows = [['Date','Description','Amount','Type','Category','Formula','Recurring']];
+  DATA.entries.forEach(e => eRows.push([e.date, e.desc || '', e.amount, e.type, e.category, e.formula || '', e.recurId ? 'Yes' : '']));
+  const ws1 = XLSX.utils.aoa_to_sheet(eRows);
+  ws1['!cols'] = [{wch:12},{wch:30},{wch:12},{wch:10},{wch:10},{wch:16},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Entries');
+
+  // Sheet 2: Monthly summary
+  const years = [...new Set(DATA.entries.map(e => e.date.slice(0,4)))].sort();
+  years.forEach(yr => {
+    const header = ['Category', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const cats   = ['Salary/Income','needs','wants','savings','Total Income','Total Expenses','Net'];
+    const rows   = [header];
+    const ALL    = ['needs','wants','savings'];
+    ALL.forEach(cat => {
+      const row = [cat.charAt(0).toUpperCase()+cat.slice(1)];
+      for (let m=1; m<=12; m++) {
+        const mo = `${yr}-${String(m).padStart(2,'0')}`;
+        row.push(DATA.entries.filter(e=>ym(e.date)===mo&&e.category===cat&&e.type==='expense').reduce((s,e)=>s+e.amount,0)||'');
+      }
+      rows.push(row);
+    });
+    ['Total Income','Total Expenses','Net'].forEach(label => {
+      const row = [label];
+      for (let m=1; m<=12; m++) {
+        const mo  = `${yr}-${String(m).padStart(2,'0')}`;
+        const inc = DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='income').reduce((s,e)=>s+e.amount,0) + (DATA.income.amount||0);
+        const exp = DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+        if (label==='Total Income') row.push(inc||'');
+        else if (label==='Total Expenses') row.push(exp||'');
+        else row.push(inc-exp||'');
+      }
+      rows.push(row);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:16},...Array(12).fill({wch:11})];
+    XLSX.utils.book_append_sheet(wb, ws, `Budget ${yr}`);
+  });
+
+  // Sheet 3: Grocery list
+  const gRows = [['Item','Category','Store','Qty','Unit Price','Total','Bought','Date Bought']];
+  DATA.grocery.forEach(g => gRows.push([g.name, GR_CATS[g.category]||g.category, g.store||'', g.qty, g.price||0, (g.qty*(g.price||0)), g.bought?'Yes':'No', g.boughtDate||'']));
+  const ws3 = XLSX.utils.aoa_to_sheet(gRows);
+  ws3['!cols'] = [{wch:32},{wch:14},{wch:12},{wch:6},{wch:12},{wch:12},{wch:8},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Grocery');
+
+  XLSX.writeFile(wb, `vault_finance_${ymd()}.xlsx`);
+  toast('Excel downloaded');
+}
+
+function exportJSON() {
+  dl(JSON.stringify(DATA, null, 2), `vault_finance_${ymd()}.json`, 'application/json');
+}
+
+async function clearEntries() {
+  if (!confirm('Delete all entries? Recurring entries are kept.')) return;
+  DATA.entries = [];
+  saveLocal(); render(); toast('Entries cleared');
+}
+async function clearAll() {
+  if (!confirm('Delete ALL data including grocery list and catalog?')) return;
+  DATA = FRESH();
+  saveLocal(); render(); toast('All data cleared');
+}
+
+// ══════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === '1') nav('dash');
+  if (e.key === '2') nav('entries');
+  if (e.key === '3') nav('grocery');
+  if (e.key === '4') nav('settings');
 });
 </script>
 </body>
