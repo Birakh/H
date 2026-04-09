@@ -171,10 +171,9 @@ tr:hover td{background:rgba(0,0,0,.018)}
     </div>
   </div>
 
-  <div class="g3" style="margin-bottom:12px">
-    <div class="fg" style="margin:0"><label>Owner</label><input type="text" id="c-owner" placeholder="github-username"></div>
+  <div class="g2" style="margin-bottom:12px">
+    <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="github-username"></div>
     <div class="fg" style="margin:0"><label>Repository</label><input type="text" id="c-repo" placeholder="my-budget"></div>
-    <div class="fg" style="margin:0"><label>File path</label><input type="text" id="c-path" placeholder="budget.enc"></div>
   </div>
 
   <div style="display:flex;gap:8px">
@@ -399,6 +398,13 @@ const CX = (() => {
   return {seal, open};
 })();
 
+// ═══════════════════════════ UTILS ═══════════════════════════
+const el  = id => document.getElementById(id);
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const ymd = () => new Date().toISOString().slice(0,10);
+const ym  = d  => (d||'').slice(0,7);
+const fmt = n  => '€'+Math.abs(+n||0).toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2});
+
 // ═══════════════════════════ STATE ═══════════════════════════
 let PAT=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
 const LS_CFG='vf2_cfg', LS_ENC='vf2_enc';
@@ -408,11 +414,10 @@ const LS_CFG='vf2_cfg', LS_ENC='vf2_enc';
   try{CFG=JSON.parse(localStorage.getItem(LS_CFG)||'{}');}catch{CFG={};}
   if(CFG.owner) el('c-owner').value=CFG.owner;
   if(CFG.repo)  el('c-repo').value=CFG.repo;
-  if(CFG.path)  el('c-path').value=CFG.path;
 })();
 
 function cfgFromInputs(){
-  return {owner:el('c-owner').value.trim(), repo:el('c-repo').value.trim(), path:el('c-path').value.trim()||'budget.enc'};
+  return {owner:el('c-owner').value.trim(), repo:el('c-repo').value.trim(), path:'budget.enc'};
 }
 
 async function testConn(){
@@ -539,13 +544,6 @@ function migrate(d){
   if(!d.income)  d.income={amount:0,formula:''};
   return d;
 }
-
-// ═══════════════════════════ UTILS ═══════════════════════════
-const el  = id => document.getElementById(id);
-const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-const ymd = () => new Date().toISOString().slice(0,10);
-const ym  = d  => (d||'').slice(0,7);
-const fmt = n  => '€'+Math.abs(+n||0).toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function evalExpr(s){
   s=String(s||'').trim();
