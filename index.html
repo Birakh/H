@@ -160,6 +160,7 @@ tr:hover td{background:rgba(128,128,0,.03)}
 .badge.income{background:var(--Tbg);color:var(--T)}
 .badge.transfer{background:var(--s2);color:var(--ink2)}
 .recur-badge{font-size:10px;color:var(--Am);font-family:var(--mono);background:var(--Abg);padding:1px 5px;border-radius:3px;margin-left:4px}
+.recur-badge.recur-yearly{color:var(--Tm);background:var(--Tbg)}
 .tag-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;background:var(--s2);color:var(--ink2);margin:1px 2px 1px 0;cursor:pointer;transition:background .1s}
 .tag-chip:hover{background:var(--Bbg);color:var(--B)}
 .price-up{color:var(--R);font-size:10px;font-family:var(--mono)}
@@ -215,13 +216,26 @@ tr:hover td{background:rgba(128,128,0,.03)}
 hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
 
 @media(max-width:680px){
-  header{padding:0 10px;gap:6px}
-  .tab{padding:4px 8px;font-size:12px}
-  main{padding:12px 8px}
+  header{padding:0 8px;gap:4px;height:auto;min-height:50px;flex-wrap:nowrap;overflow:hidden}
+  .h-brand{font-size:13px}
+  .tabs{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:1;min-width:0}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:4px 9px;font-size:11px;white-space:nowrap}
+  main{padding:10px 8px}
   .g2,.g3,.g4{grid-template-columns:1fr}
-  th,td{padding:7px 9px;font-size:12px}
+  th,td{padding:7px 8px;font-size:12px}
   .stat-grid{grid-template-columns:1fr 1fr}
   .h-right .sync-badge{display:none}
+  .card{padding:12px 12px}
+  .idea-card{flex-direction:column;gap:8px}
+  .idea-actions{flex-direction:row;align-self:flex-end}
+  #idea-filter-chips{gap:4px}
+  #idea-filter-chips .cat-chip{font-size:10px;padding:2px 7px}
+  .toolbar{gap:5px}
+  .toolbar input[type=text]{min-width:60px}
+  .hm-row-lbl{width:44px;font-size:9px}
+  .hm-cols-hdr>div{font-size:8px}
+  .wi-slider-wrap label span{font-size:12px}
 }
 
 /* confirm modal */
@@ -259,7 +273,7 @@ input[type=checkbox].row-sel{width:15px;height:15px;cursor:pointer;accent-color:
 .heatmap-tip{display:none;position:fixed;background:var(--s0);border:.5px solid var(--bdr2);border-radius:var(--rs);padding:6px 10px;font-size:12px;color:var(--ink);box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;z-index:300;white-space:nowrap}
 .banner.anomaly{background:var(--Rbg);color:var(--R);border:.5px solid rgba(184,53,53,.2)}
 
-@media(max-width:600px){.hm-col-lbl,.hm-cols-hdr>div{font-size:8px}.hm-row-lbl{width:44px;font-size:9px}}
+@media(max-width:600px){.hm-col-lbl{font-size:8px}}
 
 /* pace marker on budget bars */
 .bar-pace{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:.3}
@@ -302,6 +316,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .stat.highlight .stat-val{color:var(--Gm)}
 .stat.danger-hi{background:var(--Rbg)}
 .stat.danger-hi .stat-val{color:var(--Rm)}
+
+/* idea cards */
+.idea-card{background:var(--s0);border:.5px solid var(--bdr);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;transition:opacity .2s}
+.idea-card.done{opacity:.55}
+.idea-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.idea-body{flex:1;min-width:0}
+.idea-title{font-size:14px;font-weight:600;margin-bottom:3px;line-height:1.3;cursor:text;border-radius:3px;transition:background .1s}
+.idea-title:hover{background:var(--Bbg)}
+.idea-title.done-txt{text-decoration:line-through;color:var(--ink3)}
+.idea-notes{font-size:12px;color:var(--ink2);line-height:1.6;margin-top:4px;white-space:pre-wrap;cursor:text;border-radius:3px;min-height:18px;transition:background .1s}
+.idea-notes:hover{background:var(--s1)}
+.idea-meta{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.idea-cat-select{appearance:none;-webkit-appearance:none;outline:none;cursor:pointer;font-family:var(--ff)}
+.idea-amt{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--T);cursor:text;border-radius:3px;padding:1px 4px;transition:background .1s}
+.idea-amt:hover{background:var(--Tbg)}
+.idea-date{font-size:11px;color:var(--ink3);font-family:var(--mono)}
+.idea-actions{display:flex;gap:5px;flex-shrink:0}
+@media(max-width:500px){
+  .idea-card{flex-direction:column;gap:8px}
+  .idea-actions{flex-direction:row;align-self:flex-end}
+}
 
 </style>
 </head>
@@ -352,6 +387,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <button class="tab active" data-s="dash"     onclick="nav('dash')">Overview</button>
       <button class="tab"        data-s="entries"  onclick="nav('entries')">Entries</button>
       <button class="tab"        data-s="grocery"  onclick="nav('grocery')">Grocery</button>
+      <button class="tab"        data-s="ideas"    onclick="nav('ideas')">💡 Ideas</button>
       <button class="tab"        data-s="settings" onclick="nav('settings')">Settings</button>
     </div>
     <div class="h-right">
@@ -411,7 +447,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <section id="sec-dash" class="section active">
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
         <div>
-          <label>Base monthly income</label>
+          <label>Monthly income <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">(saved per month)</span></label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
             <input type="text" id="d-income" placeholder="3400 or =40*85"
               style="width:185px;font-family:var(--mono);font-size:16px;font-weight:500"
@@ -443,6 +479,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Monthly history — last 12 months</div>
         <div class="chart-wrap" id="d-chart"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="d-annual-title">Year-to-date summary</div>
+        <div id="d-annual"></div>
       </div>
 
       <div class="card">
@@ -523,8 +564,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" onclick="addEntry()">Add entry</button>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
-            <input type="checkbox" id="ef-recur"> Save as recurring (monthly)
+            <input type="checkbox" id="ef-recur" onchange="toggleRecurFreq()"> Save as recurring
           </label>
+          <span id="recur-freq-wrap" style="display:none;align-items:center;gap:6px">
+            <select id="ef-recur-freq" style="width:auto;font-size:12px;padding:4px 8px" onchange="toggleRecurMonth()">
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <select id="ef-recur-month" style="width:auto;font-size:12px;padding:4px 8px;display:none">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select>
+          </span>
         </div>
       </div>
 
@@ -678,6 +731,54 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </table></div>
     </section>
 
+    <!-- IDEAS -->
+    <section id="sec-ideas" class="section">
+      <div class="card">
+        <div class="card-title">Add idea
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">capture saving tips, investment thoughts, purchase goals</span>
+        </div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Title</label>
+            <input type="text" id="idea-title" placeholder="e.g. Open a high-yield savings account">
+          </div>
+          <div class="fg" style="margin:0"><label>Category</label>
+            <select id="idea-cat">
+              <option value="save">💰 Save money</option>
+              <option value="invest">📈 Invest</option>
+              <option value="buy">🛒 Purchase goal</option>
+              <option value="goal">🎯 Financial goal</option>
+              <option value="other">💡 Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg" style="margin-bottom:10px">
+          <label>Notes <span class="muted" style="text-transform:none;letter-spacing:0">(optional)</span></label>
+          <textarea id="idea-notes" class="notes-ta" style="min-height:52px" placeholder="Details, links, estimated amount…"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="fg" style="margin:0"><label>Est. amount (€)</label>
+            <input type="number" id="idea-amt" placeholder="0" step="0.01" style="width:130px;font-family:var(--mono)">
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:0">
+            <button class="btn primary" onclick="addIdea()">Add idea</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="idea-filter-chips">
+        <span class="cat-chip active" data-f="all"     onclick="setIdeaFilter('all')">All</span>
+        <span class="cat-chip"       data-f="open"     onclick="setIdeaFilter('open')">Open</span>
+        <span class="cat-chip"       data-f="done"     onclick="setIdeaFilter('done')">Done</span>
+        <span class="cat-chip"       data-f="save"     onclick="setIdeaFilter('save')">💰 Save</span>
+        <span class="cat-chip"       data-f="invest"   onclick="setIdeaFilter('invest')">📈 Invest</span>
+        <span class="cat-chip"       data-f="buy"      onclick="setIdeaFilter('buy')">🛒 Buy</span>
+        <span class="cat-chip"       data-f="goal"     onclick="setIdeaFilter('goal')">🎯 Goal</span>
+        <span class="cat-chip"       data-f="other"    onclick="setIdeaFilter('other')">💡 Other</span>
+      </div>
+
+      <div id="ideas-list"></div>
+    </section>
+
     <!-- SETTINGS -->
     <section id="sec-settings" class="section">
       <div class="card">
@@ -751,11 +852,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 const FRESH = () => ({
   v: 5,
   income:    { amount: 0, formula: null },
+  incomes:   {},     // { "YYYY-MM": { amount, formula } } — per-month salary
   splits:    { needs: 50, wants: 30, savings: 20 },
   goals:     { needs: null, wants: null, savings: null }, // optional € monthly targets
   accounts:  [],     // {id, name, bank, balance}
   entries:   [],     // {id, date, desc, amount, formula, type, category, tags[], recurId?, accountId?}
-  recurring: [],     // {id, desc, amount, formula, type, category, day}
+  recurring: [],     // {id, desc, amount, formula, type, category, day, frequency?, month?}
+  ideas:     [],     // {id, title, notes, category, amount, status, date}
   grocery:   [],     // {id, name, store, category, qty, price, bought, boughtDate}
   catalog:   [],     // {name, store, price, lastPrice?, lastDate?}
   notes:     {},     // { "YYYY-MM": "string" }
@@ -825,6 +928,13 @@ function evalExpr(s) {
 function parseAmt(s) {
   const str = String(s||'').trim();
   return { amount: evalExpr(str), formula: str.startsWith('=') ? str : null };
+}
+
+// Returns { amount, formula } for a given "YYYY-MM".
+// Prefers per-month entry in DATA.incomes; falls back to legacy DATA.income.
+function getMonthIncome(month) {
+  if (DATA.incomes && DATA.incomes[month] !== undefined) return DATA.incomes[month];
+  return DATA.income;
 }
 
 let _toastT;
@@ -1064,6 +1174,8 @@ function migrate(d) {
   if (!d.meta)      d.meta      = { sha:null, lastSync:null };
   if (!d.meta.lastSync) d.meta.lastSync = null;
   if (!d.income)    d.income    = { amount:0, formula:null };
+  if (!d.incomes)   d.incomes   = {};
+  if (!d.ideas)     d.ideas     = [];
   if (!d.recurring) d.recurring = [];
   // normalize formula '' → null
   if (d.income.formula === '') d.income.formula = null;
@@ -1085,7 +1197,7 @@ function boot() {
   el('d-month').value = savedMonth;
   _entryMonthVal = savedMonth;
   el('ef-date').value = ymd();
-  const { amount, formula } = DATA.income;
+  const { amount, formula } = getMonthIncome(savedMonth);
   el('d-income').value = formula || (amount > 0 ? amount : '');
   updateCatalogInfo();
   renderSplitsUI();
@@ -1101,6 +1213,7 @@ const RENDERS = {};
 RENDERS.dash     = () => renderDash();
 RENDERS.entries  = () => renderEntries();
 RENDERS.grocery  = () => renderGrocery();
+RENDERS.ideas    = () => renderIdeas();
 RENDERS.settings = () => renderSettings();
 
 function nav(sec) {
@@ -1118,6 +1231,10 @@ function render() { RENDERS[VIEW]?.(); }
 // ══════════════════════════════════════════
 function onIncomeInput() {
   const { amount, formula } = parseAmt(el('d-income').value);
+  const month = el('d-month').value;
+  if (!DATA.incomes) DATA.incomes = {};
+  DATA.incomes[month] = { amount, formula };
+  // keep legacy field in sync with latest entry for backward compat
   DATA.income = { amount, formula };
   saveLocal();
   renderSplitBars();
@@ -1126,14 +1243,16 @@ function onIncomeInput() {
 function onMonthChange() {
   const m = el('d-month').value;
   localStorage.setItem(LS_MONTH, m);
+  // load this month's saved income into the input
+  const { amount, formula } = getMonthIncome(m);
+  el('d-income').value = formula || (amount > 0 ? amount : '');
   renderDash();
 }
 
 function renderDash() {
-  const { amount:base, formula } = DATA.income;
-  el('d-income').value = formula || (base > 0 ? base : '');
-
   const month   = el('d-month').value;
+  const { amount:base, formula } = getMonthIncome(month);
+  el('d-income').value = formula || (base > 0 ? base : '');
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
   const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
   const totalInc = base + addInc;
@@ -1169,6 +1288,7 @@ function renderDash() {
   renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
   renderCatBars(mes);
   renderChart();
+  renderAnnual(month);
   renderHeatmap();
   renderTagAnalytics(month, mes);
   renderMonthlyNote(month);
@@ -1195,7 +1315,12 @@ function renderDashBanners(month, act, totalInc) {
   // Recurring banner
   if (DATA.recurring.length) {
     const applied = new Set(DATA.entries.filter(e=>ym(e.date)===month&&e.recurId).map(e=>e.recurId));
-    const pending = DATA.recurring.filter(r=>!applied.has(r.id));
+    const [,mo] = month.split('-').map(Number);
+    const pending = DATA.recurring.filter(r => {
+      if (applied.has(r.id)) return false;
+      if ((r.frequency||'monthly') === 'yearly') return (r.month||1) === mo;
+      return true;
+    });
     if (pending.length) {
       banners.push(`<div class="banner warn">
         <span><strong>${pending.length}</strong> recurring entr${pending.length===1?'y':'ies'} not applied for ${month}</span>
@@ -1287,7 +1412,7 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
   if (totalInc === undefined) {
     const month = el('d-month').value;
     const mes = DATA.entries.filter(e => ym(e.date)===month);
-    totalInc = DATA.income.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    totalInc = getMonthIncome(month).amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
     act = { needs:0, wants:0, savings:0 };
     mes.filter(e=>e.type==='expense').forEach(e=>{ if(e.category in act) act[e.category]+=e.amount; });
     dayFrac = 1; daysElapsed = null; daysInMonth = null; isCurrentMonth = false;
@@ -1364,7 +1489,7 @@ function renderChart() {
     const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   });
-  const income  = mons.map(m => DATA.income.amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0));
+  const income  = mons.map(m => getMonthIncome(m).amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0));
   const expense = mons.map(m => DATA.entries.filter(e=>ym(e.date)===m&&e.type==='expense').reduce((s,e)=>s+e.amount,0));
   const maxVal  = Math.max(...income, ...expense, 1);
 
@@ -1405,6 +1530,84 @@ function renderChart() {
   el('d-chart').innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H+16}" xmlns="http://www.w3.org/2000/svg">
     ${ticks}${bars}${legend}
   </svg>`;
+}
+
+// ══════════════════════════════════════════
+// ANNUAL SUMMARY
+// ══════════════════════════════════════════
+function renderAnnual(month) {
+  const yr = (month || el('d-month').value).slice(0, 4);
+  el('d-annual-title').textContent = `Year-to-date summary — ${yr}`;
+
+  // all 12 months of the selected year
+  const mons = Array.from({length:12}, (_,i) => `${yr}-${String(i+1).padStart(2,'0')}`);
+  const now  = new Date();
+  const curYr = String(now.getFullYear());
+  const curMo = now.getMonth() + 1; // 1-based
+
+  // only count months up to today if it's the current year
+  const activeMons = yr === curYr
+    ? mons.filter(m => parseInt(m.slice(5)) <= curMo)
+    : mons;
+
+  let totalInc = 0, totalExp = 0;
+  const byMonth = {};
+  activeMons.forEach(m => {
+    const inc = getMonthIncome(m).amount +
+      DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const exp = DATA.entries.filter(e=>ym(e.date)===m&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+    totalInc += inc; totalExp += exp;
+    byMonth[m] = { inc, exp };
+  });
+
+  const net     = totalInc - totalExp;
+  const saveRate = totalInc > 0 ? Math.round(net / totalInc * 100) : 0;
+  const avgInc  = activeMons.length ? totalInc / activeMons.length : 0;
+  const avgExp  = activeMons.length ? totalExp / activeMons.length : 0;
+
+  // best and worst spending months
+  const expMons = activeMons.filter(m => byMonth[m].exp > 0);
+  const bestMon = expMons.length ? expMons.reduce((a,b) => byMonth[a].exp < byMonth[b].exp ? a : b) : null;
+  const worstMon= expMons.length ? expMons.reduce((a,b) => byMonth[a].exp > byMonth[b].exp ? a : b) : null;
+
+  // category breakdown YTD
+  const cats = { needs:0, wants:0, savings:0 };
+  DATA.entries.filter(e => e.date.slice(0,4)===yr && e.type==='expense' &&
+    (yr !== curYr || parseInt(e.date.slice(5,7)) <= curMo))
+    .forEach(e => { if (e.category in cats) cats[e.category] += e.amount; });
+
+  const maxCat = Math.max(...Object.values(cats), 1);
+
+  const catColors = { needs:'var(--Bm)', wants:'var(--Am)', savings:'var(--Gm)' };
+  const catBars = Object.entries(cats).map(([k,v]) => {
+    const fill = Math.round(v / maxCat * 100);
+    return `<div class="bar-block" style="margin-bottom:8px">
+      <div class="bar-meta">
+        <span class="bar-lbl" style="font-size:12px">${k.charAt(0).toUpperCase()+k.slice(1)}</span>
+        <span class="bar-nums">${fmt(v)}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${catColors[k]}"></div></div>
+    </div>`;
+  }).join('');
+
+  const netClass = net >= 0 ? 'cg' : 'cr';
+  const months = yr === curYr ? `${activeMons.length} months` : '12 months';
+
+  el('d-annual').innerHTML = `
+    <div class="stat-grid" style="margin-bottom:14px">
+      <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div></div>
+      <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(totalExp)}</div></div>
+      <div class="stat ${net>=0?'highlight':'danger-hi'}"><div class="stat-lbl">Net saved</div><div class="stat-val ${netClass}">${fmt(net)}</div></div>
+      <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${netClass}">${saveRate}%</div></div>
+      <div class="stat"><div class="stat-lbl">Avg income/mo</div><div class="stat-val">${fmt(avgInc)}</div></div>
+      <div class="stat"><div class="stat-lbl">Avg spend/mo</div><div class="stat-val">${fmt(avgExp)}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:10px;font-family:var(--mono)">${months} tracked${yr===curYr?' · year in progress':''}</div>
+    ${catBars}
+    ${bestMon||worstMon ? `<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;font-size:12px;color:var(--ink2)">
+      ${bestMon  ? `<span>🟢 Lowest spend: <strong>${MS[parseInt(bestMon.slice(5))-1]}</strong> ${fmt(byMonth[bestMon].exp)}</span>` : ''}
+      ${worstMon ? `<span>🔴 Highest spend: <strong>${MS[parseInt(worstMon.slice(5))-1]}</strong> ${fmt(byMonth[worstMon].exp)}</span>` : ''}
+    </div>` : ''}`;
 }
 
 // ══════════════════════════════════════════
@@ -1547,7 +1750,7 @@ function wiUpdate() {
   el('wi-save-val').textContent  = '€'+extraSave+'/mo';
   el('wi-goal-val').textContent  = fmt(goal);
 
-  const baseInc     = DATA.income.amount;
+  const baseInc     = getMonthIncome(el('d-month').value).amount;
   const newInc      = baseInc * (1 + incPct/100);
   const splits      = DATA.splits;
   const newWantsBudget = Math.max(0, newInc * splits.wants/100 - wantsCut);
@@ -1668,11 +1871,15 @@ function csvImport() {
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
   const applied = new Set(DATA.entries.filter(e=>ym(e.date)===month&&e.recurId).map(e=>e.recurId));
-  const pending = DATA.recurring.filter(r=>!applied.has(r.id));
   const [yr, mo] = month.split('-').map(Number);
-  const lastDay  = new Date(yr, mo, 0).getDate(); // last valid day of target month
+  const pending = DATA.recurring.filter(r => {
+    if (applied.has(r.id)) return false;
+    if ((r.frequency||'monthly') === 'yearly') return (r.month||1) === mo;
+    return true; // monthly
+  });
+  const lastDay  = new Date(yr, mo, 0).getDate();
   pending.forEach(r => {
-    const day  = Math.min(r.day||1, lastDay);     // clamp — e.g. Feb has no 31st
+    const day  = Math.min(r.day||1, lastDay);
     const date = `${month}-${String(day).padStart(2,'0')}`;
     DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula,
       type:r.type, category:r.category, tags:[], recurId:r.id });
@@ -1689,13 +1896,20 @@ function renderRecurList() {
     el('recur-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring entries. Check "Save as recurring" when adding.</div>';
     return;
   }
-  el('recur-list').innerHTML = list.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
+  el('recur-list').innerHTML = list.map(r => {
+    const freq = r.frequency || 'monthly';
+    const freqLabel = freq === 'yearly'
+      ? `yearly · ${MS[(r.month||1)-1]} day&nbsp;${r.day}`
+      : `monthly · day&nbsp;${r.day}`;
+    const freqColor = freq === 'yearly' ? 'color:var(--T)' : 'color:var(--ink3)';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
     <span style="flex:1;font-size:13px">${r.desc||'—'}</span>
     <span class="${r.type==='income'?'amt-p':'amt-n'} num">${r.type==='income'?'+':'−'}${fmt(r.amount)}</span>
     <span class="badge ${r.category}">${r.category}</span>
-    <span class="muted num" style="font-size:11px">day&nbsp;${r.day}</span>
+    <span class="muted num" style="font-size:11px;${freqColor}">${freqLabel}</span>
     <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 async function deleteRecur(id) {
@@ -1747,6 +1961,15 @@ function pickTag(t) {
 // ══════════════════════════════════════════
 // ENTRIES
 // ══════════════════════════════════════════
+function toggleRecurFreq() {
+  const wrap = el('recur-freq-wrap');
+  wrap.style.display = el('ef-recur').checked ? 'flex' : 'none';
+  if (!el('ef-recur').checked) el('ef-recur-month').style.display = 'none';
+}
+function toggleRecurMonth() {
+  el('ef-recur-month').style.display = el('ef-recur-freq').value === 'yearly' ? '' : 'none';
+}
+
 function onTypeChange() {
   const type = el('ef-type').value;
   el('fg-cat').style.display    = type==='expense' ? '' : 'none';
@@ -1812,12 +2035,15 @@ async function addEntry() {
 
   // Save as recurring
   if (el('ef-recur').checked) {
-    const day = parseInt(date.slice(8))||1;
-    const rid = uid();
-    DATA.recurring.push({ id:rid, desc, amount, formula, type, category:entry.category, day });
+    const day  = parseInt(date.slice(8))||1;
+    const freq = el('ef-recur-freq').value || 'monthly';
+    const mon  = freq === 'yearly' ? (parseInt(el('ef-recur-month').value)||parseInt(date.slice(5,7))||1) : null;
+    const rid  = uid();
+    DATA.recurring.push({ id:rid, desc, amount, formula, type, category:entry.category, day, frequency:freq, month:mon });
     entry.recurId = rid;
     el('ef-recur').checked = false;
-    toast('Saved + added to recurring');
+    toggleRecurFreq();
+    toast(`Saved + added to recurring (${freq})`);
   } else {
     toast('Entry saved');  // BUG FIX: always toast, not just when VIEW==='dash'
   }
@@ -1828,8 +2054,8 @@ async function addEntry() {
     entry.accountIdTo = acctTo;
     const from = DATA.accounts.find(x=>x.id===acctId);
     const to   = DATA.accounts.find(x=>x.id===acctTo);
-    if (from) from.balance = +(+from.balance||0 - amount).toFixed(2);
-    if (to)   to.balance   = +(+to.balance  ||0 + amount).toFixed(2);
+    if (from) from.balance = +((+from.balance||0) - amount).toFixed(2);
+    if (to)   to.balance   = +((+to.balance  ||0) + amount).toFixed(2);
   } else if (acctId) {
     const a = DATA.accounts.find(x=>x.id===acctId);
     if (a) {
@@ -1903,7 +2129,12 @@ function renderEntries() {
     const isT   = e.type==='transfer';
     const cls   = isI ? 'amt-p' : (isT ? 'num' : 'amt-n');
     const sign  = isI ? '+' : (isT ? '⇄' : '−');
-    const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
+    let rBadge = '';
+    if (e.recurId) {
+      const rDef = DATA.recurring.find(r=>r.id===e.recurId);
+      const isYearly = rDef && (rDef.frequency||'monthly') === 'yearly';
+      rBadge = `<span class="recur-badge${isYearly?' recur-yearly':''}" title="${isYearly?'Yearly recurring':'Monthly recurring'}">${isYearly?'↻yr':'↻'}</span>`;
+    }
     const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${t}')">${t}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
     const checked = _selEntries.has(e.id) ? 'checked' : '';
@@ -2320,7 +2551,7 @@ function exportExcel() {
       const row=[label];
       for (let m=1;m<=12;m++) {
         const mo=`${yr}-${String(m).padStart(2,'0')}`;
-        const base=label==='Total Income'?DATA.income.amount:0;
+        const base=label==='Total Income'?getMonthIncome(mo).amount:0;
         const inc=base+DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='income').reduce((s,e)=>s+e.amount,0);
         const exp=DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
         if (label==='Total Income') row.push(inc||'');
@@ -2375,6 +2606,151 @@ async function clearAll() {
 }
 
 // ══════════════════════════════════════════
+// IDEAS
+// ══════════════════════════════════════════
+const IDEA_CATS = {
+  save:   { label:'💰 Save money',     color:'var(--Gm)',  bg:'var(--Gbg)' },
+  invest: { label:'📈 Invest',          color:'var(--Bm)',  bg:'var(--Bbg)' },
+  buy:    { label:'🛒 Purchase goal',   color:'var(--Am)',  bg:'var(--Abg)' },
+  goal:   { label:'🎯 Financial goal',  color:'var(--Tm)',  bg:'var(--Tbg)' },
+  other:  { label:'💡 Other',           color:'var(--ink2)',bg:'var(--s2)'  },
+};
+let _ideaFilter = 'all';
+
+function setIdeaFilter(f) {
+  _ideaFilter = f;
+  document.querySelectorAll('#idea-filter-chips .cat-chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.f === f));
+  renderIdeas();
+}
+
+function addIdea() {
+  const title = el('idea-title').value.trim();
+  if (!title) return toast('Enter a title.', 1);
+  const cat   = el('idea-cat').value;
+  const notes = el('idea-notes').value.trim();
+  const amt   = parseFloat(el('idea-amt').value) || null;
+  if (!DATA.ideas) DATA.ideas = [];
+  DATA.ideas.unshift({ id:uid(), title, notes, category:cat, amount:amt, status:'open', date:ymd() });
+  saveLocal(); renderIdeas();
+  el('idea-title').value = ''; el('idea-notes').value = ''; el('idea-amt').value = '';
+  toast('Idea saved');
+}
+
+function ideaSetStatus(id, status) {
+  const idea = DATA.ideas.find(x=>x.id===id); if (!idea) return;
+  idea.status = status; saveLocal(); renderIdeas();
+}
+
+function deleteIdea(id) {
+  showConfirm('Remove idea?', 'This will permanently delete this idea.', () => {
+    DATA.ideas = DATA.ideas.filter(x=>x.id!==id);
+    saveLocal(); renderIdeas();
+  });
+}
+
+function renderIdeas() {
+  if (!DATA.ideas) DATA.ideas = [];
+  const list = el('ideas-list');
+
+  // summary stats (always shown)
+  const open     = DATA.ideas.filter(x=>x.status==='open').length;
+  const done     = DATA.ideas.filter(x=>x.status==='done').length;
+  const totalAmt = DATA.ideas.filter(x=>x.status==='open'&&x.amount).reduce((s,x)=>s+x.amount,0);
+  const statsHTML = (open + done) ? `
+    <div class="stat-grid" style="margin-bottom:12px">
+      <div class="stat"><div class="stat-lbl">Open ideas</div><div class="stat-val cb">${open}</div></div>
+      <div class="stat"><div class="stat-lbl">Done</div><div class="stat-val cg">${done}</div></div>
+      ${totalAmt ? `<div class="stat"><div class="stat-lbl">Est. total (open)</div><div class="stat-val ca">${fmt(totalAmt)}</div></div>` : ''}
+    </div>` : '';
+
+  // filter
+  let filtered = DATA.ideas.filter(x => x.status !== 'dismissed');
+  if (_ideaFilter === 'open')   filtered = filtered.filter(x=>x.status==='open');
+  else if (_ideaFilter === 'done') filtered = filtered.filter(x=>x.status==='done');
+  else if (['save','invest','buy','goal','other'].includes(_ideaFilter))
+    filtered = filtered.filter(x=>x.category===_ideaFilter&&x.status!=='dismissed');
+
+  if (!filtered.length) {
+    list.innerHTML = statsHTML + `<div class="empty">No ideas here yet. Add one above!</div>`;
+    return;
+  }
+
+  list.innerHTML = statsHTML + filtered.map(idea => {
+    const cat  = IDEA_CATS[idea.category] || IDEA_CATS.other;
+    const isDone = idea.status === 'done';
+    return `<div class="idea-card ${isDone?'done':''}" data-idea="${idea.id}">
+      <div class="idea-icon">${cat.label.split(' ')[0]}</div>
+      <div class="idea-body">
+        <div class="idea-title${isDone?' done-txt':''}" ondblclick="editIdeaField('${idea.id}','title',this)" title="Double-click to edit">${escHtml(idea.title)}</div>
+        <div class="idea-notes" ondblclick="editIdeaField('${idea.id}','notes',this)" title="Double-click to edit">${idea.notes ? escHtml(idea.notes) : '<span class="muted" style="font-size:11px">Add notes…</span>'}</div>
+        <div class="idea-meta">
+          <select class="idea-cat-select" onchange="ideaChangeCategory('${idea.id}',this.value)" style="font-size:10px;padding:2px 6px;border-radius:20px;background:${cat.bg};color:${cat.color};border:.5px solid transparent;font-weight:600;cursor:pointer">
+            ${Object.entries(IDEA_CATS).map(([k,v])=>`<option value="${k}"${idea.category===k?' selected':''}>${v.label}</option>`).join('')}
+          </select>
+          <span class="idea-amt" ondblclick="editIdeaField('${idea.id}','amount',this)" title="Double-click to edit">${idea.amount ? fmt(idea.amount) : '<span class="muted" style="font-size:11px">+ amount</span>'}</span>
+          <span class="idea-date">${idea.date}</span>
+          ${isDone ? `<span style="font-size:11px;color:var(--Gm);font-weight:600">✓ Done</span>` : ''}
+        </div>
+      </div>
+      <div class="idea-actions">
+        ${!isDone ? `<button class="btn xs success" onclick="ideaSetStatus('${idea.id}','done')" title="Mark done">✓</button>` : ''}
+        ${isDone  ? `<button class="btn xs ghost"   onclick="ideaSetStatus('${idea.id}','open')" title="Reopen">↩</button>` : ''}
+        <button class="btn xs ghost" onclick="ideaSetStatus('${idea.id}','dismissed')" title="Dismiss">–</button>
+        <button class="btn xs danger" onclick="deleteIdea('${idea.id}')" title="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function ideaChangeCategory(id, cat) {
+  const idea = DATA.ideas.find(x=>x.id===id); if (!idea) return;
+  idea.category = cat; saveLocal(); renderIdeas();
+}
+
+function editIdeaField(id, field, el_) {
+  const idea = DATA.ideas.find(x=>x.id===id); if (!idea) return;
+  const cur  = idea[field] || '';
+
+  if (field === 'notes') {
+    const ta = document.createElement('textarea');
+    ta.className = 'notes-ta'; ta.style.minHeight = '52px'; ta.style.width = '100%'; ta.style.marginTop = '4px';
+    ta.value = cur;
+    el_.replaceWith(ta); ta.focus(); ta.select();
+    const save = () => {
+      idea.notes = ta.value.trim(); saveLocal();
+      const div = document.createElement('div');
+      div.className = 'idea-notes'; div.setAttribute('ondblclick', `editIdeaField('${id}','notes',this)`);
+      div.title = 'Double-click to edit';
+      div.innerHTML = idea.notes ? escHtml(idea.notes) : '<span class="muted" style="font-size:11px">Add notes…</span>';
+      ta.replaceWith(div);
+    };
+    ta.addEventListener('blur', save);
+    ta.addEventListener('keydown', e => { if (e.key==='Escape') save(); });
+    return;
+  }
+
+  const inp = document.createElement('input');
+  inp.type  = field === 'amount' ? 'number' : 'text';
+  inp.step  = '0.01'; inp.min = '0';
+  inp.value = field === 'amount' ? (cur || '') : cur;
+  inp.className = 'edit-in'; inp.style.width = '100%';
+  el_.replaceWith(inp); inp.focus(); inp.select();
+
+  const save = () => {
+    if (field === 'amount') idea.amount = parseFloat(inp.value) || null;
+    else idea[field] = inp.value.trim() || idea[field];
+    saveLocal(); renderIdeas();
+  };
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') inp.blur(); if (e.key==='Escape') renderIdeas(); });
+}
+
+// ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
@@ -2382,7 +2758,8 @@ document.addEventListener('keydown', e => {
   if (e.key==='1') nav('dash');
   if (e.key==='2') nav('entries');
   if (e.key==='3') nav('grocery');
-  if (e.key==='4') nav('settings');
+  if (e.key==='4') nav('ideas');
+  if (e.key==='5') nav('settings');
   if (e.key==='w' && VIEW==='dash') openWhatIf();
   if (e.key==='Escape') closeWhatIf();
   if (e.key==='d'&&e.metaKey) { e.preventDefault(); toggleTheme(); }
