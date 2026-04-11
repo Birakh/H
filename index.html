@@ -303,6 +303,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .stat.danger-hi{background:var(--Rbg)}
 .stat.danger-hi .stat-val{color:var(--Rm)}
 
+/* ── NEW FEATURES ── */
+#income-saved-lbl{pointer-events:none;white-space:nowrap}
+#toast button.undo-btn{background:rgba(255,255,255,.18);border:none;border-radius:4px;color:inherit;font-size:12px;padding:3px 10px;cursor:pointer;margin-left:10px;font-family:var(--ff);font-weight:500}
+#toast button.undo-btn:hover{background:rgba(255,255,255,.3)}
+.stat-delta{font-size:10px;margin-top:3px;font-family:var(--mono);opacity:.8}
+.stat-delta.up{color:var(--Gm)}.stat-delta.dn{color:var(--Rm)}.stat-delta.neu{color:var(--ink3)}
+.quick-add-row td{background:color-mix(in srgb,var(--Bbg) 50%,transparent)!important;padding:4px 6px}
+.quick-add-row input,.quick-add-row select{font-size:12px;padding:3px 6px;border-radius:3px;border:.5px solid var(--bdr2);background:var(--s0);color:var(--ink);width:100%;outline:none}
+.quick-add-row input:focus,.quick-add-row select:focus{border-color:var(--Bm)}
+.split-entry-form{background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-top:8px;display:none}
+.split-entry-form.open{display:block}
+.gr-edit-input{width:72px;font-family:var(--mono);font-size:12px;padding:2px 5px;border:.5px solid var(--bdr2);border-radius:3px;background:var(--s0);color:var(--ink);outline:none;text-align:right}
+.gr-edit-input:focus{border-color:var(--Bm);box-shadow:0 0 0 2px rgba(42,108,203,.1)}
+.store-tip{font-size:10px;font-family:var(--mono);display:block;margin-top:2px}
+.store-tip.cheaper{color:var(--Gm)}.store-tip.pricier{color:var(--Rm)}
+.sparkline{display:inline-block;vertical-align:middle}
+
 </style>
 </head>
 <body>
@@ -412,11 +429,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
         <div>
           <label>Monthly income</label>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
             <input type="text" id="d-income" placeholder="3400 or =40*85"
               style="width:185px;font-family:var(--mono);font-size:16px;font-weight:500"
-              oninput="onIncomeInput()" onblur="onIncomeBlur()">
+              oninput="onIncomeInput()" onkeydown="if(event.key==='Enter')saveMonthIncome()">
+            <button class="btn xs primary" onclick="saveMonthIncome()">Save</button>
+            <span id="income-saved-lbl" style="font-size:11px;color:var(--Gm);opacity:0;transition:opacity .4s"></span>
+          </div>
+          <div style="margin-top:5px;display:flex;align-items:center;gap:10px">
             <span style="font-size:11px;color:var(--ink3)">=expr ok</span>
+            <button class="btn ghost xs" onclick="copyIncomeFromLastMonth()" style="font-size:11px;padding:2px 8px">↑ Copy from last month</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -524,9 +546,29 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" onclick="addEntry()">Add entry</button>
+          <button class="btn xs info" id="split-btn" onclick="toggleSplitForm()">⊕ Split</button>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
             <input type="checkbox" id="ef-recur"> Save as recurring (monthly)
           </label>
+        </div>
+        <!-- Split entry form -->
+        <div class="split-entry-form" id="split-form">
+          <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Split into two categories — both parts share the same description, date &amp; account</div>
+          <div class="g2">
+            <div class="fg" style="margin:0"><label>Part 1 — Amount &amp; Category</label>
+              <div style="display:flex;gap:6px">
+                <input type="text" id="sp-amt1" placeholder="Amount" style="flex:1;font-family:var(--mono)" oninput="onSplitInput(1)">
+                <select id="sp-cat1" style="flex:1"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option></select>
+              </div>
+            </div>
+            <div class="fg" style="margin:0"><label>Part 2 — Amount &amp; Category</label>
+              <div style="display:flex;gap:6px">
+                <input type="text" id="sp-amt2" placeholder="Auto-fill remainder" style="flex:1;font-family:var(--mono)" oninput="onSplitInput(2)">
+                <select id="sp-cat2" style="flex:1"><option value="needs">Needs</option><option value="wants" selected>Wants</option><option value="savings">Savings</option></select>
+              </div>
+            </div>
+          </div>
+          <div id="sp-check" style="font-size:11px;margin-top:6px;color:var(--ink3)"></div>
         </div>
       </div>
 
@@ -831,14 +873,25 @@ function parseAmt(s) {
 }
 
 let _toastT;
-function toast(msg, err=0) {
+let _undoCb = null;
+function toast(msg, err=0, undoCb=null) {
   const t = el('toast');
-  t.textContent = msg;
+  _undoCb = undoCb;
+  if (undoCb) {
+    t.innerHTML = `<span>${msg}</span><button class="undo-btn" onclick="undoAction()">Undo</button>`;
+  } else {
+    t.textContent = msg;
+  }
   t.style.background = err ? '#b83535' : (isDark() ? '#e8e7e0' : '#17160f');
   t.style.color      = err ? '#fff'    : (isDark() ? '#17160f' : '#f4f3ee');
   t.classList.add('show');
   clearTimeout(_toastT);
-  _toastT = setTimeout(() => t.classList.remove('show'), 3200);
+  _toastT = setTimeout(() => { t.classList.remove('show'); _undoCb = null; }, undoCb ? 5000 : 3200);
+}
+function undoAction() {
+  if (_undoCb) { const cb = _undoCb; _undoCb = null; cb(); }
+  clearTimeout(_toastT);
+  el('toast').classList.remove('show');
 }
 
 function dl(content, name, type) {
@@ -1078,6 +1131,7 @@ function migrate(d) {
   });
   d.recurring?.forEach(r => { if (r.formula === '') r.formula = null; });
   d.grocery?.forEach(g => { if (!g.category) g.category = 'other'; });
+  d.catalog?.forEach(c => { if (!c.priceHistory) c.priceHistory = []; });
   return d;
 }
 
@@ -1124,9 +1178,9 @@ function boot() {
   setMonthSelects(savedMonth);
   _entryMonthVal = savedMonth;
   el('ef-date').value = defaultEntryDate();
-  // load income for current month
-  const { amount, formula } = getMonthIncome(savedMonth);
-  el('d-income').value = formula || (amount > 0 ? amount : '');
+  // Only pre-fill income if this month has an explicit saved value — blank for new months
+  const inc = DATA.incomes[savedMonth];
+  el('d-income').value = inc ? (inc.formula || (inc.amount > 0 ? inc.amount : '')) : '';
   updateCatalogInfo();
   renderSplitsUI();
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
@@ -1157,14 +1211,37 @@ function render() { RENDERS[VIEW]?.(); }
 // OVERVIEW
 // ══════════════════════════════════════════
 function onIncomeInput() {
+  // Save immediately so bars stay in sync, Save button is just an intentional UX confirmation
   const month = curMonth();
   const { amount, formula } = parseAmt(el('d-income').value);
   setMonthIncome(month, amount, formula);
   saveLocal();
   renderSplitBars();
 }
-function onIncomeBlur() {
+
+function saveMonthIncome() {
+  const month = curMonth();
+  const { amount, formula } = parseAmt(el('d-income').value);
+  setMonthIncome(month, amount, formula);
+  saveLocal();
   renderDash();
+  const lbl = el('income-saved-lbl');
+  const mName = MS[parseInt(month.slice(5))-1];
+  lbl.textContent = `✓ Saved for ${mName}`;
+  lbl.style.opacity = '1';
+  setTimeout(() => { lbl.style.opacity = '0'; }, 2200);
+}
+
+function copyIncomeFromLastMonth() {
+  const month = curMonth();
+  const [yr, mo] = month.split('-').map(Number);
+  const prev = new Date(yr, mo - 2, 1);
+  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const prevInc = DATA.incomes[prevMon];
+  if (!prevInc || (!prevInc.amount && !prevInc.formula)) return toast(`No income saved for ${prevMon}`, 1);
+  el('d-income').value = prevInc.formula || (prevInc.amount > 0 ? prevInc.amount : '');
+  onIncomeInput();
+  toast(`Copied from ${prevMon}`);
 }
 
 // Returns the default date for a new entry: today if viewing current month, else 1st of viewed month
@@ -1177,8 +1254,9 @@ function defaultEntryDate() {
 function onMonthChange() {
   const m = curMonth();
   localStorage.setItem(LS_MONTH, m);
-  const { amount, formula } = getMonthIncome(m);
-  el('d-income').value = formula || (amount > 0 ? amount : '');
+  // Only pre-fill if this month has an explicit saved income — blank for new months
+  const inc = DATA.incomes[m];
+  el('d-income').value = inc ? (inc.formula || (inc.amount > 0 ? inc.amount : '')) : '';
   // keep entry date in sync with viewed month
   el('ef-date').value = defaultEntryDate();
   renderDash();
@@ -1216,12 +1294,35 @@ function renderDash() {
   // banners
   renderDashBanners(month, act, totalInc);
 
+  // Net worth across all accounts
+  const netWorth = DATA.accounts.reduce((s, a) => s + computeAcctBalance(a), 0);
+  const nwStat = DATA.accounts.length
+    ? `<div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val ${netWorth>=0?'cg':'cr'}">${fmt(netWorth)}</div></div>`
+    : '';
+
+  // Month-over-month comparison
+  const prevDate = new Date(mYr, mMo - 2, 1);
+  const prevMon  = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+  const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevInc  = getMonthIncome(prevMon).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevSpent= prevMes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const prevLeft = prevInc - prevSpent;
+  function momDelta(curr, prev, invertColor) {
+    if (prev === 0) return '';
+    const d = curr - prev;
+    if (Math.abs(d) < 0.01) return `<div class="stat-delta neu">= same as ${prevMon}</div>`;
+    const up = d > 0;
+    const good = invertColor ? !up : up; // for "spent", up is bad
+    return `<div class="stat-delta ${good?'up':'dn'}">${up?'↑':'↓'} ${fmt(Math.abs(d))} vs ${prevMon}</div>`;
+  }
+
   const leftClass = left >= 0 ? 'highlight' : 'danger-hi';
   el('d-stats').innerHTML = `
-    <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div></div>
-    <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(spent)}</div></div>
-    <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div></div>
-    <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : 'Savings rate'}</div><div class="stat-val ${isCurrentMonth ? (dailyLeft>=0?'cg':'cr') : (savePct>=0?'cg':'cr')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','') + '/d' : savePct+'%'}</div></div>`;
+    <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
+    <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
+    <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
+    <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : 'Savings rate'}</div><div class="stat-val ${isCurrentMonth ? (dailyLeft>=0?'cg':'cr') : (savePct>=0?'cg':'cr')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','') + '/d' : savePct+'%'}</div></div>
+    ${nwStat}`;
 
   renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
   renderCatBars(mes);
@@ -1915,6 +2016,20 @@ async function addEntry() {
   if (pendingTag && !_curTags.includes(pendingTag)) _curTags.push(pendingTag);
   el('tags-input').value = '';
 
+  // Handle split entry
+  if (_splitActive) {
+    const p1 = evalExpr(el('sp-amt1').value);
+    const p2 = evalExpr(el('sp-amt2').value);
+    if (!p1 || !p2) return toast('Enter both split amounts.', 1);
+    if (Math.abs(p1 + p2 - amount) > 0.01) return toast('Split amounts must total the entry amount.', 1);
+    const cat1 = el('sp-cat1').value, cat2 = el('sp-cat2').value;
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p1, formula:null, type:'expense', category:cat1, tags:[..._curTags], accountId:acctId, recurId:null });
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p2, formula:null, type:'expense', category:cat2, tags:[..._curTags], accountId:acctId, recurId:null });
+    toast(`Split saved — ${fmt(p1)} ${cat1} + ${fmt(p2)} ${cat2}`);
+    // reset split form
+    el('sp-amt1').value=''; el('sp-amt2').value=''; el('sp-check').textContent='';
+    toggleSplitForm();
+  } else {
   const entry = {
     id:uid(), date, desc, amount, formula, type,
     category: type==='expense' ? cat : type,
@@ -1946,6 +2061,7 @@ async function addEntry() {
     const m = DATA.grocery.find(g=>!g.bought&&g.name.toLowerCase()===desc.toLowerCase());
     if (m) { m.bought=true; m.boughtDate=date; }
   }
+  } // end split else
 
   saveLocal();
   el('ef-amt').value=''; el('ef-desc').value='';
@@ -1955,8 +2071,15 @@ async function addEntry() {
 }
 
 async function deleteEntry(id) {
-  DATA.entries = DATA.entries.filter(e=>e.id!==id);
+  const entry = DATA.entries.find(e => e.id === id);
+  if (!entry) return;
+  const idx = DATA.entries.indexOf(entry);
+  DATA.entries = DATA.entries.filter(e => e.id !== id);
   saveLocal(); render();
+  toast('Entry deleted', 0, () => {
+    DATA.entries.splice(idx, 0, entry);
+    saveLocal(); render(); toast('Entry restored');
+  });
 }
 
 function makeEditable(td, id, field, cur) {
@@ -1997,14 +2120,31 @@ function renderEntries() {
   if (fS) list=list.filter(e=>(e.desc||'').toLowerCase().includes(fS)||e.category.includes(fS));
 
   if (!list.length) {
-    el('ent-body').innerHTML='<tr><td colspan="8" class="empty">No entries.</td></tr>';
+    el('ent-body').innerHTML=`<tr class="quick-add-row"><td></td>
+      <td><input id="qa-date" type="date" value="${ymd()}"></td>
+      <td><input id="qa-desc" type="text" placeholder="Description…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+      <td><input id="qa-amt" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+      <td><select id="qa-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
+      <td colspan="2"></td>
+      <td><button class="btn xs success" onclick="quickAdd()" title="Add (Enter)">+</button></td>
+    </tr><tr><td colspan="8" class="empty">No entries.</td></tr>`;
     return;
   }
 
   const sI=list.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const sE=list.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
 
-  el('ent-body').innerHTML = list.map(e => {
+  const qaRow = `<tr class="quick-add-row">
+    <td></td>
+    <td><input id="qa-date" type="date" value="${defaultEntryDate()}"></td>
+    <td><input id="qa-desc" type="text" placeholder="Quick add…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+    <td><input id="qa-amt" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+    <td><select id="qa-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
+    <td colspan="2" style="color:var(--ink3);font-size:11px">↵ Enter to add</td>
+    <td><button class="btn xs success" onclick="quickAdd()" title="Add (Enter)">+</button></td>
+  </tr>`;
+
+  el('ent-body').innerHTML = qaRow + list.map(e => {
     const isI   = e.type==='income';
     const isT   = e.type==='transfer';
     const cls   = isI ? 'amt-p' : (isT ? 'num' : 'amt-n');
@@ -2023,7 +2163,7 @@ function renderEntries() {
       <td><span class="badge ${e.category}">${e.category}</span></td>
       <td>${tagChips}${tagEditBtn}</td>
       <td>${e.formula?`<span class="formula-pill">${e.formula}</span>`:'<span class="muted">—</span>'}</td>
-      <td><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
+      <td><button class="btn xs ghost" onclick="duplicateEntry('${e.id}')" title="Duplicate entry" style="margin-right:2px">⧉</button><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
   }).join('') + `<tr class="trow-sum">
     <td></td>
@@ -2066,7 +2206,93 @@ function bulkDelete() {
   });
 }
 
-// ── INLINE TAG EDIT ─────────────────────────────────────────────────────────
+// ── DUPLICATE ENTRY ────────────────────────────────────────────────────────
+function duplicateEntry(id) {
+  const orig = DATA.entries.find(e => e.id === id);
+  if (!orig) return;
+  const copy = { ...orig, id: uid(), date: ymd() };
+  DATA.entries.unshift(copy);
+  saveLocal(); renderEntries();
+  toast('Entry duplicated — edit as needed');
+}
+
+// ── SPLIT ENTRY ─────────────────────────────────────────────────────────────
+let _splitActive = false;
+function toggleSplitForm() {
+  _splitActive = !_splitActive;
+  el('split-form').classList.toggle('open', _splitActive);
+  el('split-btn').textContent = _splitActive ? '✕ Cancel split' : '⊕ Split';
+  if (_splitActive) el('sp-amt1').focus();
+}
+function onSplitInput(changed) {
+  const total = evalExpr(el('ef-amt').value);
+  if (!total) return;
+  if (changed === 1) {
+    const p1 = evalExpr(el('sp-amt1').value);
+    const rem = Math.max(0, +(total - p1).toFixed(2));
+    if (rem >= 0) el('sp-amt2').value = rem || '';
+  }
+  const p1 = evalExpr(el('sp-amt1').value);
+  const p2 = evalExpr(el('sp-amt2').value);
+  const sum = +(p1 + p2).toFixed(2);
+  const ok  = Math.abs(sum - total) < 0.01;
+  el('sp-check').textContent = total > 0
+    ? (ok ? `✓ ${fmt(p1)} + ${fmt(p2)} = ${fmt(total)}`
+          : `${fmt(p1)} + ${fmt(p2)} = ${fmt(sum)} (need ${fmt(total)})`)
+    : '';
+  el('sp-check').style.color = ok ? 'var(--Gm)' : 'var(--Rm)';
+}
+
+// ── INLINE QUICK-ADD ────────────────────────────────────────────────────────
+function quickAdd() {
+  const date   = el('qa-date')?.value || ymd();
+  const desc   = el('qa-desc')?.value.trim() || '';
+  const amtRaw = el('qa-amt')?.value.trim() || '';
+  if (!amtRaw) { el('qa-amt')?.focus(); return; }
+  const { amount, formula } = parseAmt(amtRaw);
+  if (!amount || amount <= 0) return toast('Invalid amount', 1);
+  const cat  = el('qa-cat')?.value || 'needs';
+  const type = cat === 'income' ? 'income' : 'expense';
+  DATA.entries.unshift({ id:uid(), date, desc, amount, formula, type,
+    category: type === 'expense' ? cat : 'income', tags:[], recurId:null });
+  saveLocal(); renderEntries(); toast('Added');
+}
+
+// ── GROCERY INLINE EDIT ─────────────────────────────────────────────────────
+function updateGroceryField(id, field, val) {
+  const g = DATA.grocery.find(x => x.id === id);
+  if (!g) return;
+  g[field] = val;
+  if (field === 'price' && val > 0) {
+    const cat = DATA.catalog.find(c => c.name.toLowerCase() === g.name.toLowerCase());
+    if (cat) {
+      cat.lastPrice = val; cat.lastDate = ymd();
+      if (!cat.priceHistory) cat.priceHistory = [];
+      cat.priceHistory.push({ price: val, date: ymd(), store: g.store || '' });
+      if (cat.priceHistory.length > 12) cat.priceHistory.shift();
+    }
+  }
+  saveLocal(); renderGrocery();
+}
+
+// ── SPARKLINE ───────────────────────────────────────────────────────────────
+function sparklineSVG(history) {
+  if (!history || history.length < 2) return '';
+  const prices = history.map(h => h.price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = max - min || 1;
+  const W = 48, H = 18;
+  const pts = prices.map((p, i) => {
+    const x = Math.round(i / (prices.length - 1) * (W - 2)) + 1;
+    const y = Math.round(H - 2 - ((p - min) / range) * (H - 4)) + 1;
+    return `${x},${y}`;
+  }).join(' ');
+  const lastUp = prices[prices.length - 1] > prices[prices.length - 2];
+  const col = lastUp ? 'var(--Rm)' : 'var(--Gm)';
+  return `<svg class="sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" title="Price history">
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
 function editEntryTags(id) {
   const e = DATA.entries.find(x=>x.id===id); if(!e) return;
   const current = (e.tags||[]).join(', ');
@@ -2121,7 +2347,7 @@ async function applyColMap() {
     name:String(row[ni]||'').trim(),
     price:pi>=0?parseFloat(String(row[pi]).replace(',','.'))||0:0,
     store:si>=0?String(row[si]||'').trim():'',
-    lastPrice:null, lastDate:null
+    lastPrice:null, lastDate:null, priceHistory:[]
   })).filter(r=>r.name);
   el('col-map-ui').style.display='none';
   updateCatalogInfo(); saveLocal();
@@ -2199,10 +2425,15 @@ async function addShopItem() {
     qty:parseInt(el('gr-qty').value)||1,
     price, bought:false, boughtDate:null
   });
-  // update catalog lastPrice
+  // update catalog lastPrice and price history
   if (price) {
     const cat=DATA.catalog.find(c=>c.name.toLowerCase()===name.toLowerCase());
-    if (cat) { cat.lastPrice=price; cat.lastDate=ymd(); }
+    if (cat) {
+      cat.lastPrice=price; cat.lastDate=ymd();
+      if (!cat.priceHistory) cat.priceHistory=[];
+      cat.priceHistory.push({price, date:ymd(), store:el('gr-store').value.trim()||''});
+      if (cat.priceHistory.length>12) cat.priceHistory.shift();
+    }
   }
   saveLocal();
   el('gr-search').value=''; el('gr-price').value=''; el('gr-qty').value='1';
@@ -2216,13 +2447,25 @@ async function toggleGrocery(id) {
   // update catalog lastPrice on purchase
   if (g.bought && g.price) {
     const cat=DATA.catalog.find(c=>c.name.toLowerCase()===g.name.toLowerCase());
-    if (cat) { cat.lastPrice=g.price; cat.lastDate=g.boughtDate; }
+    if (cat) {
+      cat.lastPrice=g.price; cat.lastDate=g.boughtDate;
+      if (!cat.priceHistory) cat.priceHistory=[];
+      cat.priceHistory.push({price:g.price, date:g.boughtDate, store:g.store||''});
+      if (cat.priceHistory.length>12) cat.priceHistory.shift();
+    }
   }
   saveLocal(); renderGrocery();
 }
 async function deleteGrocery(id) {
-  DATA.grocery=DATA.grocery.filter(g=>g.id!==id);
+  const item = DATA.grocery.find(g => g.id === id);
+  if (!item) return;
+  const idx = DATA.grocery.indexOf(item);
+  DATA.grocery = DATA.grocery.filter(g => g.id !== id);
   saveLocal(); renderGrocery();
+  toast('Item removed', 0, () => {
+    DATA.grocery.splice(idx, 0, item);
+    saveLocal(); renderGrocery(); toast('Item restored');
+  });
 }
 async function clearBought() {
   if (!DATA.grocery.some(g=>g.bought)) return toast('No bought items.');
@@ -2247,18 +2490,53 @@ function renderGrocery() {
   }
   el('gr-body').innerHTML=show.map(g=>{
     const cat=DATA.catalog.find(c=>c.name.toLowerCase()===g.name.toLowerCase());
+
+    // Sparkline from price history
+    const spark = sparklineSVG(cat?.priceHistory);
+
+    // Price trend badge (vs catalog lastPrice)
     let trendCell='—';
-    if (cat?.lastPrice && g.price && Math.abs((g.price-cat.lastPrice)/cat.lastPrice)>0.01) {
+    if (cat?.lastPrice && g.price && cat.priceHistory?.length >= 2) {
+      trendCell = spark || '—';
+    } else if (cat?.lastPrice && g.price && Math.abs((g.price-cat.lastPrice)/cat.lastPrice)>0.01) {
       const up=g.price>cat.lastPrice;
       trendCell=`<span class="${up?'price-up':'price-dn'}">${up?'↑':'↓'}${Math.abs(((g.price-cat.lastPrice)/cat.lastPrice)*100).toFixed(0)}%</span>`;
-    } else if (cat?.lastPrice) { trendCell='<span class="muted">—</span>'; }
+    } else if (cat?.priceHistory?.length >= 2) {
+      trendCell = spark;
+    }
+
+    // Store comparison: find cheapest store from price history
+    let storeTip = '';
+    if (cat?.priceHistory?.length >= 2) {
+      const byStore = {};
+      cat.priceHistory.forEach(h => {
+        if (h.store) {
+          if (!byStore[h.store] || h.price < byStore[h.store]) byStore[h.store] = h.price;
+        }
+      });
+      const stores = Object.entries(byStore).sort((a,b)=>a[1]-b[1]);
+      if (stores.length >= 2 && g.store) {
+        const cheapest = stores[0];
+        const currentStorePrice = byStore[g.store];
+        if (cheapest[0] !== g.store && currentStorePrice) {
+          storeTip = `<span class="store-tip pricier">cheaper at ${cheapest[0]}: ${fmt(cheapest[1])}</span>`;
+        } else if (cheapest[0] === g.store) {
+          storeTip = `<span class="store-tip cheaper">✓ cheapest store</span>`;
+        }
+      } else if (stores.length >= 2 && !g.store) {
+        storeTip = `<span class="store-tip cheaper">best: ${stores[0][0]} ${fmt(stores[0][1])}</span>`;
+      }
+    }
+
     return `<tr>
       <td><input type="checkbox" class="gcheck" ${g.bought?'checked':''} onchange="toggleGrocery('${g.id}')"></td>
       <td class="${g.bought?'strike muted':''}">${g.name}</td>
       <td style="font-size:11px;color:var(--ink3)">${GR_CATS[g.category]||g.category}</td>
-      <td class="muted">${g.store||'—'}</td>
-      <td class="num">${g.qty}</td>
-      <td class="num">${g.price?fmt(g.price):'—'}</td>
+      <td class="muted" style="font-size:12px">${g.store||'—'}${storeTip}</td>
+      <td><input class="gr-edit-input" type="number" value="${g.qty}" min="1" step="1" style="width:45px"
+        onchange="updateGroceryField('${g.id}','qty',Math.max(1,+this.value||1))"></td>
+      <td><input class="gr-edit-input" type="text" value="${g.price||''}" placeholder="—"
+        style="width:65px" onchange="updateGroceryField('${g.id}','price',parseFloat(this.value.replace(',','.'))||0)"></td>
       <td class="num ${g.bought?'muted':''}">${g.price?fmt(g.qty*g.price):'—'}</td>
       <td>${trendCell}</td>
       <td class="num muted">${g.boughtDate||'—'}</td>
@@ -2498,8 +2776,9 @@ document.addEventListener('keydown', e => {
   if (e.key==='2') nav('entries');
   if (e.key==='3') nav('grocery');
   if (e.key==='4') nav('settings');
+  if (e.key==='n') { nav('entries'); setTimeout(() => { el('qa-desc')?.focus() || el('ef-desc')?.focus(); }, 60); }
   if (e.key==='w' && VIEW==='dash') openWhatIf();
-  if (e.key==='Escape') closeWhatIf();
+  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); }
   if (e.key==='d'&&e.metaKey) { e.preventDefault(); toggleTheme(); }
 });
 </script>
