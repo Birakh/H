@@ -1283,6 +1283,7 @@ function updateBalancePreview() {
       + `<strong style="color:${afterCl}">${fmt(after)}</strong>`
     : `<span style="color:var(--ink2)">${acct.name} current balance: </span><strong>${fmt(current)}</strong>`;
 }
+function renderAccountCards() {
   const accts = DATA.accounts;
   if (!accts.length) { el('d-account-cards').innerHTML=''; return; }
   el('d-account-cards').innerHTML = `<div class="acct-grid">${
