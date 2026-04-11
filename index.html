@@ -196,8 +196,7 @@ tr:hover td{background:rgba(128,128,0,.03)}
 .tags-input{border:none;background:transparent;outline:none;font-size:13px;min-width:80px;color:var(--ink);padding:2px 0}
 
 /* settings */
-.split-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.split-row label{min-width:90px;margin:0;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400}
+.split-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}.split-row label{min-width:90px;margin:0;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400}
 .split-bar{flex:1;height:6px;border-radius:100px;background:var(--s2)}
 .split-fill{height:100%;border-radius:100px;transition:width .3s}
 .goal-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -222,6 +221,30 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
   th,td{padding:7px 9px;font-size:12px}
   .stat-grid{grid-template-columns:1fr 1fr}
   .h-right .sync-badge{display:none}
+}
+
+/* confirm modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--s0);border:.5px solid var(--bdr2);border-radius:14px;padding:24px 22px;width:min(400px,100%);box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+.modal-body{font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* account inline form */
+.acct-add-form{background:var(--s1);border-radius:var(--rs);padding:12px;margin-top:10px;display:none}
+.acct-add-form.open{display:block}
+.acct-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--bdr)}
+.acct-row:last-child{border-bottom:none}
+
+/* bulk select */
+.bulk-bar{display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--Bbg);border-radius:var(--rs);margin-bottom:10px;font-size:13px;color:var(--B)}
+.bulk-bar.show{display:flex}
+input[type=checkbox].row-sel{width:15px;height:15px;cursor:pointer;accent-color:var(--Bm)}
+
+/* mobile grocery — hide less-important columns */
+@media(max-width:600px){
+  .gr-hide-mob{display:none}
 }
 </style>
 </head>
@@ -285,6 +308,18 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
     </div>
   </header>
   <div id="toast"></div>
+
+  <!-- Confirm modal (replaces native confirm()) -->
+  <div class="modal-overlay" id="confirm-overlay" onclick="if(event.target===this)closeConfirm()">
+    <div class="modal-box">
+      <div class="modal-title" id="confirm-title"></div>
+      <div class="modal-body" id="confirm-body"></div>
+      <div class="modal-actions">
+        <button class="btn sm" onclick="closeConfirm()">Cancel</button>
+        <button class="btn sm primary" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
   <main>
 
     <!-- OVERVIEW -->
@@ -368,6 +403,9 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
           <div class="fg" id="fg-acct" style="margin:0"><label>Account</label>
             <select id="ef-acct"><option value="">No account</option></select>
           </div>
+          <div class="fg" id="fg-acct-to" style="margin:0;display:none"><label>To account <span class="muted" style="text-transform:none;letter-spacing:0">(transfer destination)</span></label>
+            <select id="ef-acct-to"><option value="">Select account</option></select>
+          </div>
           <div class="fg" style="margin:0">
             <label>Tags <span class="muted" style="text-transform:none;letter-spacing:0">(press Enter or comma)</span></label>
             <div class="tags-input-wrap" id="tags-wrap" onclick="el('tags-input').focus()">
@@ -392,6 +430,12 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
         <div id="recur-list"></div>
       </div>
 
+      <div class="bulk-bar" id="bulk-bar">
+        <span id="bulk-count"></span>
+        <button class="btn xs danger" onclick="bulkDelete()">Delete selected</button>
+        <button class="btn xs ghost" onclick="clearSelection()">Clear</button>
+      </div>
+
       <div class="toolbar">
         <select id="ef-fm" style="width:auto" onchange="renderEntries()"><option value="">All months</option></select>
         <select id="ef-fc" style="width:auto" onchange="renderEntries()">
@@ -405,6 +449,7 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
 
       <div class="tbl-wrap"><table>
         <thead><tr>
+          <th style="width:28px"><input type="checkbox" class="row-sel" id="sel-all" onchange="toggleSelectAll(this.checked)"></th>
           <th>Date</th><th>Description</th><th>Amount</th>
           <th>Category</th><th>Tags</th><th>Formula</th><th></th>
         </tr></thead>
@@ -480,8 +525,8 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
 
       <div class="tbl-wrap"><table>
         <thead><tr>
-          <th style="width:28px"></th><th>Item</th><th>Category</th>
-          <th>Store</th><th>Qty</th><th>Unit</th><th>Total</th><th>Price trend</th><th>Bought</th><th></th>
+          <th style="width:28px"></th><th>Item</th><th class="gr-hide-mob">Category</th>
+          <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob">Bought</th><th></th>
         </tr></thead>
         <tbody id="gr-body"></tbody>
       </table></div>
@@ -501,10 +546,21 @@ hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
       <div class="card">
         <div class="card-title">
           Accounts
-          <button class="btn xs success" onclick="addAccount()">+ Add</button>
+          <button class="btn xs success" onclick="toggleAcctForm()">+ Add</button>
+        </div>
+        <div class="acct-add-form" id="acct-add-form">
+          <div class="g3" style="margin-bottom:10px">
+            <div class="fg" style="margin:0"><label>Account name</label><input type="text" id="acct-name" placeholder="Erste Konto"></div>
+            <div class="fg" style="margin:0"><label>Bank</label><input type="text" id="acct-bank" placeholder="Erste / Raiffeisen"></div>
+            <div class="fg" style="margin:0"><label>Opening balance (€)</label><input type="number" id="acct-bal" placeholder="0.00" step="0.01" style="width:100%"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" onclick="saveNewAccount()">Add account</button>
+            <button class="btn sm ghost" onclick="toggleAcctForm()">Cancel</button>
+          </div>
         </div>
         <div id="acct-list"></div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Account balances are set manually. Link entries to accounts for tracking.</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Balances update automatically when entries are linked to an account.</div>
       </div>
 
       <div class="card">
@@ -646,6 +702,8 @@ function dl(content, name, type) {
 // ══════════════════════════════════════════
 let PAT=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
 let _grCatFilter='all', _curTags=[], _entryMonthVal='';
+let _ddCache={}, _catCache={};   // module-scoped, no window pollution
+let _selEntries=new Set();       // bulk-select state
 const LS_CFG='vf4_cfg', LS_ENC='vf4_enc', LS_DARK='vf4_dark', LS_MONTH='vf4_month';
 
 // ══════════════════════════════════════════
@@ -782,11 +840,18 @@ async function doPush() {
   DATA.meta.lastSync = new Date().toISOString();
   const body = {
     message: `vault sync ${ymd()}`,
-    content: btoa(b64),   // GitHub requires base64(file_content); file_content = our b64 string
+    content: btoa(b64),
     ...(DATA.meta.sha ? { sha: DATA.meta.sha } : {})
   };
   const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT, { method:'PUT', body:JSON.stringify(body) });
-  if (!r.ok) { const e = await r.json(); throw new Error(e.message || `GitHub ${r.status}`); }
+  if (!r.ok) {
+    const e = await r.json();
+    // 409/422 = SHA conflict — remote was updated by another device
+    if (r.status === 409 || r.status === 422 || (e.message||'').toLowerCase().includes('sha')) {
+      throw new Error('Conflict: remote was updated from another device. Pull first to merge, then push.');
+    }
+    throw new Error(e.message || `GitHub ${r.status}`);
+  }
   const j = await r.json();
   DATA.meta.sha = j.content.sha;
   await saveLocalNow();
@@ -798,9 +863,24 @@ async function ghPull() {
   catch(e) { toast(e.message,1); setSyncBadge('error'); }
 }
 async function ghPush() {
-  setSyncBadge('pushing…');
-  try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); updateLastSync(); }
-  catch(e) { toast(e.message,1); setSyncBadge('error'); }
+  // Custom confirmation — safer than one-click overwrite on shared devices
+  showConfirm(
+    'Push to GitHub',
+    'This will overwrite the remote file with your local data. Make sure you have pulled recent changes first.',
+    async () => {
+      setSyncBadge('pushing…');
+      try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); updateLastSync(); }
+      catch(e) {
+        toast(e.message, 1); setSyncBadge('error');
+        // If conflict, offer to pull
+        if (e.message.includes('Conflict')) {
+          setTimeout(() => {
+            showConfirm('Pull first?', 'Pull from GitHub now to get the latest version? Your local changes may be merged.', ghPull);
+          }, 400);
+        }
+      }
+    }
+  );
 }
 function setSyncBadge(s) { el('sync-badge').textContent = s||'idle'; }
 function updateLastSync() {
@@ -1096,8 +1176,11 @@ function renderChart() {
 async function applyRecurring(month) {
   const applied = new Set(DATA.entries.filter(e=>ym(e.date)===month&&e.recurId).map(e=>e.recurId));
   const pending = DATA.recurring.filter(r=>!applied.has(r.id));
+  const [yr, mo] = month.split('-').map(Number);
+  const lastDay  = new Date(yr, mo, 0).getDate(); // last valid day of target month
   pending.forEach(r => {
-    const date = `${month}-${String(r.day||1).padStart(2,'0')}`;
+    const day  = Math.min(r.day||1, lastDay);     // clamp — e.g. Feb has no 31st
+    const date = `${month}-${String(day).padStart(2,'0')}`;
     DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula,
       type:r.type, category:r.category, tags:[], recurId:r.id });
   });
@@ -1173,12 +1256,17 @@ function pickTag(t) {
 // ══════════════════════════════════════════
 function onTypeChange() {
   const type = el('ef-type').value;
-  el('fg-cat').style.display = type==='expense' ? '' : 'none';
+  el('fg-cat').style.display    = type==='expense' ? '' : 'none';
+  el('fg-acct-to').style.display = type==='transfer' ? '' : 'none';
+  if (type==='transfer') refreshAccountSelect(); // ensure to-account is up to date
 }
 
 function refreshAccountSelect() {
-  el('ef-acct').innerHTML = '<option value="">No account</option>' +
-    DATA.accounts.map(a=>`<option value="${a.id}">${a.name} (${a.bank||''})</option>`).join('');
+  const opts = '<option value="">No account</option>' +
+    DATA.accounts.map(a=>`<option value="${a.id}">${a.name}${a.bank?' ('+a.bank+')':''}</option>`).join('');
+  el('ef-acct').innerHTML = opts;
+  el('ef-acct-to').innerHTML = '<option value="">Select destination</option>' +
+    DATA.accounts.map(a=>`<option value="${a.id}">${a.name}${a.bank?' ('+a.bank+')':''}</option>`).join('');
 }
 
 function descSearch() {
@@ -1186,10 +1274,10 @@ function descSearch() {
   if (!q||!DATA.catalog.length) { dd.classList.remove('open'); return; }
   const hits = DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,10);
   if (!hits.length) { dd.classList.remove('open'); return; }
-  // use index cache — avoids JSON.stringify in attribute (breaks if name has quotes)
-  window._ddCache = {};
+  // use module-scoped cache — avoids JSON.stringify in attribute (breaks if name has quotes)
+  _ddCache = {};
   dd.innerHTML = hits.map((h,i) => {
-    window._ddCache['d'+i] = h;
+    _ddCache['d'+i] = h;
     return `<div class="ddi" onmousedown="pickDesc('d${i}')">
       <span>${h.name}</span>
       <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span><span class="ddi-s">${h.store||''}</span></div>
@@ -1199,7 +1287,7 @@ function descSearch() {
 }
 function closeDescDD() { el('desc-dd').classList.remove('open'); }
 function pickDesc(key) {
-  const h = window._ddCache?.[key]; if(!h) return;
+  const h = _ddCache[key]; if(!h) return;
   el('ef-desc').value = h.name;
   if (h.price) el('ef-amt').value = h.price;
   closeDescDD();
@@ -1241,12 +1329,19 @@ async function addEntry() {
     toast('Entry saved');  // BUG FIX: always toast, not just when VIEW==='dash'
   }
 
-  // Update account balance
-  if (acctId) {
+  // Update account balance — transfers move money from one account to another
+  if (type==='transfer') {
+    const acctTo = el('ef-acct-to').value || null;
+    entry.accountIdTo = acctTo;
+    const from = DATA.accounts.find(x=>x.id===acctId);
+    const to   = DATA.accounts.find(x=>x.id===acctTo);
+    if (from) from.balance = +(+from.balance||0 - amount).toFixed(2);
+    if (to)   to.balance   = +(+to.balance  ||0 + amount).toFixed(2);
+  } else if (acctId) {
     const a = DATA.accounts.find(x=>x.id===acctId);
     if (a) {
-      if (type==='income') a.balance = (+a.balance||0) + amount;
-      else if (type==='expense') a.balance = (+a.balance||0) - amount;
+      if (type==='income')  a.balance = +(+a.balance||0 + amount).toFixed(2);
+      if (type==='expense') a.balance = +(+a.balance||0 - amount).toFixed(2);
     }
   }
 
@@ -1303,7 +1398,7 @@ function renderEntries() {
   if (fS) list=list.filter(e=>(e.desc||'').toLowerCase().includes(fS)||e.category.includes(fS));
 
   if (!list.length) {
-    el('ent-body').innerHTML='<tr><td colspan="7" class="empty">No entries.</td></tr>';
+    el('ent-body').innerHTML='<tr><td colspan="8" class="empty">No entries.</td></tr>';
     return;
   }
 
@@ -1317,18 +1412,22 @@ function renderEntries() {
     const sign  = isI ? '+' : (isT ? '⇄' : '−');
     const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
     const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${t}')">${t}</span>`).join('');
+    const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
+    const checked = _selEntries.has(e.id) ? 'checked' : '';
     return `<tr>
+      <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
       <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${e.date}</td>
       <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${(e.desc||'').replace(/'/g,'&apos;')}')">${e.desc||'<span class="muted">—</span>'}${rBadge}</td>
       <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${e.formula||e.amount}')">
         <span class="${cls}">${sign}${fmt(e.amount)}</span>
       </td>
       <td><span class="badge ${e.category}">${e.category}</span></td>
-      <td>${tagChips||'<span class="muted">—</span>'}</td>
+      <td>${tagChips}${tagEditBtn}</td>
       <td>${e.formula?`<span class="formula-pill">${e.formula}</span>`:'<span class="muted">—</span>'}</td>
       <td><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
   }).join('') + `<tr class="trow-sum">
+    <td></td>
     <td colspan="2" style="color:var(--ink2);font-size:12px">${list.length} entries</td>
     <td><span class="amt-p">+${fmt(sI)}</span></td>
     <td><span class="amt-n">−${fmt(sE)}</span></td>
@@ -1340,6 +1439,42 @@ function filterByTag(t) {
   nav('entries');
   el('ef-ftag').value = t;
   renderEntries();
+}
+
+// ── BULK SELECT ─────────────────────────────────────────────────────────────
+function toggleSelectAll(checked) {
+  const boxes = document.querySelectorAll('.row-sel-entry');
+  boxes.forEach(b => { b.checked = checked; checked ? _selEntries.add(b.dataset.id) : _selEntries.delete(b.dataset.id); });
+  updateBulkBar();
+}
+function toggleRowSel(id, checked) {
+  checked ? _selEntries.add(id) : _selEntries.delete(id);
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const bar = el('bulk-bar'), n = _selEntries.size;
+  bar.classList.toggle('show', n > 0);
+  el('bulk-count').textContent = `${n} selected`;
+  el('sel-all').checked = n > 0 && n === document.querySelectorAll('.row-sel-entry').length;
+  el('sel-all').indeterminate = n > 0 && n < document.querySelectorAll('.row-sel-entry').length;
+}
+function clearSelection() { _selEntries.clear(); renderEntries(); }
+function bulkDelete() {
+  if (!_selEntries.size) return;
+  showConfirm(`Delete ${_selEntries.size} entries?`, 'This cannot be undone.', () => {
+    DATA.entries = DATA.entries.filter(e => !_selEntries.has(e.id));
+    _selEntries.clear(); saveLocal(); render(); toast(`Deleted`);
+  });
+}
+
+// ── INLINE TAG EDIT ─────────────────────────────────────────────────────────
+function editEntryTags(id) {
+  const e = DATA.entries.find(x=>x.id===id); if(!e) return;
+  const current = (e.tags||[]).join(', ');
+  const newVal  = window.prompt('Edit tags (comma-separated):', current);
+  if (newVal === null) return; // cancelled
+  e.tags = newVal.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean);
+  saveLocal(); renderEntries(); toast('Tags updated');
 }
 
 // ══════════════════════════════════════════
@@ -1412,9 +1547,9 @@ function catSearch() {
   if (!q||!DATA.catalog.length) { dd.classList.remove('open'); return; }
   const hits=DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,12);
   if (!hits.length) { dd.classList.remove('open'); return; }
-  window._catCache={};
+  _catCache={};
   dd.innerHTML=hits.map((h,i)=>{
-    window._catCache['c'+i]=h;
+    _catCache['c'+i]=h;
     return `<div class="ddi" onmousedown="pickCat('c${i}')">
       <div><div>${h.name}</div>${h.store?`<div class="ddi-s">${h.store}</div>`:''}</div>
       <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span></div>
@@ -1424,7 +1559,7 @@ function catSearch() {
 }
 function closeCatDD() { el('cat-dd').classList.remove('open'); }
 function pickCat(key) {
-  const h=window._catCache?.[key]; if(!h) return;
+  const h=_catCache[key]; if(!h) return;
   el('gr-search').value=h.name;
   el('gr-store').value=h.store||'';
   el('gr-price').value=h.price||'';
@@ -1590,10 +1725,30 @@ async function saveSplits() {
   if (VIEW==='dash') renderDash();
 }
 
+// ══════════════════════════════════════════
+// CONFIRM MODAL  —  replaces native confirm()
+// ══════════════════════════════════════════
+let _confirmCb = null;
+function showConfirm(title, body, onOk) {
+  el('confirm-title').textContent = title;
+  el('confirm-body').textContent  = body;
+  _confirmCb = onOk;
+  el('confirm-overlay').classList.add('open');
+  el('confirm-ok').focus();
+}
+function closeConfirm() {
+  el('confirm-overlay').classList.remove('open');
+  _confirmCb = null;
+}
+el('confirm-ok').addEventListener('click', () => {
+  const cb = _confirmCb; closeConfirm(); cb?.();
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeConfirm(); });
+
 function renderAcctList() {
   const list=DATA.accounts;
   if (!list.length) {
-    el('acct-list').innerHTML='<div style="font-size:13px;color:var(--ink3)">No accounts yet.</div>';
+    el('acct-list').innerHTML='<div style="font-size:13px;color:var(--ink3);padding:8px 0">No accounts yet. Click + Add to create one.</div>';
     return;
   }
   el('acct-list').innerHTML=list.map(a=>`<div class="acct-row">
@@ -1606,18 +1761,26 @@ function renderAcctList() {
     <button class="btn xs danger" onclick="deleteAcct('${a.id}')">✕</button>
   </div>`).join('');
 }
-function addAccount() {
-  const name=prompt('Account name (e.g. Erste Konto):')?.trim(); if(!name) return;
-  const bank=prompt('Bank (e.g. Erste, Raiffeisen):')?.trim()||'';
-  const bal=parseFloat(prompt('Current balance (€):')||'0')||0;
+function toggleAcctForm() {
+  const f=el('acct-add-form');
+  f.classList.toggle('open');
+  if (f.classList.contains('open')) el('acct-name').focus();
+}
+function saveNewAccount() {
+  const name=el('acct-name').value.trim(); if(!name) return toast('Enter account name.',1);
+  const bank=el('acct-bank').value.trim();
+  const bal=parseFloat(el('acct-bal').value)||0;
   DATA.accounts.push({id:uid(),name,bank,balance:bal});
-  saveLocal(); renderAcctList(); renderAccountCards();
+  saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
+  el('acct-name').value=''; el('acct-bank').value=''; el('acct-bal').value='';
+  el('acct-add-form').classList.remove('open');
   toast('Account added');
 }
 async function deleteAcct(id) {
-  if (!confirm('Remove this account?')) return;
-  DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
-  saveLocal(); renderAcctList(); renderAccountCards();
+  showConfirm('Remove account?', 'This only removes the account record — entries linked to it are kept.', async () => {
+    DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
+    saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
+  });
 }
 function updateAcctBalance(id,val) {
   const a=DATA.accounts.find(x=>x.id===id); if(!a) return;
@@ -1708,14 +1871,14 @@ function exportJSON() {
 }
 
 async function clearEntries() {
-  if (!confirm('Delete all entries? Recurring entries kept.')) return;
-  DATA.entries=[];
-  saveLocal(); render(); toast('Entries cleared');
+  showConfirm('Clear all entries?',
+    'This will permanently delete all entries. Recurring definitions are kept. Remember to push to GitHub afterward.',
+    () => { DATA.entries=[]; saveLocal(); render(); toast('Entries cleared'); });
 }
 async function clearAll() {
-  if (!confirm('Delete ALL data?')) return;
-  DATA=migrate(FRESH()); // BUG FIX: run migrate so new schema fields exist
-  saveLocal(); render(); toast('All data cleared');
+  showConfirm('Clear everything?',
+    'This will permanently delete all entries, grocery list, catalog, accounts, and recurring definitions. Push to GitHub afterward if you want to clear the remote too.',
+    () => { DATA=migrate(FRESH()); saveLocal(); render(); toast('All data cleared'); });
 }
 
 // ══════════════════════════════════════════
