@@ -476,7 +476,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <input type="date" id="ef-date">
           </div>
           <div class="fg" style="margin:0"><label>Type</label>
-            <select id="ef-type" onchange="onTypeChange()">
+            <select id="ef-type" onchange="onTypeChange();updateBalancePreview()">
               <option value="expense">Expense</option>
               <option value="income">Income</option>
               <option value="transfer">Transfer</option>
@@ -502,12 +502,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
           <div class="fg" style="margin:0">
             <label>Amount (or =formula)</label>
-            <input type="text" id="ef-amt" placeholder="87.50  or  =45*2" style="font-family:var(--mono)">
+            <input type="text" id="ef-amt" placeholder="87.50  or  =45*2" style="font-family:var(--mono)" oninput="updateBalancePreview()">
           </div>
         </div>
         <div class="g2" style="margin-bottom:10px">
-          <div class="fg" id="fg-acct" style="margin:0"><label>Account</label>
-            <select id="ef-acct"><option value="">No account</option></select>
+          <div class="fg" id="fg-acct" style="margin:0">
+            <label>Account</label>
+            <select id="ef-acct" onchange="updateBalancePreview()"><option value="">No account</option></select>
+            <div id="acct-balance-preview" style="display:none;margin-top:5px;padding:7px 10px;border-radius:var(--rs);font-size:12px;font-family:var(--mono);background:var(--s1);border:.5px solid var(--bdr)"></div>
           </div>
           <div class="fg" id="fg-acct-to" style="margin:0;display:none"><label>To account <span class="muted" style="text-transform:none;letter-spacing:0">(transfer destination)</span></label>
             <select id="ef-acct-to"><option value="">Select account</option></select>
@@ -698,7 +700,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="g3" style="margin-bottom:10px">
             <div class="fg" style="margin:0"><label>Account name</label><input type="text" id="acct-name" placeholder="Erste Konto"></div>
             <div class="fg" style="margin:0"><label>Bank</label><input type="text" id="acct-bank" placeholder="Erste / Raiffeisen"></div>
-            <div class="fg" style="margin:0"><label>Opening balance (€)</label><input type="number" id="acct-bal" placeholder="0.00" step="0.01" style="width:100%"></div>
+            <div class="fg" style="margin:0"><label>Opening balance (€)</label><input type="number" id="acct-bal" placeholder="0.00" step="0.01" style="width:100%" title="Starting balance before any entries"></div>
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn sm primary" onclick="saveNewAccount()">Add account</button>
@@ -706,7 +708,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div id="acct-list"></div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Balances update automatically when entries are linked to an account.</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">The number field is your <strong>opening balance</strong>. Current balance is computed live from all linked entries on top of it.</div>
       </div>
 
       <div class="card">
@@ -1121,7 +1123,7 @@ function boot() {
   const savedMonth = localStorage.getItem(LS_MONTH) || new Date().toISOString().slice(0,7);
   setMonthSelects(savedMonth);
   _entryMonthVal = savedMonth;
-  el('ef-date').value = ymd();
+  el('ef-date').value = defaultEntryDate();
   // load income for current month
   const { amount, formula } = getMonthIncome(savedMonth);
   el('d-income').value = formula || (amount > 0 ? amount : '');
@@ -1162,16 +1164,23 @@ function onIncomeInput() {
   renderSplitBars();
 }
 function onIncomeBlur() {
-  // full re-render on blur so stats/chart update with saved value
   renderDash();
+}
+
+// Returns the default date for a new entry: today if viewing current month, else 1st of viewed month
+function defaultEntryDate() {
+  const now = new Date();
+  const cur = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  return curMonth() === cur ? ymd() : curMonth() + '-01';
 }
 
 function onMonthChange() {
   const m = curMonth();
   localStorage.setItem(LS_MONTH, m);
-  // load this month's income into the field
   const { amount, formula } = getMonthIncome(m);
   el('d-income').value = formula || (amount > 0 ? amount : '');
+  // keep entry date in sync with viewed month
+  el('ef-date').value = defaultEntryDate();
   renderDash();
 }
 
@@ -1222,12 +1231,63 @@ function renderDash() {
   renderMonthlyNote(month);
 }
 
-function renderAccountCards() {
+// ══════════════════════════════════════════
+// ACCOUNT BALANCE  —  computed live from entries
+// a.balance is the opening/seed balance set by the user.
+// All linked entries are applied on top; deletes/edits auto-correct.
+// ══════════════════════════════════════════
+function computeAcctBalance(acct) {
+  const base = +acct.balance || 0;
+  let delta = 0;
+  DATA.entries.forEach(e => {
+    if (e.accountId === acct.id) {
+      if (e.type === 'income')   delta += e.amount;
+      if (e.type === 'expense')  delta -= e.amount;
+      if (e.type === 'transfer') delta -= e.amount;   // outgoing
+    }
+    if (e.accountIdTo === acct.id && e.type === 'transfer') delta += e.amount; // incoming
+  });
+  return +(base + delta).toFixed(2);
+}
+
+// Live balance preview in the entry form
+function updateBalancePreview() {
+  const acctId = el('ef-acct').value;
+  const preview = el('acct-balance-preview');
+  if (!acctId) { preview.style.display = 'none'; return; }
+
+  const acct = DATA.accounts.find(a => a.id === acctId);
+  if (!acct) { preview.style.display = 'none'; return; }
+
+  const current = computeAcctBalance(acct);
+  const type    = el('ef-type').value;
+  const { amount } = parseAmt(el('ef-amt').value);
+
+  let after = current;
+  if (amount > 0) {
+    if (type === 'income')   after = current + amount;
+    if (type === 'expense')  after = current - amount;
+    if (type === 'transfer') after = current - amount;
+  }
+
+  const hasAmt  = amount > 0;
+  const sign    = after >= current ? '+' : '−';
+  const diff    = Math.abs(after - current);
+  const afterCl = after >= 0 ? 'var(--Gm)' : 'var(--Rm)';
+
+  preview.style.display = 'block';
+  preview.innerHTML = hasAmt
+    ? `<span style="color:var(--ink2)">${acct.name}:&nbsp;</span>`
+      + `<span style="color:var(--ink2);text-decoration:line-through">${fmt(current)}</span>`
+      + `<span style="color:var(--ink3)"> ${sign} ${fmt(diff)} → </span>`
+      + `<strong style="color:${afterCl}">${fmt(after)}</strong>`
+    : `<span style="color:var(--ink2)">${acct.name} current balance: </span><strong>${fmt(current)}</strong>`;
+}
   const accts = DATA.accounts;
   if (!accts.length) { el('d-account-cards').innerHTML=''; return; }
   el('d-account-cards').innerHTML = `<div class="acct-grid">${
     accts.map(a => {
-      const bal = +a.balance || 0;
+      const bal = computeAcctBalance(a);
       return `<div class="acct-card">
         <div class="acct-bank">${a.bank||'Account'}</div>
         <div class="acct-name">${a.name}</div>
@@ -1874,20 +1934,10 @@ async function addEntry() {
     toast('Entry saved');  // BUG FIX: always toast, not just when VIEW==='dash'
   }
 
-  // Update account balance — transfers move money from one account to another
+  // Update account for transfer — record destination account on entry
   if (type==='transfer') {
     const acctTo = el('ef-acct-to').value || null;
     entry.accountIdTo = acctTo;
-    const from = DATA.accounts.find(x=>x.id===acctId);
-    const to   = DATA.accounts.find(x=>x.id===acctTo);
-    if (from) from.balance = +(+from.balance||0 - amount).toFixed(2);
-    if (to)   to.balance   = +(+to.balance  ||0 + amount).toFixed(2);
-  } else if (acctId) {
-    const a = DATA.accounts.find(x=>x.id===acctId);
-    if (a) {
-      if (type==='income')  a.balance = +(+a.balance||0 + amount).toFixed(2);
-      if (type==='expense') a.balance = +(+a.balance||0 - amount).toFixed(2);
-    }
   }
 
   // Auto-check matching grocery item
@@ -1899,6 +1949,7 @@ async function addEntry() {
   saveLocal();
   el('ef-amt').value=''; el('ef-desc').value='';
   _curTags=[]; renderTagChips();
+  el('acct-balance-preview').style.display = 'none';
   render();
 }
 
@@ -1922,6 +1973,8 @@ async function commitEdit(id, field, val) {
 }
 
 function renderEntries() {
+  // Always sync entry date to the currently viewed month
+  el('ef-date').value = defaultEntryDate();
   renderRecurList();
   refreshAccountSelect();
 
@@ -2296,15 +2349,24 @@ function renderAcctList() {
     el('acct-list').innerHTML='<div style="font-size:13px;color:var(--ink3);padding:8px 0">No accounts yet. Click + Add to create one.</div>';
     return;
   }
-  el('acct-list').innerHTML=list.map(a=>`<div class="acct-row">
-    <div style="flex:1">
-      <strong style="font-size:13px">${a.name}</strong>
-      <span class="muted" style="font-size:12px;margin-left:6px">${a.bank||''}</span>
-    </div>
-    <input type="number" step="0.01" value="${a.balance||0}" style="width:110px;font-family:var(--mono)"
-      onchange="updateAcctBalance('${a.id}',this.value)">
-    <button class="btn xs danger" onclick="deleteAcct('${a.id}')">✕</button>
-  </div>`).join('');
+  el('acct-list').innerHTML=list.map(a=>{
+    const computed = computeAcctBalance(a);
+    const delta = computed - (+a.balance||0);
+    const deltaStr = delta===0 ? '' :
+      `<span style="font-size:11px;font-family:var(--mono);color:${delta>=0?'var(--Gm)':'var(--Rm)'};margin-left:6px">${delta>=0?'+':''}${fmt(delta)} from entries</span>`;
+    return `<div class="acct-row" style="flex-wrap:wrap;gap:6px">
+      <div style="flex:1;min-width:120px">
+        <strong style="font-size:13px">${a.name}</strong>
+        <span class="muted" style="font-size:12px;margin-left:6px">${a.bank||''}</span><br>
+        <span style="font-size:11px;color:var(--ink3)">Opening balance:</span>
+        <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${computed>=0?'var(--Gm)':'var(--Rm)'};margin-left:4px">${fmt(computed)} current</span>
+        ${deltaStr}
+      </div>
+      <input type="number" step="0.01" value="${a.balance||0}" style="width:110px;font-family:var(--mono)" title="Opening / seed balance"
+        onchange="updateAcctBalance('${a.id}',this.value)">
+      <button class="btn xs danger" onclick="deleteAcct('${a.id}')">✕</button>
+    </div>`;
+  }).join('');
 }
 function toggleAcctForm() {
   const f=el('acct-add-form');
