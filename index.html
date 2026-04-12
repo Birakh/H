@@ -320,8 +320,48 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .store-tip.cheaper{color:var(--Gm)}.store-tip.pricier{color:var(--Rm)}
 .sparkline{display:inline-block;vertical-align:middle}
 
-/* catalog editor */
-.catalog-editor{margin-top:14px;display:none}
+/* ── STREAK BADGE ── */
+.streak-badge{font-size:12px;padding:3px 9px;background:var(--Abg);color:var(--Am);border-radius:20px;font-weight:600;cursor:default;white-space:nowrap;flex-shrink:0}
+.streak-badge.hot{background:var(--Gbg);color:var(--Gm)}
+
+/* ── BILL CALENDAR ── */
+.bill-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.bill-cal-hdr{text-align:center;font-size:10px;font-weight:600;color:var(--ink3);padding:2px 0;text-transform:uppercase;letter-spacing:.05em}
+.cal-day{border-radius:5px;min-height:42px;padding:3px 4px;background:var(--s1);position:relative;font-size:11px}
+.cal-day.today{outline:1.5px solid var(--Bm);background:var(--Bbg)}
+.cal-day.other-month{opacity:.3}
+.cal-day-num{font-weight:600;font-size:11px;color:var(--ink2);line-height:1.2}
+.cal-bill-pill{font-size:9px;font-weight:500;padding:1px 4px;border-radius:3px;margin-top:2px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
+.cal-bill-pill.expense{background:var(--Rbg);color:var(--Rm)}
+.cal-bill-pill.income{background:var(--Gbg);color:var(--Gm)}
+
+/* ── TAX ESTIMATOR MODAL ── */
+.tax-result-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:.5px solid var(--bdr);font-size:13px}
+.tax-result-row:last-child{border-bottom:none;font-weight:600;font-size:14px}
+.tax-result-row .num{font-family:var(--mono);font-size:13px}
+.tax-disclaimer{font-size:10px;color:var(--ink3);margin-top:10px;line-height:1.6}
+
+/* ── INSTALLMENTS ── */
+.inst-pill{font-family:var(--mono);font-size:10px;background:var(--Tbg);color:var(--Tm);padding:1px 6px;border-radius:3px;margin-left:4px}
+.inst-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
+.inst-progress{flex:1;background:var(--s2);border-radius:100px;height:5px;overflow:hidden;min-width:60px}
+.inst-progress-fill{height:100%;border-radius:100px;background:var(--Tm)}
+
+/* ── SURPLUS BANNER ── */
+.banner.surplus{background:var(--Gbg);color:var(--G);border:.5px solid rgba(61,143,37,.2)}
+.surplus-amt-input{width:100px;font-family:var(--mono);font-size:13px;padding:4px 8px;border:.5px solid var(--bdr2);border-radius:var(--rs);background:var(--s0);color:var(--ink);outline:none}
+.surplus-amt-input:focus{border-color:var(--Gm);box-shadow:0 0 0 2px rgba(61,143,37,.12)}
+
+/* ── CARRY-FORWARD ── */
+.carry-badge{font-size:10px;font-family:var(--mono);color:var(--Tm);background:var(--Tbg);padding:1px 6px;border-radius:3px;margin-left:6px}
+
+/* ── WEALTH TAB ── */
+.wc-milestone{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--Gbg);color:var(--G);border-radius:20px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
+.stock-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
+.stock-row:last-child{border-bottom:none}
+.stock-delta-pos{color:var(--G);font-size:11px;font-family:var(--mono)}
+.stock-delta-neg{color:var(--R);font-size:11px;font-family:var(--mono)}
+
 .catalog-editor.open{display:block}
 .catalog-search-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
 .catalog-tbl-wrap{border:.5px solid var(--bdr);border-radius:var(--r);overflow:hidden;max-height:360px;overflow-y:auto;background:var(--s0)}
@@ -383,10 +423,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <button class="tab active" data-s="dash"     onclick="nav('dash')">Overview</button>
       <button class="tab"        data-s="entries"  onclick="nav('entries')">Entries</button>
       <button class="tab"        data-s="grocery"  onclick="nav('grocery')">Grocery</button>
+      <button class="tab"        data-s="wealth"   onclick="nav('wealth')">Wealth</button>
       <button class="tab"        data-s="settings" onclick="nav('settings')">Settings</button>
     </div>
     <div class="h-right">
       <span class="sync-badge" id="sync-badge" title="Sync status">idle</span>
+      <span class="streak-badge" id="streak-badge" title="Savings streak" style="display:none"></span>
       <button class="btn xs" onclick="ghPull()">↓ Pull</button>
       <button class="btn xs primary" onclick="ghPush()">↑ Push</button>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">
@@ -436,6 +478,31 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
     </div>
   </div>
+  <!-- Tax Estimator Modal -->
+  <div class="modal-overlay" id="tax-overlay" onclick="if(event.target===this)closeTax()">
+    <div class="modal-box" style="width:min(420px,100%)">
+      <div class="modal-title">🇦🇹 Austrian Income Tax Estimator</div>
+      <div class="modal-body" style="margin-bottom:14px;font-size:12px">Enter your annual gross salary to estimate net take-home pay (2024 brackets).</div>
+      <div class="fg">
+        <label>Annual gross salary (€)</label>
+        <input type="number" id="tax-gross" placeholder="42000" step="100" style="font-family:var(--mono)" oninput="calcTax()">
+      </div>
+      <div class="fg">
+        <label>Salary payments per year</label>
+        <select id="tax-payments" onchange="calcTax()">
+          <option value="14" selected>14 (+ Urlaubsgeld &amp; Weihnachtsgeld)</option>
+          <option value="12">12 (monthly only)</option>
+        </select>
+      </div>
+      <div id="tax-result" style="margin-top:4px"></div>
+      <div class="tax-disclaimer">Estimate only — does not account for deductions, Pendlerpauschale, Kinderzuschlag, or other individual allowances. Sozialversicherung at ~18.12% (capped at €72,720/yr).</div>
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn sm" onclick="closeTax()">Close</button>
+        <button class="btn sm success" id="tax-apply-btn" style="display:none" onclick="applyTaxNet()">Use net monthly →</button>
+      </div>
+    </div>
+  </div>
+
   <main>
 
     <!-- OVERVIEW -->
@@ -453,6 +520,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div style="margin-top:5px;display:flex;align-items:center;gap:10px">
             <span style="font-size:11px;color:var(--ink3)">=expr ok</span>
             <button class="btn ghost xs" onclick="copyIncomeFromLastMonth()" style="font-size:11px;padding:2px 8px">↑ Copy from last month</button>
+            <button class="btn ghost xs" onclick="openTax()" style="font-size:11px;padding:2px 8px">🇦🇹 Tax calc</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -493,6 +561,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="tag-month-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="d-tags"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="bill-cal-title">Bill calendar</div>
+        <div id="d-bill-cal"></div>
       </div>
 
       <div class="card">
@@ -562,8 +635,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="btn primary" onclick="addEntry()">Add entry</button>
           <button class="btn xs info" id="split-btn" onclick="toggleSplitForm()">⊕ Split</button>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
-            <input type="checkbox" id="ef-recur"> Save as recurring (monthly)
+            <input type="checkbox" id="ef-recur"> Save as recurring
           </label>
+          <select id="ef-recur-freq" style="width:auto;font-size:12px;padding:4px 8px;color:var(--ink2)">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Bi-weekly</option>
+            <option value="quarterly">Quarterly</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+            <input type="checkbox" id="ef-inst" onchange="toggleInstForm()"> Pay in installments
+          </label>
+        </div>
+        <!-- Installment sub-form -->
+        <div id="inst-form" style="display:none;margin-top:10px;padding:10px 12px;background:var(--Tbg);border-radius:var(--rs)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="fg" style="margin:0;display:flex;align-items:center;gap:8px">
+              <label style="margin:0;white-space:nowrap">Number of payments</label>
+              <input type="number" id="ef-inst-n" value="3" min="2" max="60" style="width:60px;font-family:var(--mono)">
+            </div>
+            <span id="inst-preview" style="font-size:12px;color:var(--Tm)"></span>
+          </div>
         </div>
         <!-- Split entry form -->
         <div class="split-entry-form" id="split-form">
@@ -632,6 +724,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="recur-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="recur-list"></div>
+      </div>
+
+      <div class="card" id="inst-card" style="display:none">
+        <div class="card-title">Active installment plans
+          <span id="inst-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div id="inst-list"></div>
       </div>
 
       <div class="bulk-bar" id="bulk-bar">
@@ -820,6 +919,73 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
     </section>
 
+    <!-- WEALTH -->
+    <section id="sec-wealth" class="section">
+
+      <!-- ── Wealth Trajectory Calculator ── -->
+      <div class="card">
+        <div class="card-title">Wealth Trajectory Calculator</div>
+        <div class="g2" style="margin-bottom:14px">
+          <div class="wi-slider-wrap">
+            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Monthly Net Income (€)</span><span id="wc-inc-val" style="font-family:var(--mono);font-size:13px;font-weight:500">€3,000</span></label>
+            <input type="range" id="wc-inc" min="500" max="15000" value="3000" step="100" oninput="wcUpdate()">
+          </div>
+          <div class="wi-slider-wrap">
+            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Investment Allocation (%)</span><span id="wc-alloc-val" style="font-family:var(--mono);font-size:13px;font-weight:500">20%</span></label>
+            <input type="range" id="wc-alloc" min="10" max="80" value="20" step="5" oninput="wcUpdate()">
+          </div>
+          <div class="wi-slider-wrap">
+            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Expected Annual Return (%)</span><span id="wc-ret-val" style="font-family:var(--mono);font-size:13px;font-weight:500">7%</span></label>
+            <input type="range" id="wc-ret" min="2" max="12" value="7" step="0.5" oninput="wcUpdate()">
+          </div>
+          <div class="wi-slider-wrap">
+            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Years to Grow</span><span id="wc-yrs-val" style="font-family:var(--mono);font-size:13px;font-weight:500">20 yrs</span></label>
+            <input type="range" id="wc-yrs" min="5" max="40" value="20" step="1" oninput="wcUpdate()">
+          </div>
+        </div>
+        <div class="stat-grid" id="wc-stats"></div>
+        <div id="wc-chart-wrap" class="chart-wrap" style="margin-top:14px"></div>
+        <div id="wc-milestones" style="margin-top:10px;font-size:12px;color:var(--ink2);line-height:1.9"></div>
+      </div>
+
+      <!-- ── Stock Portfolio (ILS → EUR) ── -->
+      <div class="card">
+        <div class="card-title">Stock Portfolio
+          <span id="stock-rate-badge" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Symbol / Name</label>
+            <input type="text" id="sk-name" placeholder="e.g. TEVA, NICE"></div>
+          <div class="fg" style="margin:0"><label>Total value (₪ ILS)</label>
+            <div style="position:relative">
+              <input type="number" id="sk-ils" placeholder="0.00" step="100" style="font-family:var(--mono)" oninput="skPreviewConvert()">
+              <span id="sk-eur-preview" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-family:var(--mono);color:var(--Gm);pointer-events:none"></span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn sm primary full" onclick="addStock()">Add position</button>
+          </div>
+        </div>
+        <div id="stock-list"></div>
+        <div class="stat-grid" id="stock-summary" style="margin-top:14px"></div>
+      </div>
+
+      <!-- ── AI Analysis Export ── -->
+      <div class="card">
+        <div class="card-title">Export for AI Analysis</div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>From</label><input type="month" id="ai-from" style="width:100%"></div>
+          <div class="fg" style="margin:0"><label>To</label><input type="month" id="ai-to" style="width:100%"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn sm primary" onclick="exportAI()">📋 Copy AI prompt</button>
+          <button class="btn sm" onclick="exportAIFile()">⬇ Download .txt</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Generates a structured financial summary of the selected period — paste into any AI for personalized analysis.</div>
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -830,18 +996,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 6,
-  income:    { amount: 0, formula: null },   // global fallback (migration)
-  incomes:   {},   // { "YYYY-MM": { amount, formula } }  — per-month income
-  splits:    { needs: 50, wants: 30, savings: 20 },
-  goals:     { needs: null, wants: null, savings: null },
-  accounts:  [],
-  entries:   [],
-  recurring: [],
-  grocery:   [],
-  catalog:   [],
-  notes:     {},
-  meta:      { sha: null, lastSync: null }
+  v: 7,
+  income:       { amount: 0, formula: null },
+  incomes:      {},
+  splits:       { needs: 50, wants: 30, savings: 20 },
+  goals:        { needs: null, wants: null, savings: null },
+  accounts:     [],
+  entries:      [],
+  recurring:    [],
+  installments: [],   // { id, desc, total, n, paid, startMonth, category, accountId }
+  grocery:      [],
+  catalog:      [],
+  notes:        {},
+  stocks:       [],   // { id, name, ilsValue, ilsHistory: [{date,value}] }
+  meta:         { sha: null, lastSync: null }
 });
 
 const GR_CATS = {
@@ -1158,7 +1326,8 @@ function migrate(d) {
   if (!d.meta)      d.meta      = { sha:null, lastSync:null };
   if (!d.meta.lastSync) d.meta.lastSync = null;
   if (!d.income)    d.income    = { amount:0, formula:null };
-  if (!d.recurring) d.recurring = [];
+  if (!d.recurring)     d.recurring     = [];
+  if (!d.installments)  d.installments  = [];
   // normalize formula '' → null
   if (d.income.formula === '') d.income.formula = null;
   Object.values(d.incomes).forEach(inc => { if (inc.formula === '') inc.formula = null; });
@@ -1169,6 +1338,9 @@ function migrate(d) {
   d.recurring?.forEach(r => { if (r.formula === '') r.formula = null; });
   d.grocery?.forEach(g => { if (!g.category) g.category = 'other'; });
   d.catalog?.forEach(c => { if (!c.priceHistory) c.priceHistory = []; });
+  if (!d.stocks) d.stocks = [];
+  // normalize recurring freq field
+  d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
   return d;
 }
 
@@ -1232,6 +1404,7 @@ const RENDERS = {};
 RENDERS.dash     = () => renderDash();
 RENDERS.entries  = () => renderEntries();
 RENDERS.grocery  = () => renderGrocery();
+RENDERS.wealth   = () => renderWealth();
 RENDERS.settings = () => renderSettings();
 
 function nav(sec) {
@@ -1367,6 +1540,8 @@ function renderDash() {
   renderChart();
   renderHeatmap();
   renderTagAnalytics(month, mes);
+  renderBillCalendar(month);
+  renderStreak();
   renderMonthlyNote(month);
 }
 
@@ -1440,13 +1615,48 @@ function renderAccountCards() {
 function renderDashBanners(month, act, totalInc) {
   const banners = [];
 
+  // ── SURPLUS SAVINGS ROLLOVER ───────────────────────────────────
+  const { surplus, prevMon } = getPrevMonthSurplus(month);
+  if (surplus >= 10) {
+    const alreadySaved = DATA.entries.some(e =>
+      ym(e.date) === month && e.tags?.includes('surplus') && e.category === 'savings');
+    if (!alreadySaved) {
+      banners.push(`<div class="banner surplus" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px">
+          <span>💰 <strong>${prevMon}</strong> ended with <strong>${fmt(surplus)}</strong> left over — save some of it?</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input class="surplus-amt-input" id="surplus-amt-input" type="number" step="10" value="${surplus}" min="1" max="${surplus}">
+          <button class="btn xs success" onclick="saveSurplus('${month}')">→ Move to savings</button>
+          <span style="font-size:11px;color:var(--Gm)">or adjust amount above</span>
+        </div>
+      </div>`);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   // Recurring banner
   if (DATA.recurring.length) {
-    const applied = new Set(DATA.entries.filter(e=>ym(e.date)===month&&e.recurId).map(e=>e.recurId));
-    const pending = DATA.recurring.filter(r=>!applied.has(r.id));
+    const [yr, mo] = month.split('-').map(Number);
+    const lastDay = new Date(yr, mo, 0).getDate();
+    const pending = DATA.recurring.filter(r => {
+      const freq = r.freq || 'monthly';
+      // Quarterly: skip if not this quarter's month
+      if (freq === 'quarterly') {
+        const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
+        const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
+        if ((mo - originMo + 12) % 3 !== 0) return false;
+      }
+      const expectedCount = freq === 'weekly'
+        ? [r.day||1,(r.day||1)+7,(r.day||1)+14,(r.day||1)+21].filter(d=>d<=lastDay).length
+        : freq === 'biweekly' ? [r.day||1,(r.day||1)+14].filter(d=>d<=lastDay).length
+        : 1;
+      const actualCount = DATA.entries.filter(e => ym(e.date)===month && e.recurId===r.id).length;
+      return actualCount < expectedCount;
+    });
     if (pending.length) {
       banners.push(`<div class="banner warn">
-        <span><strong>${pending.length}</strong> recurring entr${pending.length===1?'y':'ies'} not applied for ${month}</span>
+        <span><strong>${pending.length}</strong> recurring entr${pending.length===1?'y':'ies'} not fully applied for ${month}</span>
         <button class="btn xs warn" onclick="applyRecurring('${month}')">Apply now</button>
       </div>`);
     }
@@ -1548,7 +1758,9 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     { key:'savings', label:'Savings', pct:splits.savings, color:'var(--Gm)' }
   ];
   el('d-bars-split').innerHTML = defs.map(({key,label,pct,color}) => {
-    const target = totalInc * pct / 100;
+    const carry  = key !== 'savings' ? getCarryForward(key, curMonth()) : 0;
+    const target = totalInc * pct / 100 + carry;
+    const carryBadge = carry > 0 ? `<span class="carry-badge" title="Carry-forward from last month">+${fmt(carry)} carried</span>` : '';
     const goal   = goals[key];
     const actual = act[key] || 0;
     const fill   = target > 0 ? Math.min(100, Math.round(actual/target*100)) : 0;
@@ -1577,7 +1789,7 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     }
     return `<div class="bar-block">
       <div class="bar-meta">
-        <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span></span>
+        <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span>${carryBadge}</span>
         <span class="bar-nums" style="color:${over?'var(--R)':'var(--ink2)'}">${fmt(actual)} / ${fmt(target)}</span>
       </div>
       <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${barC}"></div>${goalMark}${paceMark}</div>
@@ -1919,18 +2131,52 @@ function csvImport() {
 }
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
-  const applied = new Set(DATA.entries.filter(e=>ym(e.date)===month&&e.recurId).map(e=>e.recurId));
-  const pending = DATA.recurring.filter(r=>!applied.has(r.id));
   const [yr, mo] = month.split('-').map(Number);
-  const lastDay  = new Date(yr, mo, 0).getDate(); // last valid day of target month
-  pending.forEach(r => {
-    const day  = Math.min(r.day||1, lastDay);     // clamp — e.g. Feb has no 31st
-    const date = `${month}-${String(day).padStart(2,'0')}`;
-    DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula,
-      type:r.type, category:r.category, tags:[], recurId:r.id });
+  const lastDay  = new Date(yr, mo, 0).getDate();
+  let added = 0;
+
+  DATA.recurring.forEach(r => {
+    const freq = r.freq || 'monthly';
+
+    // Quarterly: only apply if this month is in the right quarter slot
+    if (freq === 'quarterly') {
+      // Apply on the same month-of-quarter as the entry was first created (day is used as anchor)
+      // We use the month index mod 3 to determine quarter alignment
+      // Find first applied entry to get its origin month
+      const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
+      const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
+      if ((mo - originMo + 12) % 3 !== 0) return; // not this quarter
+    }
+
+    // Determine which dates to create for this freq in this month
+    const dates = [];
+    const clamp = d => `${month}-${String(Math.min(d, lastDay)).padStart(2,'0')}`;
+    if (freq === 'weekly') {
+      [r.day||1, (r.day||1)+7, (r.day||1)+14, (r.day||1)+21].forEach(d => {
+        if (d <= lastDay) dates.push(clamp(d));
+      });
+    } else if (freq === 'biweekly') {
+      [r.day||1, (r.day||1)+14].forEach(d => {
+        if (d <= lastDay) dates.push(clamp(d));
+      });
+    } else {
+      // monthly or quarterly
+      dates.push(clamp(r.day||1));
+    }
+
+    // Count how many entries already exist for this recurId in this month
+    const existingCount = DATA.entries.filter(e => ym(e.date) === month && e.recurId === r.id).length;
+    const toAdd = dates.slice(existingCount); // only add missing ones
+
+    toAdd.forEach(date => {
+      DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula,
+        type:r.type, category:r.category, tags:[], recurId:r.id });
+      added++;
+    });
   });
+
   saveLocal();
-  toast(`Applied ${pending.length} recurring entr${pending.length===1?'y':'ies'}`);
+  toast(`Applied ${added} recurring entr${added===1?'y':'ies'}`);
   render();
 }
 
@@ -1941,10 +2187,12 @@ function renderRecurList() {
     el('recur-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring entries. Check "Save as recurring" when adding.</div>';
     return;
   }
+  const freqLabel = { monthly:'monthly', weekly:'weekly', biweekly:'bi-weekly', quarterly:'quarterly' };
   el('recur-list').innerHTML = list.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
     <span style="flex:1;font-size:13px">${r.desc||'—'}</span>
     <span class="${r.type==='income'?'amt-p':'amt-n'} num">${r.type==='income'?'+':'−'}${fmt(r.amount)}</span>
     <span class="badge ${r.category}">${r.category}</span>
+    <span class="recur-badge">↻ ${freqLabel[r.freq||'monthly']}</span>
     <span class="muted num" style="font-size:11px">day&nbsp;${r.day}</span>
     <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
   </div>`).join('');
@@ -2080,12 +2328,21 @@ async function addEntry() {
   if (el('ef-recur').checked) {
     const day = parseInt(date.slice(8))||1;
     const rid = uid();
-    DATA.recurring.push({ id:rid, desc, amount, formula, type, category:entry.category, day });
+    const freq = el('ef-recur-freq')?.value || 'monthly';
+    DATA.recurring.push({ id:rid, desc, amount, formula, type, category:entry.category, day, freq });
     entry.recurId = rid;
     el('ef-recur').checked = false;
     toast('Saved + added to recurring');
+  } else if (el('ef-inst').checked) {
+    // Installment mode — replace the single entry with N spread entries
+    DATA.entries.shift(); // remove the entry we just added
+    const n = Math.max(2, parseInt(el('ef-inst-n').value) || 3);
+    createInstallmentEntries(date, desc, amount, formula, entry.category, acctId, n);
+    el('ef-inst').checked = false;
+    el('inst-form').style.display = 'none';
+    toast(`Split into ${n} monthly payments of ${fmt(amount/n)}`);
   } else {
-    toast('Entry saved');  // BUG FIX: always toast, not just when VIEW==='dash'
+    toast('Entry saved');
   }
 
   // Update account for transfer — record destination account on entry
@@ -2135,9 +2392,13 @@ async function commitEdit(id, field, val) {
 }
 
 function renderEntries() {
-  // Always sync entry date to the currently viewed month
-  el('ef-date').value = defaultEntryDate();
+  // Sync entry date only when the viewed month doesn't match — preserve user edits
+  const curDateVal = el('ef-date').value;
+  if (!curDateVal || ym(curDateVal) !== curMonth()) {
+    el('ef-date').value = defaultEntryDate();
+  }
   renderRecurList();
+  renderInstallments();
   refreshAccountSelect();
 
   // month filter — preserve selection
@@ -2885,6 +3146,631 @@ async function clearAll() {
 }
 
 // ══════════════════════════════════════════
+// SURPLUS SAVINGS
+// ══════════════════════════════════════════
+function getPrevMonthSurplus(month) {
+  const [yr, mo] = month.split('-').map(Number);
+  const prev = new Date(yr, mo - 2, 1);
+  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const prevSaved = DATA.incomes[prevMon];
+  if (!prevSaved || !prevSaved.amount) return { surplus: 0, prevMon };
+  const prevMes = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevInc  = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevSpent= prevMes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  return { surplus: +(prevInc - prevSpent).toFixed(2), prevMon };
+}
+
+function saveSurplus(month) {
+  const input = el('surplus-amt-input');
+  const amount = parseFloat(input?.value) || 0;
+  if (amount <= 0) return toast('Enter a valid amount.', 1);
+  const date = month + '-' + new Date().getDate().toString().padStart(2,'0');
+  DATA.entries.unshift({ id:uid(), date, desc:'Surplus savings rollover', amount, formula:null,
+    type:'expense', category:'savings', tags:['surplus'], recurId:null, accountId:null });
+  saveLocal(); render();
+  toast(`${fmt(amount)} moved to savings`);
+}
+
+// ══════════════════════════════════════════
+// CARRY-FORWARD
+// Underspend in Needs or Wants last month →
+// adds the difference to this month's budget ceiling.
+// ══════════════════════════════════════════
+function getCarryForward(category, month) {
+  const [yr, mo] = month.split('-').map(Number);
+  const prev = new Date(yr, mo - 2, 1);
+  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const prevSaved = DATA.incomes[prevMon];
+  if (!prevSaved || !prevSaved.amount) return 0;
+  const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevInc  = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevSpent= prevMes.filter(e=>e.type==='expense'&&e.category===category).reduce((s,e)=>s+e.amount,0);
+  const prevTarget = prevInc * DATA.splits[category] / 100;
+  const carry = prevTarget - prevSpent;
+  return carry > 0 ? +carry.toFixed(2) : 0;
+}
+
+// ══════════════════════════════════════════
+// SAVINGS STREAK
+// Counts consecutive months where actual savings ≥ 90% of target.
+// ══════════════════════════════════════════
+function computeSavingsStreak() {
+  const now = new Date();
+  let streak = 0;
+  for (let i = 1; i <= 48; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mon = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const savedInc = DATA.incomes[mon];
+    if (!savedInc || savedInc.amount === 0) break;
+    const mes = DATA.entries.filter(e => ym(e.date) === mon);
+    const inc = savedInc.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const saved = mes.filter(e=>e.type==='expense'&&e.category==='savings').reduce((s,e)=>s+e.amount,0);
+    const target = inc * DATA.splits.savings / 100;
+    if (target > 0 && saved >= target * 0.9) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function renderStreak() {
+  const streak = computeSavingsStreak();
+  const badge = el('streak-badge');
+  if (streak === 0) { badge.style.display = 'none'; return; }
+  badge.style.display = '';
+  badge.className = 'streak-badge' + (streak >= 3 ? ' hot' : '');
+  badge.textContent = `🔥 ${streak}mo streak`;
+  badge.title = `${streak} consecutive month${streak===1?'':'s'} hitting savings target`;
+}
+
+// ══════════════════════════════════════════
+// BILL CALENDAR
+// Shows recurring entries mapped onto the current month's days.
+// ══════════════════════════════════════════
+function renderBillCalendar(month) {
+  const [yr, mo] = month.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const firstDow    = (new Date(yr, mo - 1, 1).getDay() + 6) % 7; // Mon=0
+  const todayDate   = new Date().getDate();
+  const isThisMon   = month === `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+
+  el('bill-cal-title').textContent = `Bill calendar · ${month}`;
+
+  // Build map: day → list of recurring/installment entries
+  const bills = {}; // day (1-31) → [{desc, type, amount}]
+  DATA.recurring.forEach(r => {
+    const day = Math.min(r.day || 1, daysInMonth);
+    if (!bills[day]) bills[day] = [];
+    bills[day].push({ desc: r.desc, type: r.type, amount: r.amount });
+  });
+  // Also add installment payments due this month
+  (DATA.installments || []).forEach(inst => {
+    const [iYr, iMo] = inst.startMonth.split('-').map(Number);
+    const monthsIn = (yr - iYr) * 12 + (mo - iMo);
+    if (monthsIn >= 0 && monthsIn < inst.n && inst.paid < inst.n) {
+      const day = Math.min(inst.day || 1, daysInMonth);
+      if (!bills[day]) bills[day] = [];
+      bills[day].push({ desc: `${inst.desc} (${monthsIn+1}/${inst.n})`, type:'expense', amount: inst.amount });
+    }
+  });
+
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const headers = DAY_LABELS.map(d => `<div class="bill-cal-hdr">${d}</div>`).join('');
+
+  const cells = [];
+  // Leading blank cells
+  for (let i = 0; i < firstDow; i++) cells.push(`<div class="cal-day other-month"></div>`);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = isThisMon && d === todayDate;
+    const dayBills = bills[d] || [];
+    const pills = dayBills.map(b =>
+      `<span class="cal-bill-pill ${b.type}" title="${b.desc}: ${fmt(b.amount)}">${b.desc.length > 12 ? b.desc.slice(0,11)+'…' : b.desc}</span>`
+    ).join('');
+    cells.push(`<div class="cal-day${isToday?' today':''}">
+      <div class="cal-day-num">${d}</div>
+      ${pills}
+    </div>`);
+  }
+
+  if (!DATA.recurring.length && !(DATA.installments||[]).length) {
+    el('d-bill-cal').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring entries set up yet. Add entries with "Save as recurring" to see them here.</div>';
+    return;
+  }
+
+  el('d-bill-cal').innerHTML = `<div class="bill-cal">${headers}${cells.join('')}</div>`;
+}
+
+// ══════════════════════════════════════════
+// AUSTRIAN INCOME TAX ESTIMATOR (2024)
+// ══════════════════════════════════════════
+let _taxNetMonthly = 0;
+function openTax() {
+  el('tax-overlay').classList.add('open');
+  el('tax-gross').focus();
+}
+function closeTax() { el('tax-overlay').classList.remove('open'); }
+
+function calcTax() {
+  const gross = parseFloat(el('tax-gross').value) || 0;
+  if (gross <= 0) { el('tax-result').innerHTML = ''; el('tax-apply-btn').style.display='none'; return; }
+  const payments = parseInt(el('tax-payments').value) || 14;
+
+  // Sozialversicherung (employee share ~18.12%, cap €72,720/yr)
+  const svRate = 0.1812;
+  const svCap  = 72720;
+  const sv = Math.min(gross, svCap) * svRate;
+
+  // Lohnsteuer base = gross - SV
+  const base = Math.max(0, gross - sv);
+
+  // 2024 brackets
+  const brackets = [
+    [12816,  0.00],
+    [20818,  0.20],
+    [34513,  0.30],
+    [66612,  0.41],
+    [99266,  0.48],
+    [1000000,0.50],
+    [Infinity,0.55]
+  ];
+  let lst = 0, prev = 0;
+  for (const [limit, rate] of brackets) {
+    if (base <= prev) break;
+    lst += (Math.min(base, limit) - prev) * rate;
+    prev = limit;
+    if (base <= limit) break;
+  }
+  // Absetzbetrag: Allgemeiner €1,544 (phased out €29,170–€66,612), Verkehrsabsetzbetrag €421
+  const aab = base <= 29170 ? 1544 : (base <= 66612 ? Math.max(0, 1544 - (base - 29170) * 0.04) : 0);
+  const vab = 421;
+  lst = Math.max(0, lst - aab - vab);
+
+  const netAnnual  = gross - sv - lst;
+  const netMonthly = payments === 14 ? netAnnual / 14 : netAnnual / 12;
+  _taxNetMonthly = +netMonthly.toFixed(2);
+
+  const effRate = gross > 0 ? ((sv + lst) / gross * 100).toFixed(1) : 0;
+
+  el('tax-result').innerHTML = `
+    <div class="tax-result-row"><span>Gross annual</span><span class="num">${fmt(gross)}</span></div>
+    <div class="tax-result-row"><span>Sozialversicherung</span><span class="num cr">−${fmt(sv)}</span></div>
+    <div class="tax-result-row"><span>Lohnsteuer</span><span class="num cr">−${fmt(lst)}</span></div>
+    <div class="tax-result-row"><span>Net annual</span><span class="num cg">${fmt(netAnnual)}</span></div>
+    <div class="tax-result-row"><span>Net per payment <span style="font-size:10px;color:var(--ink3)">(÷${payments})</span></span><span class="num cg" style="font-size:15px">${fmt(netMonthly)}</span></div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:6px">Effective rate: ${effRate}% · ${payments === 14 ? '13th+14th salary taxed at 6% flat' : '12 payments'}</div>`;
+  el('tax-apply-btn').style.display = '';
+}
+
+function applyTaxNet() {
+  if (!_taxNetMonthly) return;
+  el('d-income').value = _taxNetMonthly;
+  onIncomeInput();
+  closeTax();
+  toast(`Income set to ${fmt(_taxNetMonthly)} net/payment`);
+}
+
+// ══════════════════════════════════════════
+// INSTALLMENTS
+// ══════════════════════════════════════════
+function toggleInstForm() {
+  const on = el('ef-inst').checked;
+  el('inst-form').style.display = on ? '' : 'none';
+  if (on) updateInstPreview();
+}
+
+function updateInstPreview() {
+  const n = parseInt(el('ef-inst-n')?.value) || 3;
+  const amt = evalExpr(el('ef-amt')?.value) || 0;
+  const perPayment = amt > 0 ? fmt(amt / n) : '—';
+  const previewEl = el('inst-preview');
+  if (previewEl) previewEl.textContent = amt > 0
+    ? `${n} × ${perPayment}/month over ${n} months`
+    : `${n} monthly payments`;
+}
+
+// Wire up live preview on amount + installment-count change
+document.addEventListener('input', e => {
+  if (e.target.id === 'ef-inst-n' || e.target.id === 'ef-amt') updateInstPreview();
+});
+
+function createInstallmentEntries(date, desc, totalAmount, formula, cat, acctId, n) {
+  const iid = uid();
+  const [yr, mo] = date.split('-').map(Number);
+  const dayOfMonth = parseInt(date.slice(8)) || 1;
+  const perPayment = +(totalAmount / n).toFixed(2);
+  // adjust last payment for rounding
+  for (let i = 0; i < n; i++) {
+    const d = new Date(yr, mo - 1 + i, 1);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const entryDay = Math.min(dayOfMonth, lastDay);
+    const entryDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(entryDay).padStart(2,'0')}`;
+    const amt = i === n - 1 ? +(totalAmount - perPayment * (n - 1)).toFixed(2) : perPayment;
+    DATA.entries.unshift({
+      id: uid(), date: entryDate, desc: `${desc} (${i+1}/${n})`,
+      amount: amt, formula: null, type: 'expense', category: cat,
+      tags: ['installment'], accountId: acctId, recurId: null, installmentId: iid
+    });
+  }
+  DATA.installments.push({
+    id: iid, desc, total: totalAmount, n, paid: 0,
+    startMonth: `${yr}-${String(mo).padStart(2,'0')}`,
+    day: dayOfMonth, category: cat, accountId: acctId
+  });
+}
+
+function renderInstallments() {
+  const active = (DATA.installments || []).filter(inst => inst.paid < inst.n);
+  const card = el('inst-card');
+  if (!active.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  el('inst-count').textContent = `(${active.length})`;
+  el('inst-list').innerHTML = active.map(inst => {
+    // count paid by looking at entries with this installmentId
+    const paidCount = DATA.entries.filter(e => e.installmentId === inst.id).length;
+    const remaining = inst.n - paidCount;
+    const pct = Math.round(paidCount / inst.n * 100);
+    return `<div class="inst-row">
+      <div style="flex:1;min-width:120px">
+        <span style="font-size:13px;font-weight:500">${inst.desc}</span>
+        <span class="inst-pill">${paidCount}/${inst.n}</span>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px">${fmt(inst.total / inst.n)}/mo · ${remaining} payment${remaining===1?'':'s'} left</div>
+      </div>
+      <div class="inst-progress"><div class="inst-progress-fill" style="width:${pct}%"></div></div>
+      <span style="font-size:11px;font-family:var(--mono);color:var(--ink2);min-width:42px;text-align:right">${fmt(inst.total)}</span>
+      <button class="btn xs danger" onclick="deleteInstallment('${inst.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteInstallment(iid) {
+  showConfirm('Remove installment plan?', 'This also removes all future installment entries for this plan.', () => {
+    // remove all future entries (keep past ones for record)
+    const today = ymd();
+    DATA.entries = DATA.entries.filter(e => !(e.installmentId === iid && e.date >= today));
+    DATA.installments = DATA.installments.filter(i => i.id !== iid);
+    saveLocal(); renderInstallments(); render();
+    toast('Installment plan removed');
+  });
+}
+
+// ══════════════════════════════════════════
+// WEALTH TAB
+// ══════════════════════════════════════════
+
+// ── ILS/EUR exchange rate cache ──────────────────────────────────────────────
+let _ilsRate = null; // EUR per 1 ILS
+let _ilsRateFetched = 0;
+
+async function fetchIlsRate() {
+  const now = Date.now();
+  if (_ilsRate && now - _ilsRateFetched < 3600000) return _ilsRate; // cache 1hr
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=ILS&to=EUR');
+    const j = await r.json();
+    _ilsRate = j.rates?.EUR || null;
+    _ilsRateFetched = now;
+    return _ilsRate;
+  } catch { return _ilsRate; }
+}
+
+function ilsToEur(ils) {
+  return _ilsRate ? +(ils * _ilsRate).toFixed(2) : null;
+}
+
+async function skPreviewConvert() {
+  await fetchIlsRate();
+  const ils = parseFloat(el('sk-ils').value) || 0;
+  const eur = ilsToEur(ils);
+  el('sk-eur-preview').textContent = eur !== null ? `≈ ${fmt(eur)}` : '';
+}
+
+// ── Stocks ───────────────────────────────────────────────────────────────────
+async function addStock() {
+  await fetchIlsRate();
+  const name = el('sk-name').value.trim();
+  const ils  = parseFloat(el('sk-ils').value) || 0;
+  if (!name) return toast('Enter a symbol / name.', 1);
+  if (!ils)  return toast('Enter the ILS value.', 1);
+  const today = ymd();
+  DATA.stocks.push({
+    id: uid(), name, ilsValue: ils,
+    ilsHistory: [{ date: today, value: ils }]
+  });
+  el('sk-name').value = ''; el('sk-ils').value = ''; el('sk-eur-preview').textContent = '';
+  saveLocal(); renderStocks();
+  toast(`${name} added`);
+}
+
+function updateStockValue(id, newIls) {
+  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
+  const today = ymd();
+  s.ilsValue = newIls;
+  // push to history (one entry per day)
+  const last = s.ilsHistory[s.ilsHistory.length - 1];
+  if (last && last.date === today) { last.value = newIls; }
+  else { s.ilsHistory.push({ date: today, value: newIls }); }
+  if (s.ilsHistory.length > 90) s.ilsHistory.shift();
+  saveLocal(); renderStocks();
+}
+
+function deleteStock(id) {
+  DATA.stocks = DATA.stocks.filter(s => s.id !== id);
+  saveLocal(); renderStocks(); toast('Position removed');
+}
+
+function renderStocks() {
+  const rate = _ilsRate;
+  const rateLbl = rate
+    ? `1 ₪ = €${rate.toFixed(4)} · refreshed ${new Date(_ilsRateFetched).toLocaleTimeString()}`
+    : 'Exchange rate unavailable — fetching…';
+  el('stock-rate-badge').textContent = rateLbl;
+
+  const stocks = DATA.stocks || [];
+  if (!stocks.length) {
+    el('stock-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No positions yet. Enter a stock\'s total ILS value to track it.</div>';
+    el('stock-summary').innerHTML = '';
+    return;
+  }
+
+  let totalEur = 0;
+  el('stock-list').innerHTML = stocks.map(s => {
+    const eur = rate ? +(s.ilsValue * rate).toFixed(2) : null;
+    if (eur) totalEur += eur;
+
+    // Day delta
+    const today = ymd();
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+    const ydStr = yesterday.toISOString().slice(0,10);
+    const hist = s.ilsHistory || [];
+    const ydEntry = hist.slice().reverse().find(h => h.date <= ydStr);
+    const moEntry = hist.find(h => h.date <= today.slice(0,7)+'-01');
+
+    const dayDelta = ydEntry ? s.ilsValue - ydEntry.value : null;
+    const moDelta  = moEntry ? s.ilsValue - moEntry.value : null;
+
+    const deltaHtml = (delta, label) => {
+      if (delta === null) return '';
+      const pct = ydEntry ? (delta / ydEntry.value * 100).toFixed(1) : '';
+      const cls = delta >= 0 ? 'stock-delta-pos' : 'stock-delta-neg';
+      const sign = delta >= 0 ? '+' : '';
+      return `<span class="${cls}" title="${label}">${label}: ${sign}₪${Math.abs(delta).toLocaleString('de-AT',{maximumFractionDigits:0})} ${pct?'('+sign+pct+'%)':''}</span>`;
+    };
+
+    return `<div class="stock-row">
+      <span style="flex:1;font-size:13px;font-weight:500">${s.name}</span>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:13px">₪${s.ilsValue.toLocaleString('de-AT',{maximumFractionDigits:0})}
+          ${eur!==null?`<span style="color:var(--ink3);font-size:11px"> ≈ ${fmt(eur)}</span>`:''}
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:2px;flex-wrap:wrap">
+          ${deltaHtml(dayDelta,'1d')}
+          ${deltaHtml(moDelta,'1mo')}
+        </div>
+      </div>
+      <div class="fg" style="margin:0;width:130px">
+        <input type="number" step="100" value="${s.ilsValue}" style="font-family:var(--mono);font-size:12px;width:100%"
+          title="Update ILS value"
+          onchange="updateStockValue('${s.id}', parseFloat(this.value)||0)">
+      </div>
+      <button class="btn xs danger" onclick="deleteStock('${s.id}')">✕</button>
+    </div>`;
+  }).join('');
+
+  // Summary stats
+  const netWorth = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
+  el('stock-summary').innerHTML = `
+    <div class="stat"><div class="stat-lbl">Stock portfolio (EUR)</div><div class="stat-val cb">${rate ? fmt(totalEur) : '—'}</div></div>
+    <div class="stat"><div class="stat-lbl">Account net worth</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
+    <div class="stat"><div class="stat-lbl">Total net worth</div><div class="stat-val" style="color:var(--Tm)">${rate ? fmt(netWorth + totalEur) : fmt(netWorth)+' + stocks'}</div></div>`;
+}
+
+// ── Wealth Calculator ─────────────────────────────────────────────────────────
+function wcUpdate() {
+  const inc   = +el('wc-inc').value;
+  const alloc = +el('wc-alloc').value / 100;
+  const ret   = +el('wc-ret').value / 100;
+  const yrs   = +el('wc-yrs').value;
+
+  el('wc-inc-val').textContent   = fmt(inc).replace('€','€');
+  el('wc-alloc-val').textContent = Math.round(alloc*100) + '%';
+  el('wc-ret-val').textContent   = (ret*100).toFixed(1) + '%';
+  el('wc-yrs-val').textContent   = yrs + ' yrs';
+
+  const monthly   = inc * alloc;
+  const rMo       = ret / 12;
+  const n         = yrs * 12;
+
+  // Future value of monthly contributions: FV = C * ((1+r)^n - 1) / r
+  const fv = rMo > 0
+    ? monthly * (Math.pow(1 + rMo, n) - 1) / rMo
+    : monthly * n;
+  const invested = monthly * n;
+  const growth   = fv - invested;
+
+  el('wc-stats').innerHTML = `
+    <div class="stat" style="background:var(--Tbg)"><div class="stat-lbl">Final Net Worth</div><div class="stat-val" style="font-size:22px;color:var(--Tm)">${fmt(fv)}</div></div>
+    <div class="stat"><div class="stat-lbl">Total Invested</div><div class="stat-val cb">${fmt(invested)}</div></div>
+    <div class="stat"><div class="stat-lbl">Wealth from Growth</div><div class="stat-val cg">${fmt(growth)}</div></div>
+    <div class="stat"><div class="stat-lbl">Monthly contribution</div><div class="stat-val">${fmt(monthly)}</div></div>`;
+
+  // Milestones
+  const milestones = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+  const hits = milestones.filter(m => m <= fv).map(m => {
+    // Find month when FV first exceeds m
+    let mo = 0;
+    let v = 0;
+    while (v < m && mo < n) { mo++; v = monthly * (Math.pow(1+rMo,mo)-1) / rMo; }
+    const yr = Math.ceil(mo/12);
+    return `<span class="wc-milestone">€${m>=1000?(m/1000)+'k':m} in ${yr}y</span>`;
+  });
+  el('wc-milestones').innerHTML = hits.length ? hits.join('') : '';
+
+  // SVG growth curve
+  wcDrawChart(monthly, rMo, n, fv);
+}
+
+function wcDrawChart(monthly, rMo, n, fvTotal) {
+  const W=820, H=140, PL=58, PB=24, PT=8;
+  const GH = H - PB - PT, IW = W - PL - 8;
+  const dark = isDark();
+  const cInv  = dark ? '#5b9de8' : '#2a6ccb';
+  const cGrow = dark ? '#5ab33f' : '#3d8f25';
+  const cGrid = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+  const cTxt  = dark ? '#5a5950' : '#a5a49c';
+
+  const pts_inv = [], pts_fv = [];
+  const steps = Math.min(n, 120); // draw at most 120 points
+  const step = Math.max(1, Math.floor(n / steps));
+  for (let mo = 0; mo <= n; mo += step) {
+    const fv = rMo > 0 ? monthly * (Math.pow(1+rMo,mo)-1) / rMo : monthly*mo;
+    const invested = monthly * mo;
+    const x = PL + (mo/n) * IW;
+    const y_fv  = PT + GH - (fv/fvTotal) * GH;
+    const y_inv = PT + GH - (invested/fvTotal) * GH;
+    pts_fv.push(`${x.toFixed(1)},${y_fv.toFixed(1)}`);
+    pts_inv.push(`${x.toFixed(1)},${y_inv.toFixed(1)}`);
+  }
+
+  // y-axis ticks
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+    const val = fvTotal * f;
+    const y   = PT + GH - f * GH;
+    const lbl = val >= 1000000 ? (val/1000000).toFixed(1)+'M' : val >= 1000 ? (val/1000).toFixed(0)+'k' : val.toFixed(0);
+    return `<line x1="${PL}" y1="${y}" x2="${W-8}" y2="${y}" stroke="${cGrid}" stroke-width="1"/>
+            <text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="10" fill="${cTxt}" font-family="JetBrains Mono,monospace">${lbl}</text>`;
+  }).join('');
+
+  el('wc-chart-wrap').innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${ticks}
+    <polyline points="${pts_inv.join(' ')}" fill="none" stroke="${cInv}" stroke-width="2" stroke-linejoin="round" opacity=".8"/>
+    <polyline points="${pts_fv.join(' ')}"  fill="none" stroke="${cGrow}" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="${PL+8}" y="${PT+14}" font-size="10" fill="${cInv}" font-family="Plus Jakarta Sans,sans-serif">Invested</text>
+    <text x="${PL+70}" y="${PT+14}" font-size="10" fill="${cGrow}" font-family="Plus Jakarta Sans,sans-serif">Total value</text>
+  </svg>`;
+}
+
+// ── AI Export ─────────────────────────────────────────────────────────────────
+function buildAIText(from, to) {
+  const months = [];
+  const [fYr, fMo] = from.split('-').map(Number);
+  const [tYr, tMo] = to.split('-').map(Number);
+  let yr = fYr, mo = fMo;
+  while (yr < tYr || (yr===tYr && mo<=tMo)) {
+    months.push(`${yr}-${String(mo).padStart(2,'0')}`);
+    mo++; if (mo>12) { mo=1; yr++; }
+  }
+
+  const lines = [];
+  lines.push(`# Vault Finance — AI Analysis Export`);
+  lines.push(`Period: ${from} to ${to} (${months.length} month${months.length===1?'':'s'})`);
+  lines.push(`Generated: ${new Date().toLocaleDateString('de-AT')}\n`);
+
+  let periodInc=0, periodExp=0, periodSav=0;
+
+  months.forEach(month => {
+    const inc = DATA.incomes[month];
+    const base = inc ? inc.amount : 0;
+    const mes  = DATA.entries.filter(e => ym(e.date) === month);
+    const addInc  = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const totalInc = base + addInc;
+    const exp = mes.filter(e=>e.type==='expense');
+    const totalExp = exp.reduce((s,e)=>s+e.amount,0);
+    const bycat = { needs:0, wants:0, savings:0 };
+    exp.forEach(e => { if (e.category in bycat) bycat[e.category]+=e.amount; });
+    periodInc += totalInc; periodExp += totalExp; periodSav += bycat.savings;
+
+    lines.push(`## ${month}`);
+    lines.push(`Income: €${totalInc.toFixed(2)} | Expenses: €${totalExp.toFixed(2)} | Net: €${(totalInc-totalExp).toFixed(2)}`);
+    lines.push(`  Needs: €${bycat.needs.toFixed(2)} | Wants: €${bycat.wants.toFixed(2)} | Savings: €${bycat.savings.toFixed(2)}`);
+
+    // Top 5 expenses
+    const top5 = [...exp].sort((a,b)=>b.amount-a.amount).slice(0,5);
+    if (top5.length) {
+      lines.push(`  Top expenses: ${top5.map(e=>`${e.desc||'?'} €${e.amount.toFixed(2)}`).join(' · ')}`);
+    }
+    if (DATA.notes?.[month]) lines.push(`  Note: ${DATA.notes[month]}`);
+    lines.push('');
+  });
+
+  lines.push(`## Summary (${from} → ${to})`);
+  lines.push(`Total income:   €${periodInc.toFixed(2)}`);
+  lines.push(`Total expenses: €${periodExp.toFixed(2)}`);
+  lines.push(`Net saved:      €${(periodInc-periodExp).toFixed(2)}`);
+  lines.push(`Savings cat:    €${periodSav.toFixed(2)}`);
+  lines.push(`Avg net/month:  €${(months.length > 0 ? (periodInc-periodExp)/months.length : 0).toFixed(2)}`);
+
+  if (DATA.accounts.length) {
+    lines.push(`\n## Account Balances (current)`);
+    DATA.accounts.forEach(a => {
+      lines.push(`  ${a.name} (${a.bank||'—'}): ${fmt(computeAcctBalance(a))}`);
+    });
+  }
+
+  if ((DATA.stocks||[]).length && _ilsRate) {
+    lines.push(`\n## Stock Portfolio (ILS→EUR @ ${_ilsRate.toFixed(4)})`);
+    DATA.stocks.forEach(s => {
+      const eur = (s.ilsValue * _ilsRate).toFixed(2);
+      lines.push(`  ${s.name}: ₪${s.ilsValue.toLocaleString()} ≈ €${eur}`);
+    });
+  }
+
+  lines.push(`\n---\nPlease analyze my financial data above. Identify spending patterns, highlight months with unusual activity, calculate my average savings rate, and give 3 concrete actionable recommendations to improve my financial health.`);
+  return lines.join('\n');
+}
+
+function getAIRange() {
+  const from = el('ai-from').value;
+  const to   = el('ai-to').value;
+  if (!from || !to) return toast('Select a date range.', 1), null;
+  if (from > to)    return toast('From must be before To.', 1), null;
+  return { from, to };
+}
+
+async function exportAI() {
+  const r = getAIRange(); if (!r) return;
+  const text = buildAIText(r.from, r.to);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('✓ Copied to clipboard — paste into any AI');
+  } catch {
+    toast('Could not copy — use Download instead', 1);
+  }
+}
+
+function exportAIFile() {
+  const r = getAIRange(); if (!r) return;
+  const text = buildAIText(r.from, r.to);
+  dl(text, `vault_ai_export_${r.from}_${r.to}.txt`, 'text/plain');
+  toast('AI export downloaded');
+}
+
+// ── Main render entry point for Wealth tab ────────────────────────────────────
+async function renderWealth() {
+  // Pre-fill AI date range if empty
+  const aiFrom = el('ai-from'), aiTo = el('ai-to');
+  if (!aiFrom.value || !aiTo.value) {
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const sixBack   = new Date(now.getFullYear(), now.getMonth()-5, 1);
+    const sixMonth  = `${sixBack.getFullYear()}-${String(sixBack.getMonth()+1).padStart(2,'0')}`;
+    aiFrom.value = sixMonth;
+    aiTo.value   = thisMonth;
+  }
+
+  // Sync income slider with saved income if available
+  const savedInc = DATA.incomes[curMonth()];
+  if (savedInc?.amount > 0) {
+    const slider = el('wc-inc');
+    slider.value = Math.min(Math.max(savedInc.amount, +slider.min), +slider.max);
+  }
+
+  // Fetch ILS rate in background, then update stocks
+  fetchIlsRate().then(() => renderStocks());
+  renderStocks(); // render immediately (may show — if no rate yet)
+  wcUpdate();
+}
+
+// ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
@@ -2892,7 +3778,8 @@ document.addEventListener('keydown', e => {
   if (e.key==='1') nav('dash');
   if (e.key==='2') nav('entries');
   if (e.key==='3') nav('grocery');
-  if (e.key==='4') nav('settings');
+  if (e.key==='4') nav('wealth');
+  if (e.key==='5') nav('settings');
   if (e.key==='n') { nav('entries'); setTimeout(() => { el('qa-desc')?.focus() || el('ef-desc')?.focus(); }, 60); }
   if (e.key==='w' && VIEW==='dash') openWhatIf();
   if (e.key==='Escape') { closeWhatIf(); closeConfirm(); }
