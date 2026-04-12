@@ -358,13 +358,43 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 /* ── WEALTH TAB ── */
 .wc-num-in{width:72px;font-family:var(--mono);font-size:13px;font-weight:500;padding:2px 6px;border:.5px solid var(--bdr2);border-radius:var(--rs);background:var(--s0);color:var(--ink);outline:none;text-align:right}
 .wc-num-in:focus{border-color:var(--Bm);box-shadow:0 0 0 2px rgba(42,108,203,.12)}
-/* hide browser spinner arrows on wc inputs */
 .wc-num-in::-webkit-inner-spin-button,.wc-num-in::-webkit-outer-spin-button{opacity:.4}
 .wc-milestone{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--Gbg);color:var(--G);border-radius:20px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
-.stock-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
-.stock-row:last-child{border-bottom:none}
-.stock-delta-pos{color:var(--G);font-size:11px;font-family:var(--mono)}
-.stock-delta-neg{color:var(--R);font-size:11px;font-family:var(--mono)}
+
+/* ── STOCK PORTFOLIO (redesigned) ── */
+.stock-card{border:.5px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;background:var(--s0);overflow:hidden}
+.stock-card-head{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none}
+.stock-card-head:hover{background:var(--s1)}
+.stock-name{font-size:14px;font-weight:600;flex:1}
+.stock-ccy-badge{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
+.stock-price-big{font-size:18px;font-weight:600;font-family:var(--mono)}
+.stock-day-pill{font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:12px;font-weight:600;white-space:nowrap}
+.stock-day-pill.up{background:var(--Gbg);color:var(--Gm)}
+.stock-day-pill.dn{background:var(--Rbg);color:var(--Rm)}
+.stock-day-pill.flat{background:var(--s2);color:var(--ink3)}
+.stock-body{padding:0 14px 12px;border-top:.5px solid var(--bdr)}
+.stock-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
+.stock-meta-cell{background:var(--s1);border-radius:var(--rs);padding:8px 10px}
+.stock-meta-lbl{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.stock-meta-val{font-size:13px;font-weight:600;font-family:var(--mono)}
+.stock-pnl-pos{color:var(--Gm)}.stock-pnl-neg{color:var(--Rm)}
+.stock-input-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px}
+.stock-input-group{display:flex;flex-direction:column;gap:3px}
+.stock-input-group label{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin:0}
+.stock-price-input{font-family:var(--mono);font-size:13px;padding:5px 9px;border:.5px solid var(--bdr2);border-radius:var(--rs);background:var(--s0);color:var(--ink);outline:none;width:110px}
+.stock-price-input:focus{border-color:var(--Bm);box-shadow:0 0 0 2px rgba(42,108,203,.1)}
+.stock-hist-toggle{font-size:11px;color:var(--ink3);cursor:pointer;padding:3px 8px;border-radius:3px;border:.5px solid var(--bdr);background:var(--s1);white-space:nowrap}
+.stock-hist-toggle:hover{background:var(--s2)}
+.stock-history{display:none;margin-top:10px;border-top:.5px solid var(--bdr);padding-top:10px}
+.stock-history.open{display:block}
+.stock-hist-chart{margin-bottom:10px}
+.stock-hist-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.stock-hist-tbl th{font-size:10px;font-weight:600;color:var(--ink3);text-align:left;padding:5px 8px;border-bottom:.5px solid var(--bdr);text-transform:uppercase;letter-spacing:.05em;background:var(--s1)}
+.stock-hist-tbl td{padding:5px 8px;border-bottom:.5px solid var(--bdr);font-family:var(--mono)}
+.stock-hist-tbl tr:last-child td{border-bottom:none}
+.stock-delta-pos{color:var(--Gm)}.stock-delta-neg{color:var(--Rm)}
+.stock-sparkline{display:block}
+
 
 .catalog-editor.open{display:block}
 .catalog-search-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
@@ -992,14 +1022,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <option value="EUR">€ EUR (already euro)</option>
             </select>
           </div>
-          <div class="fg" style="margin:0"><label>Total value</label>
+          <div class="fg" style="margin:0"><label>Shares held</label>
+            <input type="number" id="sk-shares" placeholder="10" step="0.0001" min="0" style="font-family:var(--mono)" oninput="skPreviewConvert()">
+          </div>
+          <div class="fg" style="margin:0"><label>Avg buy price</label>
+            <input type="number" id="sk-buy" placeholder="150.00" step="0.01" min="0" style="font-family:var(--mono)" oninput="skPreviewConvert()">
+          </div>
+        </div>
+        <div class="g4" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Current price</label>
             <div style="position:relative">
-              <input type="number" id="sk-native" placeholder="0.00" step="10" style="font-family:var(--mono)" oninput="skPreviewConvert()">
+              <input type="number" id="sk-native" placeholder="160.00" step="0.01" style="font-family:var(--mono)" oninput="skPreviewConvert()">
               <span id="sk-eur-preview" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-family:var(--mono);color:var(--Gm);pointer-events:none"></span>
             </div>
           </div>
+          <div class="fg" style="margin:0"><label>Prev close price <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(optional)</span></label>
+            <input type="number" id="sk-close" placeholder="158.50" step="0.01" min="0" style="font-family:var(--mono)">
+          </div>
+          <div class="fg" style="margin:0"><label>Preview</label>
+            <div id="sk-total-preview" style="font-size:12px;color:var(--ink2);padding:9px 0;font-family:var(--mono)">—</div>
+          </div>
           <div style="display:flex;align-items:flex-end">
-            <button class="btn sm primary full" onclick="addStock()">Add</button>
+            <button class="btn sm primary full" onclick="addStock()">Add position</button>
           </div>
         </div>
         <div id="stock-list"></div>
@@ -1044,7 +1088,7 @@ const FRESH = () => ({
   grocery:      [],
   catalog:      [],
   notes:        {},
-  stocks:       [],   // { id, name, ilsValue, ilsHistory: [{date,value}] }
+  stocks:       [],   // { id, name, currency, shares, avgBuyPrice, currentPrice, closePrice, priceHistory:[{date,price,close}] }
   meta:         { sha: null, lastSync: null }
 });
 
@@ -3551,44 +3595,136 @@ function toEur(nativeValue, currency) {
 function currencySymbol(c) { return c === 'USD' ? '$' : c === 'ILS' ? '₪' : '€'; }
 
 async function skPreviewConvert() {
-  const ccy = el('sk-currency')?.value || 'USD';
+  const ccy    = el('sk-currency')?.value || 'USD';
+  const shares = parseFloat(el('sk-shares')?.value) || 0;
+  const price  = parseFloat(el('sk-native')?.value) || 0;
+  const buy    = parseFloat(el('sk-buy')?.value) || 0;
   if (ccy !== 'EUR' && !_fxRates[ccy]) await fetchFxRates();
-  const native = parseFloat(el('sk-native').value) || 0;
-  const eur = toEur(native, ccy);
-  el('sk-eur-preview').textContent = (eur !== null && ccy !== 'EUR') ? `≈ ${fmt(eur)}` : '';
+  const sym    = currencySymbol(ccy);
+  const totalNative = shares * price;
+  const totalEur    = toEur(totalNative, ccy);
+  const pnlNative   = shares > 0 && buy > 0 ? (price - buy) * shares : null;
+  let preview = '';
+  if (shares > 0 && price > 0) {
+    preview = `${sym}${totalNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
+    if (totalEur !== null && ccy !== 'EUR') preview += ` ≈ ${fmt(totalEur)}`;
+    if (pnlNative !== null) {
+      const sign = pnlNative >= 0 ? '+' : '';
+      preview += ` · P&L ${sign}${sym}${pnlNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
+    }
+  }
+  const previewEl = el('sk-total-preview');
+  if (previewEl) previewEl.textContent = preview || '—';
+  const eurEl = el('sk-eur-preview');
+  if (eurEl) eurEl.textContent = (totalEur !== null && ccy !== 'EUR' && price > 0) ? `≈ ${fmt(toEur(price, ccy))}` : '';
 }
 
 // ── Stocks ───────────────────────────────────────────────────────────────────
 async function addStock() {
   const name     = el('sk-name').value.trim();
   const currency = el('sk-currency').value;
-  const native   = parseFloat(el('sk-native').value) || 0;
-  if (!name)   return toast('Enter a symbol / name.', 1);
-  if (!native) return toast('Enter the value.', 1);
+  const shares   = parseFloat(el('sk-shares').value) || 0;
+  const buyPrice = parseFloat(el('sk-buy').value) || 0;
+  const curPrice = parseFloat(el('sk-native').value) || 0;
+  const closePrice = parseFloat(el('sk-close')?.value) || 0;
+  if (!name)     return toast('Enter a symbol / name.', 1);
+  if (!curPrice) return toast('Enter the current price.', 1);
   if (currency !== 'EUR' && !_fxRates[currency]) await fetchFxRates();
+  const today = ymd();
   DATA.stocks.push({
-    id: uid(), name, currency, nativeValue: native,
-    history: [{ date: ymd(), value: native }]
+    id: uid(), name, currency, shares, avgBuyPrice: buyPrice,
+    currentPrice: curPrice, closePrice: closePrice || null,
+    priceHistory: [{ date: today, price: curPrice, close: closePrice || null }],
+    // legacy compat
+    nativeValue: shares > 0 ? shares * curPrice : curPrice,
+    history: [{ date: today, value: shares > 0 ? shares * curPrice : curPrice }]
   });
-  el('sk-name').value = ''; el('sk-native').value = ''; el('sk-eur-preview').textContent = '';
+  el('sk-name').value=''; el('sk-shares').value=''; el('sk-buy').value='';
+  el('sk-native').value=''; if(el('sk-close')) el('sk-close').value='';
+  el('sk-eur-preview').textContent=''; el('sk-total-preview').textContent='—';
   saveLocal(); renderStocks();
   toast(`${name} added`);
 }
 
-function updateStockValue(id, newVal) {
+function updateStockCurrentPrice(id, newPrice) {
   const s = DATA.stocks.find(x => x.id === id); if (!s) return;
   const today = ymd();
-  s.nativeValue = newVal;
-  const last = s.history[s.history.length - 1];
-  if (last && last.date === today) last.value = newVal;
-  else s.history.push({ date: today, value: newVal });
+  s.currentPrice = newPrice;
+  s.nativeValue  = s.shares > 0 ? s.shares * newPrice : newPrice; // legacy compat
+  // update priceHistory
+  if (!s.priceHistory) s.priceHistory = [];
+  const existing = s.priceHistory.find(h => h.date === today);
+  if (existing) existing.price = newPrice;
+  else s.priceHistory.push({ date: today, price: newPrice, close: s.closePrice || null });
+  if (s.priceHistory.length > 365) s.priceHistory.shift();
+  // update legacy history
+  if (!s.history) s.history = [];
+  const legExist = s.history.find(h => h.date === today);
+  if (legExist) legExist.value = s.nativeValue;
+  else s.history.push({ date: today, value: s.nativeValue });
   if (s.history.length > 90) s.history.shift();
   saveLocal(); renderStocks();
+}
+
+function updateStockClosePrice(id, closePrice) {
+  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
+  const today = ymd();
+  s.closePrice = closePrice;
+  if (!s.priceHistory) s.priceHistory = [];
+  const existing = s.priceHistory.find(h => h.date === today);
+  if (existing) existing.close = closePrice;
+  else s.priceHistory.push({ date: today, price: s.currentPrice || 0, close: closePrice });
+  saveLocal(); renderStocks();
+}
+
+function logStockClose(id) {
+  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
+  // Log current price as today's close (end-of-session)
+  const today = ymd();
+  s.closePrice = s.currentPrice;
+  if (!s.priceHistory) s.priceHistory = [];
+  const existing = s.priceHistory.find(h => h.date === today);
+  if (existing) existing.close = s.currentPrice;
+  else s.priceHistory.push({ date: today, price: s.currentPrice, close: s.currentPrice });
+  saveLocal(); renderStocks();
+  toast(`Close price set to ${currencySymbol(s.currency)}${s.currentPrice} for ${s.name}`);
 }
 
 function deleteStock(id) {
   DATA.stocks = DATA.stocks.filter(s => s.id !== id);
   saveLocal(); renderStocks(); toast('Position removed');
+}
+
+let _stockHistOpen = new Set();
+function toggleStockHistory(id) {
+  if (_stockHistOpen.has(id)) _stockHistOpen.delete(id);
+  else _stockHistOpen.add(id);
+  renderStocks();
+}
+
+function stockPriceSparkline(history, W=120, H=32) {
+  if (!history || history.length < 2) return '';
+  const prices = history.map(h => h.price).filter(p => p > 0);
+  if (prices.length < 2) return '';
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = max - min || 1;
+  const pts = prices.map((p, i) => {
+    const x = Math.round(i / (prices.length-1) * (W-4)) + 2;
+    const y = Math.round(H - 4 - ((p-min)/range)*(H-8)) + 2;
+    return `${x},${y}`;
+  }).join(' ');
+  const last = prices[prices.length-1], first = prices[0];
+  const col = last >= first ? 'var(--Gm)' : 'var(--Rm)';
+  const fill = prices.map((p,i) => {
+    const x = Math.round(i/(prices.length-1)*(W-4))+2;
+    const y = Math.round(H-4-((p-min)/range)*(H-8))+2;
+    return `${x},${y}`;
+  });
+  const fillPts = `${fill[0].split(',')[0]},${H} ${fill.join(' ')} ${fill[fill.length-1].split(',')[0]},${H}`;
+  return `<svg class="stock-sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <polygon points="${fillPts}" fill="${col}" opacity=".12"/>
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function renderStocks() {
@@ -3614,81 +3750,194 @@ function renderStocks() {
     rateRow.style.display = 'none';
   }
 
-  // Migrate old ILS-only stocks
+  // Migrate old stocks
   (DATA.stocks || []).forEach(s => {
     if (s.ilsValue !== undefined && !s.nativeValue) {
       s.nativeValue = s.ilsValue; s.currency = 'ILS';
       s.history = s.ilsHistory || []; delete s.ilsValue; delete s.ilsHistory;
     }
-    if (!s.currency) s.currency = 'ILS';
-    if (!s.history)  s.history  = [];
+    if (!s.currency)      s.currency      = 'ILS';
+    if (!s.history)       s.history       = [];
+    if (!s.priceHistory)  s.priceHistory  = [];
+    if (s.currentPrice === undefined) {
+      // migrate old total-value stocks — treat nativeValue as currentPrice, shares=1
+      s.currentPrice = s.nativeValue || 0;
+      s.shares       = s.shares || 1;
+      s.avgBuyPrice  = s.avgBuyPrice || 0;
+      s.closePrice   = s.closePrice || null;
+      // rebuild priceHistory from legacy history
+      if (!s.priceHistory.length && s.history.length) {
+        s.priceHistory = s.history.map(h => ({ date: h.date, price: h.value / (s.shares||1), close: null }));
+      }
+    }
   });
 
   const stocks = DATA.stocks || [];
   if (!stocks.length) {
-    el('stock-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No positions yet. Add a stock above — USD for NYSE/NASDAQ, ILS for TASE.</div>';
+    el('stock-list').innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:8px 0">No positions yet. Add a stock above — enter shares + buy price + current price.</div>';
     el('stock-summary').innerHTML = '';
     return;
   }
 
-  let totalEur = 0;
-  let allConverted = true;
+  let totalEur = 0, totalCostEur = 0, allConverted = true;
+
   el('stock-list').innerHTML = stocks.map(s => {
-    const sym  = currencySymbol(s.currency);
-    const eur  = toEur(s.nativeValue, s.currency);
+    const sym      = currencySymbol(s.currency);
+    const shares   = s.shares || 1;
+    const curPrice = s.currentPrice || 0;
+    const buyPrice = s.avgBuyPrice || 0;
+    const close    = s.closePrice;
+    const totalNative = shares * curPrice;
+    const eur      = toEur(totalNative, s.currency);
     if (eur !== null) totalEur += eur; else allConverted = false;
+    const costNative = shares * buyPrice;
+    const costEur  = buyPrice > 0 ? toEur(costNative, s.currency) : null;
+    if (costEur !== null) totalCostEur += costEur;
 
-    const today = ymd();
-    const ydStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    const hist  = s.history || [];
-    const ydEntry = hist.slice().reverse().find(h => h.date <= ydStr);
-    const moEntry = hist.find(h => h.date <= today.slice(0,7)+'-01');
+    // Day change (vs prev close)
+    const dayDelta  = (close && close > 0) ? curPrice - close : null;
+    const dayDeltaPct = (dayDelta !== null && close > 0) ? dayDelta / close * 100 : null;
+    const dayPillCls = dayDelta === null ? 'flat' : (dayDelta > 0 ? 'up' : dayDelta < 0 ? 'dn' : 'flat');
+    const dayPillTxt = dayDelta === null ? 'No close' :
+      `${dayDelta >= 0 ? '+' : ''}${sym}${Math.abs(dayDelta).toFixed(2)} (${dayDeltaPct >= 0 ? '+' : ''}${dayDeltaPct.toFixed(2)}%)`;
 
-    const deltaHtml = (delta, base, label) => {
-      if (delta === null || base === null || base === 0) return '';
-      const pct = (delta / base * 100).toFixed(1);
-      const cls  = delta >= 0 ? 'stock-delta-pos' : 'stock-delta-neg';
-      const sign = delta >= 0 ? '+' : '';
-      return `<span class="${cls}">${label}: ${sign}${sym}${Math.abs(delta).toLocaleString('de-AT',{maximumFractionDigits:0})} (${sign}${pct}%)</span>`;
-    };
+    // Total P&L
+    const pnlNative = buyPrice > 0 ? (curPrice - buyPrice) * shares : null;
+    const pnlPct    = (pnlNative !== null && buyPrice > 0) ? (curPrice - buyPrice) / buyPrice * 100 : null;
+    const pnlCls    = pnlNative === null ? '' : (pnlNative >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg');
+    const pnlTxt    = pnlNative === null ? '—' :
+      `${pnlNative >= 0 ? '+' : ''}${sym}${Math.abs(pnlNative).toLocaleString('de-AT',{maximumFractionDigits:2})} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`;
 
-    const dayDelta = ydEntry ? s.nativeValue - ydEntry.value : null;
-    const moDelta  = moEntry ? s.nativeValue - moEntry.value : null;
+    // Sparkline
+    const spark = stockPriceSparkline(s.priceHistory);
 
-    // currency tag color
-    const ccyColors = { USD:'var(--Gbg);color:var(--G)', ILS:'var(--Bbg);color:var(--B)', EUR:'var(--Tbg);color:var(--T)' };
+    // Currency badge colors
+    const ccyColors = { USD:'background:var(--Gbg);color:var(--G)', ILS:'background:var(--Bbg);color:var(--B)', EUR:'background:var(--Tbg);color:var(--T)' };
     const ccyStyle  = ccyColors[s.currency] || ccyColors.USD;
 
-    return `<div class="stock-row">
-      <div style="flex:1;min-width:100px">
-        <span style="font-size:13px;font-weight:500">${s.name}</span>
-        <span style="font-size:10px;padding:1px 6px;border-radius:3px;margin-left:5px;background:${ccyStyle.split(';')[0]};${ccyStyle.split(';')[1]}">${s.currency}</span>
-      </div>
-      <div style="text-align:right;min-width:140px">
-        <div style="font-family:var(--mono);font-size:13px">${sym}${s.nativeValue.toLocaleString('de-AT',{maximumFractionDigits:2})}
-          ${eur!==null && s.currency!=='EUR' ? `<span style="color:var(--ink3);font-size:11px"> ≈ ${fmt(eur)}</span>` : ''}
+    // History panel
+    const histOpen  = _stockHistOpen.has(s.id);
+    const histRows  = [...(s.priceHistory||[])].reverse().slice(0, 60).map(h => {
+      const chg = (h.close && h.price) ? h.price - h.close : null;
+      const chgCls = chg === null ? '' : (chg >= 0 ? 'stock-delta-pos' : 'stock-delta-neg');
+      return `<tr>
+        <td>${h.date}</td>
+        <td>${sym}${(h.price||0).toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+        <td>${h.close ? sym+h.close.toLocaleString('de-AT',{maximumFractionDigits:4}) : '—'}</td>
+        <td class="${chgCls}">${chg !== null ? (chg>=0?'+':'')+sym+Math.abs(chg).toFixed(4) : '—'}</td>
+        <td class="${chgCls}">${h.close && h.close > 0 && chg !== null ? (chg/h.close*100>=0?'+':'')+(chg/h.close*100).toFixed(2)+'%' : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="stock-card">
+      <div class="stock-card-head" onclick="toggleStockHistory('${s.id}')">
+        <div class="stock-name">${s.name}</div>
+        <span class="stock-ccy-badge" style="${ccyStyle}">${s.currency}</span>
+        ${spark}
+        <div style="text-align:right">
+          <div class="stock-price-big">${sym}${curPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--mono)">${shares} shares · ${eur !== null ? fmt(eur) : '? EUR'}</div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:2px;flex-wrap:wrap">
-          ${deltaHtml(dayDelta, ydEntry?.value||null, '1d')}
-          ${deltaHtml(moDelta, moEntry?.value||null, '1mo')}
+        <span class="stock-day-pill ${dayPillCls}">${dayPillTxt}</span>
+        <button class="btn xs danger" onclick="event.stopPropagation();deleteStock('${s.id}')">✕</button>
+      </div>
+
+      <div class="stock-history ${histOpen ? 'open' : ''}">
+        <div class="stock-meta-grid">
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Current price</div>
+            <div class="stock-meta-val">${sym}${curPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</div>
+          </div>
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Prev close</div>
+            <div class="stock-meta-val">${close ? sym+close.toLocaleString('de-AT',{maximumFractionDigits:4}) : '—'}</div>
+          </div>
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Avg buy price</div>
+            <div class="stock-meta-val">${buyPrice > 0 ? sym+buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4}) : '—'}</div>
+          </div>
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Shares</div>
+            <div class="stock-meta-val">${shares.toLocaleString('de-AT',{maximumFractionDigits:4})}</div>
+          </div>
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Total value</div>
+            <div class="stock-meta-val">${sym}${totalNative.toLocaleString('de-AT',{maximumFractionDigits:2})}${eur !== null && s.currency !== 'EUR' ? `<span style="font-size:10px;color:var(--ink3);font-weight:400"> ≈${fmt(eur)}</span>` : ''}</div>
+          </div>
+          <div class="stock-meta-cell">
+            <div class="stock-meta-lbl">Total P&amp;L</div>
+            <div class="stock-meta-val ${pnlCls}">${pnlTxt}</div>
+          </div>
         </div>
+
+        <div class="stock-input-row">
+          <div class="stock-input-group">
+            <label>Update current price</label>
+            <input class="stock-price-input" type="number" step="0.0001" value="${curPrice||''}"
+              placeholder="${sym}0.00"
+              onchange="updateStockCurrentPrice('${s.id}', parseFloat(this.value)||0)">
+          </div>
+          <div class="stock-input-group">
+            <label>Set close price</label>
+            <input class="stock-price-input" type="number" step="0.0001" value="${close||''}"
+              placeholder="${sym}0.00"
+              onchange="updateStockClosePrice('${s.id}', parseFloat(this.value)||0)">
+          </div>
+          <div class="stock-input-group">
+            <label>Shares held</label>
+            <input class="stock-price-input" type="number" step="0.0001" value="${shares||''}"
+              placeholder="10"
+              onchange="updateStockShares('${s.id}', parseFloat(this.value)||0)">
+          </div>
+          <div class="stock-input-group">
+            <label>Avg buy price</label>
+            <input class="stock-price-input" type="number" step="0.0001" value="${buyPrice||''}"
+              placeholder="${sym}0.00"
+              onchange="updateStockBuyPrice('${s.id}', parseFloat(this.value)||0)">
+          </div>
+          <div class="stock-input-group">
+            <label>&nbsp;</label>
+            <button class="btn xs success" onclick="logStockClose('${s.id}')" title="Save current price as today's session close">Log close</button>
+          </div>
+        </div>
+
+        ${s.priceHistory?.length > 1 ? `
+        <div class="stock-hist-chart" style="margin-top:12px">
+          ${stockPriceSparkline(s.priceHistory, 540, 60)}
+        </div>
+        <div style="max-height:200px;overflow-y:auto;border:.5px solid var(--bdr);border-radius:var(--rs)">
+          <table class="stock-hist-tbl">
+            <thead><tr><th>Date</th><th>Price</th><th>Close</th><th>Change</th><th>%</th></tr></thead>
+            <tbody>${histRows}</tbody>
+          </table>
+        </div>` : '<div style="font-size:12px;color:var(--ink3);margin-top:8px">No price history yet — update the price daily to build a history.</div>'}
       </div>
-      <div class="fg" style="margin:0;width:120px">
-        <input type="number" step="10" value="${s.nativeValue}" style="font-family:var(--mono);font-size:12px;width:100%"
-          title="Update value in ${s.currency}"
-          onchange="updateStockValue('${s.id}', parseFloat(this.value)||0)">
-      </div>
-      <button class="btn xs danger" onclick="deleteStock('${s.id}')">✕</button>
     </div>`;
   }).join('');
 
-  const netWorth = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
-  const stockTotal = allConverted ? fmt(totalEur) : `≥ ${fmt(totalEur)}`;
-  const totalAll   = allConverted ? fmt(netWorth + totalEur) : `≥ ${fmt(netWorth + totalEur)}`;
+  const netWorth    = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
+  const stockTotal  = allConverted ? fmt(totalEur) : `≥ ${fmt(totalEur)}`;
+  const totalAll    = allConverted ? fmt(netWorth + totalEur) : `≥ ${fmt(netWorth + totalEur)}`;
+  const totalPnL    = totalEur - totalCostEur;
+  const pnlCls      = totalPnL >= 0 ? 'cg' : 'cr';
   el('stock-summary').innerHTML = `
-    <div class="stat"><div class="stat-lbl">Stocks (EUR)</div><div class="stat-val cb">${stockTotal}</div></div>
-    <div class="stat"><div class="stat-lbl">Accounts net worth</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
+    <div class="stat"><div class="stat-lbl">Portfolio value</div><div class="stat-val cb">${stockTotal}</div></div>
+    <div class="stat"><div class="stat-lbl">Total P&amp;L</div><div class="stat-val ${pnlCls}">${totalCostEur > 0 ? (totalPnL >= 0 ? '+' : '') + fmt(Math.abs(totalPnL)) : '—'}</div></div>
+    <div class="stat"><div class="stat-lbl">Accounts</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
     <div class="stat" style="background:var(--Tbg)"><div class="stat-lbl">Total net worth</div><div class="stat-val" style="color:var(--Tm)">${totalAll}</div></div>`;
+}
+
+function updateStockShares(id, shares) {
+  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
+  s.shares = shares;
+  s.nativeValue = shares * (s.currentPrice || 0);
+  saveLocal(); renderStocks();
+}
+
+function updateStockBuyPrice(id, price) {
+  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
+  s.avgBuyPrice = price;
+  saveLocal(); renderStocks();
 }
 
 // ── Wealth Calculator ─────────────────────────────────────────────────────────
