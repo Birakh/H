@@ -3750,7 +3750,7 @@ function renderBillCalendar(month) {
 }
 
 // ══════════════════════════════════════════
-// AUSTRIAN INCOME TAX ESTIMATOR (2024)
+// AUSTRIAN INCOME TAX ESTIMATOR (2026)
 // ══════════════════════════════════════════
 let _taxNetMonthly = 0;
 function openTax() {
@@ -3766,19 +3766,19 @@ function calcTax() {
 
   // Sozialversicherung (employee share ~18.12%, cap €72,720/yr)
   const svRate = 0.1812;
-  const svCap  = 72720;
+  const svCap  = 83160;
   const sv = Math.min(gross, svCap) * svRate;
 
   // Lohnsteuer base = gross - SV
   const base = Math.max(0, gross - sv);
 
-  // 2024 brackets
+  // 2026 brackets
   const brackets = [
-    [12816,  0.00],
-    [20818,  0.20],
-    [34513,  0.30],
-    [66612,  0.41],
-    [99266,  0.48],
+    [13539,  0.00],
+    [21992,  0.20],
+    [36458,  0.30],
+    [70365,  0.40],
+    [104859,  0.48],
     [1000000,0.50],
     [Infinity,0.55]
   ];
@@ -3790,8 +3790,8 @@ function calcTax() {
     if (base <= limit) break;
   }
   // Absetzbetrag: Allgemeiner €1,544 (phased out €29,170–€66,612), Verkehrsabsetzbetrag €421
-  const aab = base <= 29170 ? 1544 : (base <= 66612 ? Math.max(0, 1544 - (base - 29170) * 0.04) : 0);
-  const vab = 421;
+  const aab = base <= 19761 ? 804 : (base <= 30259 ? Math.max(0, 804 - (base - 19761) * (804 / (30259 - 19761))) : 0);
+  const vab = 496;
   lst = Math.max(0, lst - aab - vab);
 
   const netAnnual  = gross - sv - lst;
