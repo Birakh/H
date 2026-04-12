@@ -356,6 +356,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .carry-badge{font-size:10px;font-family:var(--mono);color:var(--Tm);background:var(--Tbg);padding:1px 6px;border-radius:3px;margin-left:6px}
 
 /* ── WEALTH TAB ── */
+.wc-num-in{width:72px;font-family:var(--mono);font-size:13px;font-weight:500;padding:2px 6px;border:.5px solid var(--bdr2);border-radius:var(--rs);background:var(--s0);color:var(--ink);outline:none;text-align:right}
+.wc-num-in:focus{border-color:var(--Bm);box-shadow:0 0 0 2px rgba(42,108,203,.12)}
+/* hide browser spinner arrows on wc inputs */
+.wc-num-in::-webkit-inner-spin-button,.wc-num-in::-webkit-outer-spin-button{opacity:.4}
 .wc-milestone{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--Gbg);color:var(--G);border-radius:20px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
 .stock-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
 .stock-row:last-child{border-bottom:none}
@@ -927,20 +931,32 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Wealth Trajectory Calculator</div>
         <div class="g2" style="margin-bottom:14px">
           <div class="wi-slider-wrap">
-            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Monthly Net Income (€)</span><span id="wc-inc-val" style="font-family:var(--mono);font-size:13px;font-weight:500">€3,000</span></label>
-            <input type="range" id="wc-inc" min="500" max="15000" value="3000" step="100" oninput="wcUpdate()">
+            <label style="justify-content:space-between">
+              <span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Monthly Net Income (€)</span>
+              <input type="number" id="wc-inc-num" class="wc-num-in" value="3000" min="0" max="99999" step="100" oninput="wcSyncFromNum('wc-inc','wc-inc-num');wcUpdate()">
+            </label>
+            <input type="range" id="wc-inc" min="500" max="15000" value="3000" step="100" oninput="wcSyncFromSlider('wc-inc','wc-inc-num');wcUpdate()">
           </div>
           <div class="wi-slider-wrap">
-            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Investment Allocation (%)</span><span id="wc-alloc-val" style="font-family:var(--mono);font-size:13px;font-weight:500">20%</span></label>
-            <input type="range" id="wc-alloc" min="10" max="80" value="20" step="5" oninput="wcUpdate()">
+            <label style="justify-content:space-between">
+              <span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Investment Allocation (%)</span>
+              <input type="number" id="wc-alloc-num" class="wc-num-in" value="20" min="1" max="100" step="1" oninput="wcSyncFromNum('wc-alloc','wc-alloc-num');wcUpdate()">
+            </label>
+            <input type="range" id="wc-alloc" min="10" max="80" value="20" step="5" oninput="wcSyncFromSlider('wc-alloc','wc-alloc-num');wcUpdate()">
           </div>
           <div class="wi-slider-wrap">
-            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Expected Annual Return (%)</span><span id="wc-ret-val" style="font-family:var(--mono);font-size:13px;font-weight:500">7%</span></label>
-            <input type="range" id="wc-ret" min="2" max="12" value="7" step="0.5" oninput="wcUpdate()">
+            <label style="justify-content:space-between">
+              <span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Expected Annual Return (%)</span>
+              <input type="number" id="wc-ret-num" class="wc-num-in" value="7" min="0" max="50" step="0.5" oninput="wcSyncFromNum('wc-ret','wc-ret-num');wcUpdate()">
+            </label>
+            <input type="range" id="wc-ret" min="2" max="12" value="7" step="0.5" oninput="wcSyncFromSlider('wc-ret','wc-ret-num');wcUpdate()">
           </div>
           <div class="wi-slider-wrap">
-            <label><span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Years to Grow</span><span id="wc-yrs-val" style="font-family:var(--mono);font-size:13px;font-weight:500">20 yrs</span></label>
-            <input type="range" id="wc-yrs" min="5" max="40" value="20" step="1" oninput="wcUpdate()">
+            <label style="justify-content:space-between">
+              <span class="lbl" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink2)">Years to Grow</span>
+              <input type="number" id="wc-yrs-num" class="wc-num-in" value="20" min="1" max="99" step="1" oninput="wcSyncFromNum('wc-yrs','wc-yrs-num');wcUpdate()">
+            </label>
+            <input type="range" id="wc-yrs" min="5" max="40" value="20" step="1" oninput="wcSyncFromSlider('wc-yrs','wc-yrs-num');wcUpdate()">
           </div>
         </div>
         <div class="stat-grid" id="wc-stats"></div>
@@ -3565,19 +3581,25 @@ function renderStocks() {
 }
 
 // ── Wealth Calculator ─────────────────────────────────────────────────────────
+function wcSyncFromSlider(sliderId, numId) {
+  el(numId).value = el(sliderId).value;
+}
+function wcSyncFromNum(sliderId, numId) {
+  const v = parseFloat(el(numId).value);
+  if (!isNaN(v)) {
+    const s = el(sliderId);
+    s.value = Math.min(Math.max(v, +s.min), +s.max);
+  }
+}
+
 function wcUpdate() {
-  const inc   = +el('wc-inc').value;
-  const alloc = +el('wc-alloc').value / 100;
-  const ret   = +el('wc-ret').value / 100;
-  const yrs   = +el('wc-yrs').value;
+  const inc   = parseFloat(el('wc-inc-num').value)   || +el('wc-inc').value;
+  const alloc = parseFloat(el('wc-alloc-num').value) || +el('wc-alloc').value;
+  const ret   = parseFloat(el('wc-ret-num').value)   || +el('wc-ret').value;
+  const yrs   = parseFloat(el('wc-yrs-num').value)   || +el('wc-yrs').value;
 
-  el('wc-inc-val').textContent   = fmt(inc).replace('€','€');
-  el('wc-alloc-val').textContent = Math.round(alloc*100) + '%';
-  el('wc-ret-val').textContent   = (ret*100).toFixed(1) + '%';
-  el('wc-yrs-val').textContent   = yrs + ' yrs';
-
-  const monthly   = inc * alloc;
-  const rMo       = ret / 12;
+  const monthly   = inc * (alloc / 100);
+  const rMo       = (ret / 100) / 12;
   const n         = yrs * 12;
 
   // Future value of monthly contributions: FV = C * ((1+r)^n - 1) / r
@@ -3596,16 +3618,13 @@ function wcUpdate() {
   // Milestones
   const milestones = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
   const hits = milestones.filter(m => m <= fv).map(m => {
-    // Find month when FV first exceeds m
-    let mo = 0;
-    let v = 0;
-    while (v < m && mo < n) { mo++; v = monthly * (Math.pow(1+rMo,mo)-1) / rMo; }
+    let mo = 0, v = 0;
+    while (v < m && mo < n) { mo++; v = rMo > 0 ? monthly * (Math.pow(1+rMo,mo)-1) / rMo : monthly*mo; }
     const yr = Math.ceil(mo/12);
     return `<span class="wc-milestone">€${m>=1000?(m/1000)+'k':m} in ${yr}y</span>`;
   });
   el('wc-milestones').innerHTML = hits.length ? hits.join('') : '';
 
-  // SVG growth curve
   wcDrawChart(monthly, rMo, n, fv);
 }
 
@@ -3761,7 +3780,9 @@ async function renderWealth() {
   const savedInc = DATA.incomes[curMonth()];
   if (savedInc?.amount > 0) {
     const slider = el('wc-inc');
-    slider.value = Math.min(Math.max(savedInc.amount, +slider.min), +slider.max);
+    const clamped = Math.min(Math.max(savedInc.amount, +slider.min), +slider.max);
+    slider.value = clamped;
+    el('wc-inc-num').value = savedInc.amount; // allow values beyond slider range
   }
 
   // Fetch ILS rate in background, then update stocks
