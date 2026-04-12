@@ -3764,8 +3764,8 @@ function calcTax() {
   if (gross <= 0) { el('tax-result').innerHTML = ''; el('tax-apply-btn').style.display='none'; return; }
   const payments = parseInt(el('tax-payments').value) || 14;
 
-  // Sozialversicherung (employee share ~18.12%, cap €72,720/yr)
-  const svRate = 0.1812;
+  // Sozialversicherung (employee share ~18.07%, cap €83,160/yr)
+  const svRate = 0.1807;
   const svCap  = 83160;
   const sv = Math.min(gross, svCap) * svRate;
 
