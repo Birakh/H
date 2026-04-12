@@ -969,6 +969,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Stock Portfolio
           <span id="stock-rate-badge" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
+        <div id="stock-rate-row" style="display:none;align-items:center;gap:8px;margin-bottom:12px;padding:8px 11px;background:var(--Abg);border-radius:var(--rs);font-size:12px;color:var(--A)">
+          ⚠ Auto-fetch failed.
+          <label style="margin:0;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0">Manual rate: 1 ₪ =</label>
+          <input type="number" id="sk-manual-rate" placeholder="0.2450" step="0.0001" min="0.001" max="10"
+            style="width:90px;font-family:var(--mono);font-size:12px;padding:3px 7px"
+            oninput="applyManualRate()">
+          <span style="color:var(--ink3)">€</span>
+          <button class="btn xs warn" onclick="fetchIlsRate(true)">↻ Retry</button>
+        </div>
         <div class="g3" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>Symbol / Name</label>
             <input type="text" id="sk-name" placeholder="e.g. TEVA, NICE"></div>
@@ -3456,17 +3465,62 @@ function deleteInstallment(iid) {
 // ── ILS/EUR exchange rate cache ──────────────────────────────────────────────
 let _ilsRate = null; // EUR per 1 ILS
 let _ilsRateFetched = 0;
+let _ilsRateFailed = false;
 
-async function fetchIlsRate() {
+async function fetchIlsRate(force = false) {
   const now = Date.now();
-  if (_ilsRate && now - _ilsRateFetched < 3600000) return _ilsRate; // cache 1hr
-  try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=ILS&to=EUR');
-    const j = await r.json();
-    _ilsRate = j.rates?.EUR || null;
-    _ilsRateFetched = now;
-    return _ilsRate;
-  } catch { return _ilsRate; }
+  if (!force && _ilsRate && now - _ilsRateFetched < 3600000) return _ilsRate;
+
+  // Try multiple free APIs in order — ILS not in ECB/Frankfurter
+  const apis = [
+    // 1. fawazahmed0 currency API (CDN-hosted, no key)
+    async () => {
+      const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/ils.json');
+      const j = await r.json();
+      return j.ils?.eur || null;
+    },
+    // 2. open.er-api (free, no key)
+    async () => {
+      const r = await fetch('https://open.er-api.com/v6/latest/ILS');
+      const j = await r.json();
+      return j.rates?.EUR || null;
+    },
+    // 3. exchangerate.host (free)
+    async () => {
+      const r = await fetch('https://api.exchangerate.host/convert?from=ILS&to=EUR&amount=1');
+      const j = await r.json();
+      return j.result || null;
+    }
+  ];
+
+  for (const api of apis) {
+    try {
+      const rate = await api();
+      if (rate && rate > 0) {
+        _ilsRate = +rate.toFixed(6);
+        _ilsRateFetched = now;
+        _ilsRateFailed = false;
+        renderStocks();
+        return _ilsRate;
+      }
+    } catch { /* try next */ }
+  }
+
+  // All failed — show manual entry row
+  _ilsRateFailed = true;
+  renderStocks();
+  return _ilsRate; // may still be a previously cached value
+}
+
+function applyManualRate() {
+  const v = parseFloat(el('sk-manual-rate')?.value);
+  if (v > 0) {
+    _ilsRate = v;
+    _ilsRateFetched = Date.now();
+    _ilsRateFailed = false;
+    el('stock-rate-row').style.display = 'none';
+    renderStocks();
+  }
 }
 
 function ilsToEur(ils) {
@@ -3474,7 +3528,7 @@ function ilsToEur(ils) {
 }
 
 async function skPreviewConvert() {
-  await fetchIlsRate();
+  if (!_ilsRate) await fetchIlsRate();
   const ils = parseFloat(el('sk-ils').value) || 0;
   const eur = ilsToEur(ils);
   el('sk-eur-preview').textContent = eur !== null ? `≈ ${fmt(eur)}` : '';
@@ -3516,10 +3570,21 @@ function deleteStock(id) {
 
 function renderStocks() {
   const rate = _ilsRate;
-  const rateLbl = rate
-    ? `1 ₪ = €${rate.toFixed(4)} · refreshed ${new Date(_ilsRateFetched).toLocaleTimeString()}`
-    : 'Exchange rate unavailable — fetching…';
-  el('stock-rate-badge').textContent = rateLbl;
+  const rateRow = el('stock-rate-row');
+
+  if (_ilsRateFailed && !rate) {
+    el('stock-rate-badge').textContent = 'Auto-fetch failed — enter rate manually →';
+    el('stock-rate-badge').style.color = 'var(--Am)';
+    rateRow.style.display = 'flex';
+  } else if (rate) {
+    el('stock-rate-badge').textContent = `1 ₪ = €${rate.toFixed(4)} · ${new Date(_ilsRateFetched).toLocaleTimeString()}`;
+    el('stock-rate-badge').style.color = '';
+    rateRow.style.display = 'none';
+  } else {
+    el('stock-rate-badge').textContent = 'Fetching rate…';
+    el('stock-rate-badge').style.color = 'var(--ink3)';
+    rateRow.style.display = 'none';
+  }
 
   const stocks = DATA.stocks || [];
   if (!stocks.length) {
