@@ -964,31 +964,42 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="wc-milestones" style="margin-top:10px;font-size:12px;color:var(--ink2);line-height:1.9"></div>
       </div>
 
-      <!-- ── Stock Portfolio (ILS → EUR) ── -->
+      <!-- ── Stock Portfolio ── -->
       <div class="card">
         <div class="card-title">Stock Portfolio
           <span id="stock-rate-badge" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
-        <div id="stock-rate-row" style="display:none;align-items:center;gap:8px;margin-bottom:12px;padding:8px 11px;background:var(--Abg);border-radius:var(--rs);font-size:12px;color:var(--A)">
-          ⚠ Auto-fetch failed.
-          <label style="margin:0;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0">Manual rate: 1 ₪ =</label>
-          <input type="number" id="sk-manual-rate" placeholder="0.2450" step="0.0001" min="0.001" max="10"
-            style="width:90px;font-family:var(--mono);font-size:12px;padding:3px 7px"
-            oninput="applyManualRate()">
+        <div id="stock-rate-row" style="display:none;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;padding:8px 11px;background:var(--Abg);border-radius:var(--rs);font-size:12px;color:var(--A)">
+          ⚠ Rate fetch failed — enter manually:
+          <label style="margin:0;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0">1 $ =</label>
+          <input type="number" id="sk-manual-usd" placeholder="0.9200" step="0.0001" min="0.001" max="10"
+            style="width:82px;font-family:var(--mono);font-size:12px;padding:3px 7px" oninput="applyManualRate('USD')">
           <span style="color:var(--ink3)">€</span>
-          <button class="btn xs warn" onclick="fetchIlsRate(true)">↻ Retry</button>
+          <span style="color:var(--ink3);margin:0 4px">·</span>
+          <label style="margin:0;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0">1 ₪ =</label>
+          <input type="number" id="sk-manual-ils" placeholder="0.2450" step="0.0001" min="0.001" max="10"
+            style="width:82px;font-family:var(--mono);font-size:12px;padding:3px 7px" oninput="applyManualRate('ILS')">
+          <span style="color:var(--ink3)">€</span>
+          <button class="btn xs warn" onclick="fetchFxRates(true)">↻ Retry</button>
         </div>
-        <div class="g3" style="margin-bottom:10px">
+        <div class="g4" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>Symbol / Name</label>
-            <input type="text" id="sk-name" placeholder="e.g. TEVA, NICE"></div>
-          <div class="fg" style="margin:0"><label>Total value (₪ ILS)</label>
+            <input type="text" id="sk-name" placeholder="e.g. AAPL, TEVA"></div>
+          <div class="fg" style="margin:0"><label>Currency</label>
+            <select id="sk-currency" onchange="skPreviewConvert()">
+              <option value="USD">$ USD (NYSE/NASDAQ)</option>
+              <option value="ILS">₪ ILS (TASE)</option>
+              <option value="EUR">€ EUR (already euro)</option>
+            </select>
+          </div>
+          <div class="fg" style="margin:0"><label>Total value</label>
             <div style="position:relative">
-              <input type="number" id="sk-ils" placeholder="0.00" step="100" style="font-family:var(--mono)" oninput="skPreviewConvert()">
+              <input type="number" id="sk-native" placeholder="0.00" step="10" style="font-family:var(--mono)" oninput="skPreviewConvert()">
               <span id="sk-eur-preview" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-family:var(--mono);color:var(--Gm);pointer-events:none"></span>
             </div>
           </div>
           <div style="display:flex;align-items:flex-end">
-            <button class="btn sm primary full" onclick="addStock()">Add position</button>
+            <button class="btn sm primary full" onclick="addStock()">Add</button>
           </div>
         </div>
         <div id="stock-list"></div>
@@ -3462,104 +3473,116 @@ function deleteInstallment(iid) {
 // WEALTH TAB
 // ══════════════════════════════════════════
 
-// ── ILS/EUR exchange rate cache ──────────────────────────────────────────────
-let _ilsRate = null; // EUR per 1 ILS
-let _ilsRateFetched = 0;
-let _ilsRateFailed = false;
+// ── FX rate cache  (EUR per 1 unit of foreign currency) ──────────────────────
+const _fxRates    = { USD: null, ILS: null };
+const _fxFetched  = { USD: 0,    ILS: 0    };
+let   _fxFailed   = false;
 
-async function fetchIlsRate(force = false) {
+async function fetchFxRates(force = false) {
   const now = Date.now();
-  if (!force && _ilsRate && now - _ilsRateFetched < 3600000) return _ilsRate;
+  const stale = c => force || !_fxRates[c] || now - _fxFetched[c] > 3600000;
+  if (!stale('USD') && !stale('ILS')) return;
 
-  // Try multiple free APIs in order — ILS not in ECB/Frankfurter
+  // API chain — each returns { USD, ILS } rates to EUR
   const apis = [
-    // 1. fawazahmed0 currency API (CDN-hosted, no key)
     async () => {
-      const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/ils.json');
+      const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json');
       const j = await r.json();
-      return j.ils?.eur || null;
+      // rates are "1 EUR = X foreign", invert to get EUR per 1 foreign
+      return { USD: j.eur?.usd ? 1/j.eur.usd : null,
+               ILS: j.eur?.ils ? 1/j.eur.ils : null };
     },
-    // 2. open.er-api (free, no key)
     async () => {
-      const r = await fetch('https://open.er-api.com/v6/latest/ILS');
+      const r = await fetch('https://open.er-api.com/v6/latest/EUR');
       const j = await r.json();
-      return j.rates?.EUR || null;
+      return { USD: j.rates?.USD ? 1/j.rates.USD : null,
+               ILS: j.rates?.ILS ? 1/j.rates.ILS : null };
     },
-    // 3. exchangerate.host (free)
     async () => {
-      const r = await fetch('https://api.exchangerate.host/convert?from=ILS&to=EUR&amount=1');
+      // fetch USD separately
+      const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
       const j = await r.json();
-      return j.result || null;
+      const usd = j.usd?.eur || null;
+      // and ILS
+      const r2 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/ils.json');
+      const j2 = await r2.json();
+      const ils = j2.ils?.eur || null;
+      return { USD: usd, ILS: ils };
     }
   ];
 
   for (const api of apis) {
     try {
-      const rate = await api();
-      if (rate && rate > 0) {
-        _ilsRate = +rate.toFixed(6);
-        _ilsRateFetched = now;
-        _ilsRateFailed = false;
-        renderStocks();
-        return _ilsRate;
-      }
+      const res = await api();
+      let got = false;
+      ['USD','ILS'].forEach(c => {
+        if (res[c] && res[c] > 0 && stale(c)) {
+          _fxRates[c]   = +res[c].toFixed(6);
+          _fxFetched[c] = now;
+          got = true;
+        }
+      });
+      if (got) { _fxFailed = false; renderStocks(); return; }
     } catch { /* try next */ }
   }
 
-  // All failed — show manual entry row
-  _ilsRateFailed = true;
+  _fxFailed = true;
   renderStocks();
-  return _ilsRate; // may still be a previously cached value
 }
 
-function applyManualRate() {
-  const v = parseFloat(el('sk-manual-rate')?.value);
+function applyManualRate(ccy) {
+  const inputId = ccy === 'USD' ? 'sk-manual-usd' : 'sk-manual-ils';
+  const v = parseFloat(el(inputId)?.value);
   if (v > 0) {
-    _ilsRate = v;
-    _ilsRateFetched = Date.now();
-    _ilsRateFailed = false;
-    el('stock-rate-row').style.display = 'none';
+    _fxRates[ccy]   = v;
+    _fxFetched[ccy] = Date.now();
+    const anyMissing = ['USD','ILS'].some(c => !_fxRates[c]);
+    if (!anyMissing) { _fxFailed = false; el('stock-rate-row').style.display = 'none'; }
     renderStocks();
   }
 }
 
-function ilsToEur(ils) {
-  return _ilsRate ? +(ils * _ilsRate).toFixed(2) : null;
+function toEur(nativeValue, currency) {
+  if (currency === 'EUR') return +nativeValue.toFixed(2);
+  const rate = _fxRates[currency];
+  return rate ? +(nativeValue * rate).toFixed(2) : null;
 }
 
+function currencySymbol(c) { return c === 'USD' ? '$' : c === 'ILS' ? '₪' : '€'; }
+
 async function skPreviewConvert() {
-  if (!_ilsRate) await fetchIlsRate();
-  const ils = parseFloat(el('sk-ils').value) || 0;
-  const eur = ilsToEur(ils);
-  el('sk-eur-preview').textContent = eur !== null ? `≈ ${fmt(eur)}` : '';
+  const ccy = el('sk-currency')?.value || 'USD';
+  if (ccy !== 'EUR' && !_fxRates[ccy]) await fetchFxRates();
+  const native = parseFloat(el('sk-native').value) || 0;
+  const eur = toEur(native, ccy);
+  el('sk-eur-preview').textContent = (eur !== null && ccy !== 'EUR') ? `≈ ${fmt(eur)}` : '';
 }
 
 // ── Stocks ───────────────────────────────────────────────────────────────────
 async function addStock() {
-  await fetchIlsRate();
-  const name = el('sk-name').value.trim();
-  const ils  = parseFloat(el('sk-ils').value) || 0;
-  if (!name) return toast('Enter a symbol / name.', 1);
-  if (!ils)  return toast('Enter the ILS value.', 1);
-  const today = ymd();
+  const name     = el('sk-name').value.trim();
+  const currency = el('sk-currency').value;
+  const native   = parseFloat(el('sk-native').value) || 0;
+  if (!name)   return toast('Enter a symbol / name.', 1);
+  if (!native) return toast('Enter the value.', 1);
+  if (currency !== 'EUR' && !_fxRates[currency]) await fetchFxRates();
   DATA.stocks.push({
-    id: uid(), name, ilsValue: ils,
-    ilsHistory: [{ date: today, value: ils }]
+    id: uid(), name, currency, nativeValue: native,
+    history: [{ date: ymd(), value: native }]
   });
-  el('sk-name').value = ''; el('sk-ils').value = ''; el('sk-eur-preview').textContent = '';
+  el('sk-name').value = ''; el('sk-native').value = ''; el('sk-eur-preview').textContent = '';
   saveLocal(); renderStocks();
   toast(`${name} added`);
 }
 
-function updateStockValue(id, newIls) {
+function updateStockValue(id, newVal) {
   const s = DATA.stocks.find(x => x.id === id); if (!s) return;
   const today = ymd();
-  s.ilsValue = newIls;
-  // push to history (one entry per day)
-  const last = s.ilsHistory[s.ilsHistory.length - 1];
-  if (last && last.date === today) { last.value = newIls; }
-  else { s.ilsHistory.push({ date: today, value: newIls }); }
-  if (s.ilsHistory.length > 90) s.ilsHistory.shift();
+  s.nativeValue = newVal;
+  const last = s.history[s.history.length - 1];
+  if (last && last.date === today) last.value = newVal;
+  else s.history.push({ date: today, value: newVal });
+  if (s.history.length > 90) s.history.shift();
   saveLocal(); renderStocks();
 }
 
@@ -3569,80 +3592,103 @@ function deleteStock(id) {
 }
 
 function renderStocks() {
-  const rate = _ilsRate;
+  // Rate badge
+  const parts = [];
+  if (_fxRates.USD) parts.push(`$1 = €${_fxRates.USD.toFixed(4)}`);
+  if (_fxRates.ILS) parts.push(`₪1 = €${_fxRates.ILS.toFixed(4)}`);
+  const anyMissing = ['USD','ILS'].some(c => !_fxRates[c]);
   const rateRow = el('stock-rate-row');
 
-  if (_ilsRateFailed && !rate) {
-    el('stock-rate-badge').textContent = 'Auto-fetch failed — enter rate manually →';
+  if (_fxFailed && anyMissing) {
+    el('stock-rate-badge').textContent = parts.length ? parts.join(' · ') + ' · some failed ↓' : 'Rate fetch failed — enter manually ↓';
     el('stock-rate-badge').style.color = 'var(--Am)';
     rateRow.style.display = 'flex';
-  } else if (rate) {
-    el('stock-rate-badge').textContent = `1 ₪ = €${rate.toFixed(4)} · ${new Date(_ilsRateFetched).toLocaleTimeString()}`;
+  } else if (parts.length) {
+    const ts = new Date(Math.max(...['USD','ILS'].map(c => _fxFetched[c] || 0))).toLocaleTimeString();
+    el('stock-rate-badge').textContent = parts.join(' · ') + ` · ${ts}`;
     el('stock-rate-badge').style.color = '';
     rateRow.style.display = 'none';
   } else {
-    el('stock-rate-badge').textContent = 'Fetching rate…';
+    el('stock-rate-badge').textContent = 'Fetching rates…';
     el('stock-rate-badge').style.color = 'var(--ink3)';
     rateRow.style.display = 'none';
   }
 
+  // Migrate old ILS-only stocks
+  (DATA.stocks || []).forEach(s => {
+    if (s.ilsValue !== undefined && !s.nativeValue) {
+      s.nativeValue = s.ilsValue; s.currency = 'ILS';
+      s.history = s.ilsHistory || []; delete s.ilsValue; delete s.ilsHistory;
+    }
+    if (!s.currency) s.currency = 'ILS';
+    if (!s.history)  s.history  = [];
+  });
+
   const stocks = DATA.stocks || [];
   if (!stocks.length) {
-    el('stock-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No positions yet. Enter a stock\'s total ILS value to track it.</div>';
+    el('stock-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No positions yet. Add a stock above — USD for NYSE/NASDAQ, ILS for TASE.</div>';
     el('stock-summary').innerHTML = '';
     return;
   }
 
   let totalEur = 0;
+  let allConverted = true;
   el('stock-list').innerHTML = stocks.map(s => {
-    const eur = rate ? +(s.ilsValue * rate).toFixed(2) : null;
-    if (eur) totalEur += eur;
+    const sym  = currencySymbol(s.currency);
+    const eur  = toEur(s.nativeValue, s.currency);
+    if (eur !== null) totalEur += eur; else allConverted = false;
 
-    // Day delta
     const today = ymd();
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
-    const ydStr = yesterday.toISOString().slice(0,10);
-    const hist = s.ilsHistory || [];
+    const ydStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const hist  = s.history || [];
     const ydEntry = hist.slice().reverse().find(h => h.date <= ydStr);
     const moEntry = hist.find(h => h.date <= today.slice(0,7)+'-01');
 
-    const dayDelta = ydEntry ? s.ilsValue - ydEntry.value : null;
-    const moDelta  = moEntry ? s.ilsValue - moEntry.value : null;
-
-    const deltaHtml = (delta, label) => {
-      if (delta === null) return '';
-      const pct = ydEntry ? (delta / ydEntry.value * 100).toFixed(1) : '';
-      const cls = delta >= 0 ? 'stock-delta-pos' : 'stock-delta-neg';
+    const deltaHtml = (delta, base, label) => {
+      if (delta === null || base === null || base === 0) return '';
+      const pct = (delta / base * 100).toFixed(1);
+      const cls  = delta >= 0 ? 'stock-delta-pos' : 'stock-delta-neg';
       const sign = delta >= 0 ? '+' : '';
-      return `<span class="${cls}" title="${label}">${label}: ${sign}₪${Math.abs(delta).toLocaleString('de-AT',{maximumFractionDigits:0})} ${pct?'('+sign+pct+'%)':''}</span>`;
+      return `<span class="${cls}">${label}: ${sign}${sym}${Math.abs(delta).toLocaleString('de-AT',{maximumFractionDigits:0})} (${sign}${pct}%)</span>`;
     };
 
+    const dayDelta = ydEntry ? s.nativeValue - ydEntry.value : null;
+    const moDelta  = moEntry ? s.nativeValue - moEntry.value : null;
+
+    // currency tag color
+    const ccyColors = { USD:'var(--Gbg);color:var(--G)', ILS:'var(--Bbg);color:var(--B)', EUR:'var(--Tbg);color:var(--T)' };
+    const ccyStyle  = ccyColors[s.currency] || ccyColors.USD;
+
     return `<div class="stock-row">
-      <span style="flex:1;font-size:13px;font-weight:500">${s.name}</span>
-      <div style="text-align:right">
-        <div style="font-family:var(--mono);font-size:13px">₪${s.ilsValue.toLocaleString('de-AT',{maximumFractionDigits:0})}
-          ${eur!==null?`<span style="color:var(--ink3);font-size:11px"> ≈ ${fmt(eur)}</span>`:''}
+      <div style="flex:1;min-width:100px">
+        <span style="font-size:13px;font-weight:500">${s.name}</span>
+        <span style="font-size:10px;padding:1px 6px;border-radius:3px;margin-left:5px;background:${ccyStyle.split(';')[0]};${ccyStyle.split(';')[1]}">${s.currency}</span>
+      </div>
+      <div style="text-align:right;min-width:140px">
+        <div style="font-family:var(--mono);font-size:13px">${sym}${s.nativeValue.toLocaleString('de-AT',{maximumFractionDigits:2})}
+          ${eur!==null && s.currency!=='EUR' ? `<span style="color:var(--ink3);font-size:11px"> ≈ ${fmt(eur)}</span>` : ''}
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:2px;flex-wrap:wrap">
-          ${deltaHtml(dayDelta,'1d')}
-          ${deltaHtml(moDelta,'1mo')}
+          ${deltaHtml(dayDelta, ydEntry?.value||null, '1d')}
+          ${deltaHtml(moDelta, moEntry?.value||null, '1mo')}
         </div>
       </div>
-      <div class="fg" style="margin:0;width:130px">
-        <input type="number" step="100" value="${s.ilsValue}" style="font-family:var(--mono);font-size:12px;width:100%"
-          title="Update ILS value"
+      <div class="fg" style="margin:0;width:120px">
+        <input type="number" step="10" value="${s.nativeValue}" style="font-family:var(--mono);font-size:12px;width:100%"
+          title="Update value in ${s.currency}"
           onchange="updateStockValue('${s.id}', parseFloat(this.value)||0)">
       </div>
       <button class="btn xs danger" onclick="deleteStock('${s.id}')">✕</button>
     </div>`;
   }).join('');
 
-  // Summary stats
   const netWorth = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
+  const stockTotal = allConverted ? fmt(totalEur) : `≥ ${fmt(totalEur)}`;
+  const totalAll   = allConverted ? fmt(netWorth + totalEur) : `≥ ${fmt(netWorth + totalEur)}`;
   el('stock-summary').innerHTML = `
-    <div class="stat"><div class="stat-lbl">Stock portfolio (EUR)</div><div class="stat-val cb">${rate ? fmt(totalEur) : '—'}</div></div>
-    <div class="stat"><div class="stat-lbl">Account net worth</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
-    <div class="stat"><div class="stat-lbl">Total net worth</div><div class="stat-val" style="color:var(--Tm)">${rate ? fmt(netWorth + totalEur) : fmt(netWorth)+' + stocks'}</div></div>`;
+    <div class="stat"><div class="stat-lbl">Stocks (EUR)</div><div class="stat-val cb">${stockTotal}</div></div>
+    <div class="stat"><div class="stat-lbl">Accounts net worth</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
+    <div class="stat" style="background:var(--Tbg)"><div class="stat-lbl">Total net worth</div><div class="stat-val" style="color:var(--Tm)">${totalAll}</div></div>`;
 }
 
 // ── Wealth Calculator ─────────────────────────────────────────────────────────
@@ -3790,11 +3836,15 @@ function buildAIText(from, to) {
     });
   }
 
-  if ((DATA.stocks||[]).length && _ilsRate) {
-    lines.push(`\n## Stock Portfolio (ILS→EUR @ ${_ilsRate.toFixed(4)})`);
+  if ((DATA.stocks||[]).length) {
+    lines.push(`\n## Stock Portfolio`);
     DATA.stocks.forEach(s => {
-      const eur = (s.ilsValue * _ilsRate).toFixed(2);
-      lines.push(`  ${s.name}: ₪${s.ilsValue.toLocaleString()} ≈ €${eur}`);
+      const ccy = s.currency || 'ILS';
+      const sym = ccy === 'USD' ? '$' : ccy === 'ILS' ? '₪' : '€';
+      const rate = _fxRates[ccy] || null;
+      const eur  = rate ? (s.nativeValue * rate).toFixed(2) : '?';
+      const rateNote = rate ? `@ ${rate.toFixed(4)} EUR/${ccy}` : 'rate unavailable';
+      lines.push(`  ${s.name} (${ccy}): ${sym}${s.nativeValue.toLocaleString()} ≈ €${eur} ${rateNote}`);
     });
   }
 
@@ -3850,9 +3900,9 @@ async function renderWealth() {
     el('wc-inc-num').value = savedInc.amount; // allow values beyond slider range
   }
 
-  // Fetch ILS rate in background, then update stocks
-  fetchIlsRate().then(() => renderStocks());
-  renderStocks(); // render immediately (may show — if no rate yet)
+  // Fetch FX rates in background, then update stocks
+  fetchFxRates().then(() => renderStocks());
+  renderStocks(); // render immediately (may show — if no rates yet)
   wcUpdate();
 }
 
