@@ -282,7 +282,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .wi-result-lbl{font-size:12px;color:var(--ink3);margin-top:3px}
 .wi-result-detail{font-size:12px;color:var(--ink2);margin-top:8px;line-height:1.7;text-align:left}
 
-/* tag analytics */
+/* tag analytics + merchant analytics share bar-row */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-row-lbl{font-size:13px;font-weight:500;min-width:80px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.bar-row-rank{font-size:11px;font-weight:700;color:var(--ink3);width:20px;flex-shrink:0;text-align:right}
+.bar-row-track{flex:1;background:var(--s2);border-radius:100px;height:6px;overflow:hidden}
+.bar-row-fill{height:100%;border-radius:100px;background:var(--Bm)}
+.bar-row-amt{font-family:var(--mono);font-size:11px;color:var(--ink2);min-width:56px;text-align:right;flex-shrink:0}
+.bar-row-pct{font-size:10px;color:var(--ink3);min-width:30px;text-align:right;flex-shrink:0;font-family:var(--mono)}
+/* legacy aliases kept for split/cat bars */
 .tag-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .tag-row-lbl{font-size:13px;font-weight:500;min-width:80px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
 .tag-row-track{flex:1;background:var(--s2);border-radius:100px;height:6px;overflow:hidden}
@@ -366,7 +374,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .wc-num-in::-webkit-inner-spin-button,.wc-num-in::-webkit-outer-spin-button{opacity:.4}
 .wc-milestone{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--Gbg);color:var(--G);border-radius:20px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
 
-/* ── STOCK PORTFOLIO (redesigned) ── */
+/* ── STOCK PORTFOLIO ── */
 .stock-card{border:.5px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;background:var(--s0);overflow:hidden}
 .stock-card-head{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none}
 .stock-card-head:hover{background:var(--s1)}
@@ -377,7 +385,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .stock-day-pill.up{background:var(--Gbg);color:var(--Gm)}
 .stock-day-pill.dn{background:var(--Rbg);color:var(--Rm)}
 .stock-day-pill.flat{background:var(--s2);color:var(--ink3)}
-.stock-body{padding:0 14px 12px;border-top:.5px solid var(--bdr)}
 .stock-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
 .stock-meta-cell{background:var(--s1);border-radius:var(--rs);padding:8px 10px}
 .stock-meta-lbl{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
@@ -388,19 +395,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .stock-input-group label{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin:0}
 .stock-price-input{font-family:var(--mono);font-size:13px;padding:5px 9px;border:.5px solid var(--bdr2);border-radius:var(--rs);background:var(--s0);color:var(--ink);outline:none;width:110px}
 .stock-price-input:focus{border-color:var(--Bm);box-shadow:0 0 0 2px rgba(42,108,203,.1)}
-.stock-hist-toggle{font-size:11px;color:var(--ink3);cursor:pointer;padding:3px 8px;border-radius:3px;border:.5px solid var(--bdr);background:var(--s1);white-space:nowrap}
-.stock-hist-toggle:hover{background:var(--s2)}
-.stock-history{display:none;margin-top:10px;border-top:.5px solid var(--bdr);padding-top:10px}
+.stock-history{display:none;border-top:.5px solid var(--bdr);padding:10px 14px 12px}
 .stock-history.open{display:block}
-.stock-hist-chart{margin-bottom:10px}
 .stock-hist-tbl{width:100%;border-collapse:collapse;font-size:11px}
 .stock-hist-tbl th{font-size:10px;font-weight:600;color:var(--ink3);text-align:left;padding:5px 8px;border-bottom:.5px solid var(--bdr);text-transform:uppercase;letter-spacing:.05em;background:var(--s1)}
 .stock-hist-tbl td{padding:5px 8px;border-bottom:.5px solid var(--bdr);font-family:var(--mono)}
 .stock-hist-tbl tr:last-child td{border-bottom:none}
 .stock-delta-pos{color:var(--Gm)}.stock-delta-neg{color:var(--Rm)}
-.stock-sparkline{display:block}
-
-
+.stock-sparkline{display:block}/* ── MERCHANT (uses .bar-row-* shared classes) ── */
+/* ── CATALOG EDITOR ── */
+.catalog-editor{margin-top:14px;display:none}
 .catalog-editor.open{display:block}
 .catalog-search-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
 .catalog-tbl-wrap{border:.5px solid var(--bdr);border-radius:var(--r);overflow:hidden;max-height:360px;overflow-y:auto;background:var(--s0)}
@@ -412,6 +416,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .cat-edit-in{border:none;background:transparent;font-size:12px;color:var(--ink);padding:2px 4px;outline:none;width:100%;border-radius:3px;transition:background .1s}
 .cat-edit-in:focus{background:var(--Bbg);outline:1.5px solid var(--Bm)}
 .cat-add-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-top:10px;align-items:end}
+
+/* ── WEEKLY SUMMARY ── */
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px}
+.week-day{background:var(--s1);border-radius:6px;padding:6px 5px;text-align:center}
+.week-day.today{outline:1.5px solid var(--Bm);background:var(--Bbg)}
+.week-day-name{font-size:9px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.week-day-amt{font-size:11px;font-family:var(--mono);color:var(--ink);font-weight:500}
+.week-day-amt.zero{color:var(--ink3)}
 
 /* ── RECEIPT MODE ── */
 .receipt-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px}
@@ -474,16 +486,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .sub-freq{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--Abg);color:var(--Am);font-weight:600}
 .sub-cost{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink);min-width:60px;text-align:right}
 .sub-annual{font-size:11px;color:var(--ink3);font-family:var(--mono)}
-
-/* ── MERCHANT ANALYTICS ── */
-.merchant-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.merchant-rank{font-size:11px;font-weight:700;color:var(--ink3);width:20px;flex-shrink:0;text-align:right}
-.merchant-name{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.merchant-bar-wrap{width:120px;flex-shrink:0}
-.merchant-bar-track{background:var(--s2);border-radius:100px;height:6px}
-.merchant-bar-fill{height:100%;border-radius:100px;background:var(--Bm)}
-.merchant-amt{font-family:var(--mono);font-size:12px;color:var(--ink2);min-width:56px;text-align:right;flex-shrink:0}
-.merchant-pct{font-size:10px;color:var(--ink3);min-width:30px;text-align:right;flex-shrink:0;font-family:var(--mono)}
 
 /* ── FIRE CALCULATOR ── */
 .fire-result-box{background:color-mix(in srgb,var(--Gbg) 60%,transparent);border:.5px solid var(--Gm);border-radius:var(--r);padding:18px 20px;margin-top:14px;text-align:center}
@@ -738,6 +740,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div id="d-account-cards"></div>
       <div id="d-banners"></div>
       <div class="stat-grid" id="d-stats"></div>
+
+      <div class="card">
+        <div class="card-title">This week
+          <span id="week-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div id="d-week"></div>
+      </div>
 
       <div class="card">
         <div class="card-title">50 / 30 / 20 breakdown</div>
@@ -1492,9 +1501,48 @@ function dl(content, name, type) {
 // ══════════════════════════════════════════
 let PAT=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
 let _grCatFilter='all', _curTags=[], _entryMonthVal='';
-let _ddCache={}, _catCache={};   // module-scoped, no window pollution
-let _selEntries=new Set();       // bulk-select state
+let _cache={};               // unified dropdown cache: { 'd0':item, 'c0':item, … }
+let _selEntries=new Set();
 const LS_CFG='vf4_cfg', LS_ENC='vf4_enc', LS_DARK='vf4_dark', LS_MONTH='vf4_month';
+
+// ── Shared utilities ──────────────────────────────────────────────────────────
+// Return YYYY-MM that is `n` months before `month`
+const prevMonStr = (month, n=1) => {
+  const [yr, mo] = month.split('-').map(Number);
+  const d = new Date(yr, mo - 1 - n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+};
+
+// Return YYYY-MM for the current calendar month
+const curMonStr = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+};
+
+// Return YYYY-MM offset from today by `n` months (negative = past)
+const offsetMonStr = (n) => {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+};
+
+// Shared horizontal bar row used by tags, merchants, etc.
+const barRow = (label, val, max, {color='var(--Bm)', rank=null, pct=null, extra=''}={}) => `
+  <div class="bar-row">
+    ${rank !== null ? `<span class="bar-row-rank">${rank}</span>` : ''}
+    <span class="bar-row-lbl" title="${label}">${label}</span>
+    <div class="bar-row-track"><div class="bar-row-fill" style="width:${max>0?Math.round(val/max*100):0}%;background:${color}"></div></div>
+    <span class="bar-row-amt">${fmt(val)}</span>
+    ${pct !== null ? `<span class="bar-row-pct">${pct}%</span>` : ''}
+    ${extra}
+  </div>`;
+
+// Format a grid value (0 = —, signed = coloured +/−)
+const fmtGridVal = (v, signed=false) => {
+  if (v === 0) return '<span style="color:var(--ink3)">—</span>';
+  if (signed) return `<span style="color:${v>=0?'var(--Gm)':'var(--Rm)'};font-weight:600">${v>=0?'+':''}${fmt(Math.abs(v)).replace('€','')}</span>`;
+  return fmt(v).replace('€','');
+};
 
 // ══════════════════════════════════════════
 // DARK MODE  —  manual + scheduled auto-theme
@@ -1909,10 +1957,8 @@ function saveMonthIncome() {
 }
 
 function copyIncomeFromLastMonth() {
-  const month = curMonth();
-  const [yr, mo] = month.split('-').map(Number);
-  const prev = new Date(yr, mo - 2, 1);
-  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const month  = curMonth();
+  const prevMon = prevMonStr(month);
   const prevInc = DATA.incomes[prevMon];
   if (!prevInc || (!prevInc.amount && !prevInc.formula)) return toast(`No income saved for ${prevMon}`, 1);
   el('d-income').value = prevInc.formula || (prevInc.amount > 0 ? prevInc.amount : '');
@@ -1920,11 +1966,8 @@ function copyIncomeFromLastMonth() {
   toast(`Copied from ${prevMon}`);
 }
 
-// Returns the default date for a new entry: today if viewing current month, else 1st of viewed month
 function defaultEntryDate() {
-  const now = new Date();
-  const cur = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  return curMonth() === cur ? ymd() : curMonth() + '-01';
+  return curMonth() === curMonStr() ? ymd() : curMonth() + '-01';
 }
 
 function onMonthChange() {
@@ -1978,8 +2021,7 @@ function renderDash() {
     : '';
 
   // Month-over-month comparison
-  const prevDate = new Date(mYr, mMo - 2, 1);
-  const prevMon  = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+  const prevMon  = prevMonStr(month);
   const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
   const prevInc  = getMonthIncome(prevMon).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const prevSpent= prevMes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
@@ -2003,6 +2045,7 @@ function renderDash() {
 
   renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
   renderCatBars(mes);
+  renderWeeklySummary();
   renderChart();
   renderHeatmap();
   renderTagAnalytics(month, mes);
@@ -2170,12 +2213,7 @@ function detectAnomalies(month, act) {
   const MIN_AMOUNT   = 30;     // ignore tiny amounts (€30)
   const LOOK_BACK    = 3;      // months of history to compare against
 
-  // build list of the 3 months immediately before `month`
-  const [yr, mo] = month.split('-').map(Number);
-  const prevMons = Array.from({length: LOOK_BACK}, (_, i) => {
-    const d = new Date(yr, mo - 2 - i, 1);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  });
+  const prevMons = Array.from({length: LOOK_BACK}, (_, i) => prevMonStr(month, i + 1));
 
   const cats = [
     { key:'needs',   label:'Needs'   },
@@ -2289,11 +2327,7 @@ function renderCatBars(mes) {
 function renderChart() {
   const W=820, H=175, PL=52, PB=30, PT=12;
   const GH = H - PB - PT, IW = W - PL - 8;
-  const now = new Date();
-  const mons = Array.from({length:12}, (_,i) => {
-    const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  });
+  const mons = Array.from({length:12}, (_,i) => offsetMonStr(i - 11));
   const income  = mons.map(m => {
     const { amount } = getMonthIncome(m);
     return amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0);
@@ -2346,11 +2380,7 @@ function renderChart() {
 // is self-scaled (avoids needs dwarfing savings).
 // ══════════════════════════════════════════
 function renderHeatmap() {
-  const now  = new Date();
-  const mons = Array.from({length:12}, (_,i) => {
-    const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  });
+  const mons = Array.from({length:12}, (_,i) => offsetMonStr(i - 11));
   const monLabels = mons.map(m => MS[parseInt(m.slice(5))-1]);
 
   const cats = [
@@ -2432,12 +2462,9 @@ function renderTagAnalytics(month, mes) {
     return;
   }
   const max = entries[0][1];
-  el('d-tags').innerHTML = entries.map(([tag, amt]) => `
-    <div class="tag-row">
-      <span class="tag-row-lbl" title="${tag}">${tag}</span>
-      <div class="tag-row-track"><div class="tag-row-fill" style="width:${Math.round(amt/max*100)}%"></div></div>
-      <span class="tag-row-amt">${fmt(amt)}</span>
-    </div>`).join('');
+  el('d-tags').innerHTML = entries.map(([tag, amt]) =>
+    barRow(tag, amt, max)
+  ).join('');
 }
 
 // ══════════════════════════════════════════
@@ -2737,9 +2764,9 @@ function descSearch() {
   const hits = DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,10);
   if (!hits.length) { dd.classList.remove('open'); return; }
   // use module-scoped cache — avoids JSON.stringify in attribute (breaks if name has quotes)
-  _ddCache = {};
+  _cache = {};
   dd.innerHTML = hits.map((h,i) => {
-    _ddCache['d'+i] = h;
+    _cache['d'+i] = h;
     return `<div class="ddi" onmousedown="pickDesc('d${i}')">
       <span>${h.name}</span>
       <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span><span class="ddi-s">${h.store||''}</span></div>
@@ -2749,7 +2776,7 @@ function descSearch() {
 }
 function closeDescDD() { el('desc-dd').classList.remove('open'); }
 function pickDesc(key) {
-  const h = _ddCache[key]; if(!h) return;
+  const h = _cache[key]; if(!h) return;
   el('ef-desc').value = h.name;
   if (h.price) el('ef-amt').value = h.price;
   closeDescDD();
@@ -3219,9 +3246,9 @@ function catSearch() {
   if (!q||!DATA.catalog.length) { dd.classList.remove('open'); return; }
   const hits=DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,12);
   if (!hits.length) { dd.classList.remove('open'); return; }
-  _catCache={};
+  _cache={};
   dd.innerHTML=hits.map((h,i)=>{
-    _catCache['c'+i]=h;
+    _cache['c'+i]=h;
     return `<div class="ddi" onmousedown="pickCat('c${i}')">
       <div><div>${h.name}</div>${h.store?`<div class="ddi-s">${h.store}</div>`:''}</div>
       <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span></div>
@@ -3231,7 +3258,7 @@ function catSearch() {
 }
 function closeCatDD() { el('cat-dd').classList.remove('open'); }
 function pickCat(key) {
-  const h=_catCache[key]; if(!h) return;
+  const h=_cache[key]; if(!h) return;
   el('gr-search').value=h.name;
   el('gr-store').value=h.store||'';
   el('gr-price').value=h.price||'';
@@ -3618,9 +3645,7 @@ async function clearAll() {
 // SURPLUS SAVINGS
 // ══════════════════════════════════════════
 function getPrevMonthSurplus(month) {
-  const [yr, mo] = month.split('-').map(Number);
-  const prev = new Date(yr, mo - 2, 1);
-  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const prevMon = prevMonStr(month);
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return { surplus: 0, prevMon };
   const prevMes = DATA.entries.filter(e => ym(e.date) === prevMon);
@@ -3646,17 +3671,13 @@ function saveSurplus(month) {
 // adds the difference to this month's budget ceiling.
 // ══════════════════════════════════════════
 function getCarryForward(category, month) {
-  const [yr, mo] = month.split('-').map(Number);
-  const prev = new Date(yr, mo - 2, 1);
-  const prevMon = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}`;
+  const prevMon   = prevMonStr(month);
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return 0;
-  const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevInc  = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const prevSpent= prevMes.filter(e=>e.type==='expense'&&e.category===category).reduce((s,e)=>s+e.amount,0);
-  const prevTarget = prevInc * DATA.splits[category] / 100;
-  const carry = prevTarget - prevSpent;
-  return carry > 0 ? +carry.toFixed(2) : 0;
+  const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevSpent = prevMes.filter(e=>e.type==='expense'&&e.category===category).reduce((s,e)=>s+e.amount,0);
+  return Math.max(0, +(prevInc * DATA.splits[category] / 100 - prevSpent).toFixed(2));
 }
 
 // ══════════════════════════════════════════
@@ -3664,19 +3685,16 @@ function getCarryForward(category, month) {
 // Counts consecutive months where actual savings ≥ 90% of target.
 // ══════════════════════════════════════════
 function computeSavingsStreak() {
-  const now = new Date();
   let streak = 0;
   for (let i = 1; i <= 48; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const mon = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const mon = offsetMonStr(-i);
     const savedInc = DATA.incomes[mon];
     if (!savedInc || savedInc.amount === 0) break;
-    const mes = DATA.entries.filter(e => ym(e.date) === mon);
-    const inc = savedInc.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    const saved = mes.filter(e=>e.type==='expense'&&e.category==='savings').reduce((s,e)=>s+e.amount,0);
+    const mes    = DATA.entries.filter(e => ym(e.date) === mon);
+    const inc    = savedInc.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const saved  = mes.filter(e=>e.type==='expense'&&e.category==='savings').reduce((s,e)=>s+e.amount,0);
     const target = inc * DATA.splits.savings / 100;
-    if (target > 0 && saved >= target * 0.9) streak++;
-    else break;
+    if (target > 0 && saved >= target * 0.9) streak++; else break;
   }
   return streak;
 }
@@ -3700,7 +3718,7 @@ function renderBillCalendar(month) {
   const daysInMonth = new Date(yr, mo, 0).getDate();
   const firstDow    = (new Date(yr, mo - 1, 1).getDay() + 6) % 7; // Mon=0
   const todayDate   = new Date().getDate();
-  const isThisMon   = month === `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const isThisMon   = month === curMonStr();
 
   el('bill-cal-title').textContent = `Bill calendar · ${month}`;
 
@@ -3847,24 +3865,20 @@ function createInstallmentEntries(date, desc, totalAmount, formula, cat, acctId,
   const [yr, mo] = date.split('-').map(Number);
   const dayOfMonth = parseInt(date.slice(8)) || 1;
   const perPayment = +(totalAmount / n).toFixed(2);
-  // adjust last payment for rounding
   for (let i = 0; i < n; i++) {
-    const d = new Date(yr, mo - 1 + i, 1);
+    const d       = new Date(yr, mo - 1 + i, 1);
     const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    const entryDay = Math.min(dayOfMonth, lastDay);
-    const entryDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(entryDay).padStart(2,'0')}`;
-    const amt = i === n - 1 ? +(totalAmount - perPayment * (n - 1)).toFixed(2) : perPayment;
-    DATA.entries.unshift({
-      id: uid(), date: entryDate, desc: `${desc} (${i+1}/${n})`,
-      amount: amt, formula: null, type: 'expense', category: cat,
-      tags: ['installment'], accountId: acctId, recurId: null, installmentId: iid
-    });
+    const dd      = String(Math.min(dayOfMonth, lastDay)).padStart(2,'0');
+    const mm      = String(d.getMonth()+1).padStart(2,'0');
+    const entryDate = `${d.getFullYear()}-${mm}-${dd}`;
+    const amt = i === n-1 ? +(totalAmount - perPayment*(n-1)).toFixed(2) : perPayment;
+    DATA.entries.unshift({ id:uid(), date:entryDate, desc:`${desc} (${i+1}/${n})`,
+      amount:amt, formula:null, type:'expense', category:cat,
+      tags:['installment'], accountId:acctId, recurId:null, installmentId:iid });
   }
-  DATA.installments.push({
-    id: iid, desc, total: totalAmount, n, paid: 0,
-    startMonth: `${yr}-${String(mo).padStart(2,'0')}`,
-    day: dayOfMonth, category: cat, accountId: acctId
-  });
+  DATA.installments.push({ id:iid, desc, total:totalAmount, n, paid:0,
+    startMonth:`${yr}-${String(mo).padStart(2,'0')}`,
+    day:dayOfMonth, category:cat, accountId:acctId });
 }
 
 function renderInstallments() {
@@ -4520,11 +4534,8 @@ function exportAIFile() {
 async function renderWealth() {
   const aiFrom = el('ai-from'), aiTo = el('ai-to');
   if (!aiFrom.value || !aiTo.value) {
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const sixBack   = new Date(now.getFullYear(), now.getMonth()-5, 1);
-    aiFrom.value = `${sixBack.getFullYear()}-${String(sixBack.getMonth()+1).padStart(2,'0')}`;
-    aiTo.value   = thisMonth;
+    aiFrom.value = offsetMonStr(-5);
+    aiTo.value   = curMonStr();
   }
   const savedInc = DATA.incomes[curMonth()];
   if (savedInc?.amount > 0) {
@@ -4693,12 +4704,9 @@ function renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapse
   const onTrack   = projected <= budget;
   const diff      = Math.abs(projected - budget);
 
-  // 3-month rolling average
-  const prevMonths = Array.from({length:3}, (_,i) => {
-    const d = new Date(new Date(month+'-01').setMonth(new Date(month+'-01').getMonth()-i-1));
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  });
-  const avgSpend = prevMonths.reduce((s,m) => {
+  // 3-month rolling average using prevMonStr
+  const avgSpend = [1,2,3].reduce((s,i) => {
+    const m = prevMonStr(month, i);
     return s + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='expense').reduce((a,e)=>a+e.amount,0);
   }, 0) / 3;
 
@@ -4739,16 +4747,9 @@ function renderMerchantAnalytics(month, mes) {
   }
   const max   = sorted[0][1];
   const total = sorted.reduce((s,[,v]) => s+v, 0);
-  container.innerHTML = sorted.map(([name, amt], i) => `
-    <div class="merchant-row">
-      <span class="merchant-rank">${i+1}</span>
-      <span class="merchant-name" title="${name}">${name}</span>
-      <div class="merchant-bar-wrap">
-        <div class="merchant-bar-track"><div class="merchant-bar-fill" style="width:${Math.round(amt/max*100)}%"></div></div>
-      </div>
-      <span class="merchant-amt">${fmt(amt)}</span>
-      <span class="merchant-pct">${(amt/total*100).toFixed(0)}%</span>
-    </div>`).join('');
+  container.innerHTML = sorted.map(([name, amt], i) =>
+    barRow(name, amt, max, { rank: i+1, pct: (amt/total*100).toFixed(0) })
+  ).join('');
 }
 
 // ══════════════════════════════════════════
@@ -4886,9 +4887,8 @@ function renderAnnualGrid() {
   if (yrSel && !yrSel.options.length) {
     yrSel.innerHTML = years.map(y=>`<option>${y}</option>`).join('');
   }
-  const yr = yrSel?.value || years[0];
-  const now = new Date();
-  const curMon = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const yr     = yrSel?.value || years[0];
+  const curMon = curMonStr();
 
   const rows = [
     { key:'income',   label:'Income',   fn:(mes,m)=>{ const inc=DATA.incomes[m]; return (inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); }, cls:'annual-pos' },
@@ -4900,11 +4900,6 @@ function renderAnnualGrid() {
   ];
 
   const months = Array.from({length:12}, (_,i) => `${yr}-${String(i+1).padStart(2,'0')}`);
-  const fmtV = (v, signed) => {
-    if (v === 0) return '<span style="color:var(--ink3)">—</span>';
-    if (signed) return `<span style="color:${v>=0?'var(--Gm)':'var(--Rm)'};font-weight:600">${v>=0?'+':''}${fmt(Math.abs(v)).replace('€','')}`;
-    return fmt(v).replace('€','');
-  };
 
   const html = `<table class="annual-tbl">
     <thead><tr>
@@ -4918,8 +4913,8 @@ function renderAnnualGrid() {
       const total = vals.reduce((s,v)=>s+v,0);
       return `<tr class="${row.key==='net'?'annual-sum':''}">
         <td>${row.label}</td>
-        ${vals.map((v,i)=>`<td class="${months[i]===curMon?'cur-month':''} ${row.cls}">${fmtV(v,row.signed)}</td>`).join('')}
-        <td class="${row.cls} annual-sum">${fmtV(total,row.signed)}</td>
+        ${vals.map((v,i)=>`<td class="${months[i]===curMon?'cur-month':''} ${row.cls}">${fmtGridVal(v,row.signed)}</td>`).join('')}
+        <td class="${row.cls} annual-sum">${fmtGridVal(total,row.signed)}</td>
       </tr>`;
     }).join('')}
     </tbody>
@@ -5084,6 +5079,84 @@ function exportFirefly() {
   });
   dl(lines.join('\r\n'), `vault_firefly_${ymd()}.csv`, 'text/csv');
   toast('Firefly III CSV downloaded');
+}
+
+// ══════════════════════════════════════════
+// WEEKLY SUMMARY DIGEST
+// Shows Mon–Sun of the current week, daily spend,
+// vs a budget pace line. Resets each Monday.
+// ══════════════════════════════════════════
+function renderWeeklySummary() {
+  const container = el('d-week'); if (!container) return;
+  const now = new Date();
+  // Monday = day 0 of the week
+  const dow  = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+  const mon  = new Date(now); mon.setDate(now.getDate() - dow); mon.setHours(0,0,0,0);
+  const sun  = new Date(mon); sun.setDate(mon.getDate() + 6);
+
+  const pad  = n => String(n).padStart(2,'0');
+  const toYMD = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const monStr = toYMD(mon), sunStr = toYMD(sun);
+
+  // Weekly budget pace = monthly income / days-in-month * 7
+  const month    = curMonStr();
+  const savedInc = DATA.incomes[month];
+  const monthInc = savedInc ? savedInc.amount : 0;
+  const daysInMo = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const weekBudget = monthInc > 0 ? +(monthInc * DATA.splits.wants / 100 / daysInMo * 7).toFixed(2) : 0;
+
+  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const days = Array.from({length:7}, (_,i) => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    return { date: toYMD(d), name: DAY_NAMES[i], d };
+  });
+
+  // Sum expenses per day
+  const byDay = {};
+  DATA.entries
+    .filter(e => e.type==='expense' && e.date >= monStr && e.date <= sunStr)
+    .forEach(e => { byDay[e.date] = (byDay[e.date]||0) + e.amount; });
+
+  const weekTotal = Object.values(byDay).reduce((s,v)=>s+v,0);
+  const todayStr  = toYMD(now);
+  const maxDay    = Math.max(...Object.values(byDay), weekBudget/7, 1);
+
+  const onTrack = weekBudget === 0 || weekTotal <= weekBudget;
+
+  // Badge label
+  el('week-lbl').textContent =
+    `${monStr.slice(5)} – ${sunStr.slice(5)} · ${fmt(weekTotal)}${weekBudget>0?' / '+fmt(weekBudget):''}`;
+
+  // Day grid
+  const grid = days.map(({date, name, d}) => {
+    const amt   = byDay[date] || 0;
+    const isPast = date < todayStr;
+    const isToday = date === todayStr;
+    const isFuture = date > todayStr;
+    const barH  = amt > 0 ? Math.round(amt/maxDay*100) : 0;
+    return `<div class="week-day${isToday?' today':''}">
+      <div class="week-day-name">${name}</div>
+      <div style="height:32px;display:flex;align-items:flex-end;justify-content:center;margin:3px 0">
+        ${amt > 0
+          ? `<div style="width:80%;border-radius:3px 3px 0 0;height:${barH}%;background:${isFuture?'var(--s2)':'var(--Bm)'};opacity:${isPast?'.7':'1'};transition:height .4s;min-height:3px"></div>`
+          : `<div style="width:80%;height:2px;background:var(--s2);border-radius:1px;margin-bottom:1px"></div>`}
+      </div>
+      <div class="week-day-amt${amt===0?' zero':''}">${amt>0?fmt(amt).replace('€',''):'—'}</div>
+    </div>`;
+  }).join('');
+
+  // Stats row
+  const daysElapsed = Math.min(dow+1, 7);
+  const dailyAvg    = daysElapsed > 0 ? weekTotal / daysElapsed : 0;
+  const projected   = dailyAvg * 7;
+
+  container.innerHTML = `
+    <div class="week-grid">${grid}</div>
+    <div style="display:flex;gap:16px;font-size:12px;color:var(--ink2);flex-wrap:wrap;font-family:var(--mono)">
+      <span>Daily avg: <strong>${fmt(dailyAvg)}</strong></span>
+      ${weekBudget>0?`<span>Projected week: <strong style="color:${projected<=weekBudget?'var(--Gm)':'var(--Rm)'}">${fmt(projected)}</strong></span>`:''}
+      ${weekBudget>0?`<span style="color:${onTrack?'var(--Gm)':'var(--Rm)'};font-weight:600">${onTrack?'✓ on track':'⚠ over pace'}</span>`:''}
+    </div>`;
 }
 
 // ══════════════════════════════════════════
