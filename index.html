@@ -551,24 +551,65 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
     <div>
       <div class="brand-name">Vault Finance</div>
-      <div class="brand-sub">AES-256 encrypted · GitHub-synced</div>
+      <div class="brand-sub">AES-256-GCM · encrypted at rest · private vault repo</div>
     </div>
   </div>
 
-  <div class="sec-title">GitHub connection</div>
+  <!-- ── Setup guide (collapsible) ── -->
+  <div style="margin-bottom:16px">
+    <button class="btn xs ghost" style="padding:0;font-size:12px;color:var(--ink3)" onclick="
+      var g=document.getElementById('setup-guide');
+      var arrow=document.getElementById('guide-arrow');
+      var open=g.style.display!=='none';
+      g.style.display=open?'none':'block';
+      arrow.textContent=open?'▸':'▾';
+    ">
+      <span id="guide-arrow">▸</span> First-time setup guide
+    </button>
+    <div id="setup-guide" style="display:none;margin-top:10px;padding:12px 14px;background:var(--s1);border-radius:var(--rs);font-size:12px;color:var(--ink2);line-height:1.75">
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px">Recommended setup — app public, vault private</div>
+      <div style="margin-bottom:6px">This app can be hosted publicly (e.g. GitHub Pages) while your financial data stays in a completely separate <strong>private</strong> repository. Only you can access the vault.</div>
+      <ol style="margin:0;padding-left:18px">
+        <li style="margin-bottom:6px"><strong>Host the app publicly</strong> — fork or upload <code>index.html</code> to a public GitHub repo, enable GitHub Pages under Settings → Pages → Deploy from branch.</li>
+        <li style="margin-bottom:6px"><strong>Create a private vault repo</strong> — go to github.com/new, name it something generic (e.g. <code>v-store</code>), set it to <strong>Private</strong>, and initialise with a README so it exists.</li>
+        <li style="margin-bottom:6px"><strong>Create a fine-grained Personal Access Token</strong> — go to GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new. Set:<br>
+          &nbsp;· Resource owner: <em>your account</em><br>
+          &nbsp;· Repository access: <strong>Only select repositories</strong> → choose your private vault repo only<br>
+          &nbsp;· Permissions: Contents → <strong>Read and write</strong><br>
+          This token can read/write your vault repo and nothing else.</li>
+        <li style="margin-bottom:6px"><strong>Choose a strong passphrase</strong> — use 5 or more random words (diceware) or a random 20+ character string. This is the only thing protecting your data if someone downloads the encrypted file. Do not reuse a password from anywhere else.</li>
+        <li><strong>Fill in the form below</strong> — enter the token, passphrase, and the <em>private</em> vault repo owner/name. Click Test, then Open vault.</li>
+      </ol>
+      <div style="margin-top:10px;padding:8px 10px;background:var(--Abg);border-radius:var(--rsm);color:var(--A);font-size:11px">
+        ⚠ Your passphrase cannot be recovered. If you forget it, the vault file cannot be decrypted. Store it in a password manager.
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">Private vault repository</div>
+
+  <div class="g2" style="margin-bottom:10px">
+    <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="your-username" autocomplete="off" autocapitalize="none"></div>
+    <div class="fg" style="margin:0"><label>Private repo name</label><input type="text" id="c-repo" placeholder="v-store" autocomplete="off" autocapitalize="none"></div>
+  </div>
+
+  <div class="sec-title" style="margin-top:14px">Access token</div>
 
   <div class="fg">
-    <label>Personal Access Token</label>
-    <input type="password" id="c-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
-    <div class="pat-note">⚿ PAT is held <strong>in memory only</strong> — never written to disk or uploaded to GitHub. Re-enter each session. Needs <code>repo</code> scope.</div>
+    <label>Fine-grained Personal Access Token</label>
+    <input type="password" id="c-pat" placeholder="github_pat_…" autocomplete="off">
+    <div class="pat-note">⚿ Held <strong>in memory only</strong> for this session — never written to disk, never sent anywhere except the GitHub API. Scope it to your private vault repo only (Contents: read &amp; write). Re-enter each session.</div>
   </div>
 
-  <div class="g2" style="margin-bottom:14px">
-    <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="username"></div>
-    <div class="fg" style="margin:0"><label>Repository</label><input type="text" id="c-repo" placeholder="my-budget"></div>
+  <div class="sec-title" style="margin-top:14px">Vault encryption</div>
+
+  <div class="fg">
+    <label>Vault passphrase</label>
+    <input type="password" id="c-pass" placeholder="Five random words or 20+ characters…" autocomplete="new-password">
+    <div class="pat-note">🔑 Used <strong>only for local encryption</strong> — never transmitted. Independent of your token; rotating or revoking the token does not lock you out of your data. Use a unique passphrase stored in a password manager.</div>
   </div>
 
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
     <button class="btn" id="btn-test" onclick="testConn()">Test connection</button>
     <button class="btn primary" id="btn-enter" disabled onclick="enterApp()">Open vault →</button>
   </div>
@@ -1157,9 +1198,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Sync &amp; auto-push</div>
-        <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">
-          Connected to <strong id="cfg-label"></strong> · <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
-          · <span id="last-sync" style="font-size:11px;color:var(--ink3)"></span>
+        <div style="font-size:13px;color:var(--ink2);margin-bottom:4px">
+          Vault file: <strong id="cfg-label"></strong> / <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px">
+          Stored encrypted in your <strong>private</strong> repository. Only someone with your passphrase can read the contents.
+          · <span id="last-sync"></span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
           <button class="btn sm" onclick="ghPull()">↓ Pull from GitHub</button>
@@ -1409,8 +1453,9 @@ const GR_CATS = {
 };
 
 // ══════════════════════════════════════════
-// CRYPTO  —  AES-256-GCM · PBKDF2(120k)
+// CRYPTO  —  AES-256-GCM · PBKDF2(600k)
 // Disk format: base64( salt[16] | iv[12] | ciphertext )
+// Key material: vault passphrase (PASS), independent of the GitHub PAT.
 // b64e uses loop (not spread) to avoid stack overflow on large vaults.
 // ══════════════════════════════════════════
 const CX = (() => {
@@ -1418,27 +1463,28 @@ const CX = (() => {
   function b64e(u8) { let s=''; for(let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
   function b64d(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
 
-  async function kdf(pat, salt) {
-    const raw = await crypto.subtle.importKey('raw', te.encode(pat), 'PBKDF2', false, ['deriveKey']);
+  async function kdf(pass, salt) {
+    const raw = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
-      { name:'PBKDF2', salt, iterations:120000, hash:'SHA-256' },
+      { name:'PBKDF2', salt, iterations:600000, hash:'SHA-256' },
       raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
     );
   }
-  async function seal(obj, pat, existingSalt) {
+  // existingSalt: pass for local saves (avoids extra KDF round); omit/null for remote push (rotates key).
+  async function seal(obj, pass, existingSalt) {
     const salt = existingSalt || crypto.getRandomValues(new Uint8Array(16));
     const iv   = crypto.getRandomValues(new Uint8Array(12));
-    const key  = await kdf(pat, salt);
+    const key  = await kdf(pass, salt);
     const ct   = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, te.encode(JSON.stringify(obj)));
     const out  = new Uint8Array(16 + 12 + ct.byteLength);
     out.set(salt); out.set(iv, 16); out.set(new Uint8Array(ct), 28);
     return { b64: b64e(out), salt };
   }
-  async function open(b64str, pat) {
+  async function open(b64str, pass) {
     // b64str is the raw base64 string (already decoded from GitHub's outer base64 layer)
     const buf  = b64d(b64str);
     const salt = buf.slice(0, 16), iv = buf.slice(16, 28), ct = buf.slice(28);
-    const key  = await kdf(pat, salt);
+    const key  = await kdf(pass, salt);
     const pt   = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
     return { data: JSON.parse(td.decode(pt)), salt };
   }
@@ -1457,11 +1503,44 @@ const fmtS = n  => (n >= 0 ? '+' : '') + n.toLocaleString('de-AT', { minimumFrac
 const MS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 
+// Safe arithmetic expression parser — supports + - * / ( ) and numeric literals only.
+// No eval / new Function — immune to formula-injection from tampered vault data.
 function evalExpr(s) {
   s = String(s||'').trim();
   if (!s) return 0;
   if (!s.startsWith('=')) return parseFloat(s) || 0;
-  try { return +Function('"use strict";return('+s.slice(1)+')')() || 0; } catch { return 0; }
+  const expr = s.slice(1).replace(/\s+/g,'');
+  let pos = 0;
+  function peek()  { return expr[pos]; }
+  function consume(ch) { if (expr[pos]!==ch) throw new Error('expected '+ch); pos++; }
+  function parseNum() {
+    let start = pos;
+    if (peek()==='-') pos++;
+    while (pos<expr.length && /[\d.]/.test(expr[pos])) pos++;
+    const n = parseFloat(expr.slice(start));
+    if (isNaN(n)) throw new Error('bad number at '+start);
+    return n;
+  }
+  function parseAtom() {
+    if (peek()==='(') { consume('('); const v=parseAdd(); consume(')'); return v; }
+    return parseNum();
+  }
+  function parseMul() {
+    let v = parseAtom();
+    while (peek()==='*'||peek()==='/') {
+      const op=expr[pos++]; const r=parseAtom();
+      v = op==='*' ? v*r : (r===0 ? 0 : v/r);
+    }
+    return v;
+  }
+  function parseAdd() {
+    let v = parseMul();
+    while (peek()==='+'||(peek()==='-'&&pos>0)) {
+      const op=expr[pos++]; v = op==='+' ? v+parseMul() : v-parseMul();
+    }
+    return v;
+  }
+  try { const r = parseAdd(); return isFinite(r) ? r : 0; } catch { return 0; }
 }
 function parseAmt(s) {
   const str = String(s||'').trim();
@@ -1499,11 +1578,16 @@ function dl(content, name, type) {
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let PAT=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
+let PAT=null, PASS=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
 let _grCatFilter='all', _curTags=[], _entryMonthVal='';
 let _cache={};               // unified dropdown cache: { 'd0':item, 'c0':item, … }
 let _selEntries=new Set();
 const LS_CFG='vf4_cfg', LS_ENC='vf4_enc', LS_DARK='vf4_dark', LS_MONTH='vf4_month';
+
+// HTML-escape user-sourced strings before inserting via innerHTML.
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 // ── Shared utilities ──────────────────────────────────────────────────────────
 // Return YYYY-MM that is `n` months before `month`
@@ -1527,15 +1611,18 @@ const offsetMonStr = (n) => {
 };
 
 // Shared horizontal bar row used by tags, merchants, etc.
-const barRow = (label, val, max, {color='var(--Bm)', rank=null, pct=null, extra=''}={}) => `
+const barRow = (label, val, max, {color='var(--Bm)', rank=null, pct=null, extra=''}={}) => {
+  const safeLabel = esc(label);
+  return `
   <div class="bar-row">
     ${rank !== null ? `<span class="bar-row-rank">${rank}</span>` : ''}
-    <span class="bar-row-lbl" title="${label}">${label}</span>
+    <span class="bar-row-lbl" title="${safeLabel}">${safeLabel}</span>
     <div class="bar-row-track"><div class="bar-row-fill" style="width:${max>0?Math.round(val/max*100):0}%;background:${color}"></div></div>
     <span class="bar-row-amt">${fmt(val)}</span>
     ${pct !== null ? `<span class="bar-row-pct">${pct}%</span>` : ''}
     ${extra}
   </div>`;
+};
 
 // Format a grid value (0 = —, signed = coloured +/−)
 const fmtGridVal = (v, signed=false) => {
@@ -1657,11 +1744,13 @@ async function testConn() {
 }
 
 async function enterApp() {
-  const pat = el('c-pat').value.trim();
-  if (!pat) return cStatus('err', 'PAT required.');
+  const pat  = el('c-pat').value.trim();
+  const pass = el('c-pass').value;
+  if (!pat)  return cStatus('err', 'PAT required.');
+  if (!pass) return cStatus('err', 'Vault passphrase required.');
   const cfg = cfgFromInputs();
   if (!cfg.owner || !cfg.repo) return cStatus('err', 'Owner and repo required.');
-  PAT = pat; CFG = cfg;
+  PAT = pat; PASS = pass; CFG = cfg;
   localStorage.setItem(LS_CFG, JSON.stringify(cfg));
   cStatus('loading', 'Pulling from GitHub…');
   try {
@@ -1672,7 +1761,7 @@ async function enterApp() {
       const local = localStorage.getItem(LS_ENC);
       if (local) {
         try {
-          const { data, salt } = await CX.open(local, PAT);
+          const { data, salt } = await CX.open(local, PASS);
           DATA = migrate(data); SALT = salt;
           toast('Loaded from local cache');
         } catch {
@@ -1687,7 +1776,7 @@ async function enterApp() {
     el('screen-connect').style.display = 'none';
     el('screen-app').style.display = 'flex';
     boot(); nav(VIEW);
-  } catch(e) { cStatus('err', e.message || 'Failed to open vault'); PAT = null; }
+  } catch(e) { cStatus('err', e.message || 'Failed to open vault'); PAT = PASS = null; }
 }
 
 function cStatus(type, msg) {
@@ -1699,11 +1788,11 @@ function cStatus(type, msg) {
 
 function disconnect() {
   clearTimeout(_st);           // cancel any pending encrypted save
-  PAT = DATA = SALT = null;
+  PAT = PASS = DATA = SALT = null;
   el('screen-app').style.display = 'none';
   el('screen-connect').style.display = 'flex';
-  el('c-pat').value = ''; el('btn-enter').disabled = true;
-  cStatus('ok', 'Disconnected — PAT cleared from memory');
+  el('c-pat').value = ''; el('c-pass').value = ''; el('btn-enter').disabled = true;
+  cStatus('ok', 'Disconnected — PAT and passphrase cleared from memory');
 }
 
 el('c-pat').addEventListener('keydown', e => { if (e.key==='Enter') testConn(); });
@@ -1729,7 +1818,7 @@ async function doPull(silent=false) {
   if (!r.ok) throw new Error(`GitHub ${r.status}`);
   const j = await r.json();
   const b64str = atob(j.content.replace(/\n/g,'')); // decode GitHub's outer base64 → get our b64 string
-  const { data, salt } = await CX.open(b64str, PAT);
+  const { data, salt } = await CX.open(b64str, PASS);
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
   await saveLocalNow();
@@ -1739,7 +1828,8 @@ async function doPull(silent=false) {
 
 async function doPush() {
   const { owner, repo, path } = CFG;
-  const { b64, salt } = await CX.seal(DATA, PAT, SALT);
+  // Pass null for existingSalt → fresh salt + new derived key on every remote push.
+  const { b64, salt } = await CX.seal(DATA, PASS, null);
   SALT = salt;
   DATA.meta.lastSync = new Date().toISOString();
   const body = {
@@ -1782,22 +1872,6 @@ async function ghPush() {
     }
   );
 }
-async function ghPush() {
-  showConfirm(
-    'Push to GitHub',
-    'This will overwrite the remote file with your local data. Make sure you have pulled recent changes first.',
-    async () => {
-      setSyncBadge('pushing…');
-      try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); markClean(); updateLastSync(); }
-      catch(e) {
-        toast(e.message, 1); setSyncBadge('error');
-        if (e.message.includes('Conflict')) {
-          setTimeout(() => { showConfirm('Pull first?', 'Pull from GitHub now to get the latest version?', ghPull); }, 400);
-        }
-      }
-    }
-  );
-}
 function setSyncBadge(s) { el('sync-badge').textContent = s||'idle'; }
 function updateLastSync() {
   const ls = DATA?.meta?.lastSync;
@@ -1810,8 +1884,8 @@ function updateLastSync() {
 // ══════════════════════════════════════════
 let _st;
 async function saveLocalNow() {
-  if (!PAT || !DATA) return;
-  const { b64, salt } = await CX.seal(DATA, PAT, SALT);
+  if (!PASS || !DATA) return;
+  const { b64, salt } = await CX.seal(DATA, PASS, SALT);
   SALT = salt;
   localStorage.setItem(LS_ENC, b64);
 }
@@ -2103,11 +2177,11 @@ function updateBalancePreview() {
 
   preview.style.display = 'block';
   preview.innerHTML = hasAmt
-    ? `<span style="color:var(--ink2)">${acct.name}:&nbsp;</span>`
+    ? `<span style="color:var(--ink2)">${esc(acct.name)}:&nbsp;</span>`
       + `<span style="color:var(--ink2);text-decoration:line-through">${fmt(current)}</span>`
       + `<span style="color:var(--ink3)"> ${sign} ${fmt(diff)} → </span>`
       + `<strong style="color:${afterCl}">${fmt(after)}</strong>`
-    : `<span style="color:var(--ink2)">${acct.name} current balance: </span><strong>${fmt(current)}</strong>`;
+    : `<span style="color:var(--ink2)">${esc(acct.name)} current balance: </span><strong>${fmt(current)}</strong>`;
 }
 function renderAccountCards() {
   const accts = DATA.accounts;
@@ -2116,8 +2190,8 @@ function renderAccountCards() {
     accts.map(a => {
       const bal = computeAcctBalance(a);
       return `<div class="acct-card">
-        <div class="acct-bank">${a.bank||'Account'}</div>
-        <div class="acct-name">${a.name}</div>
+        <div class="acct-bank">${esc(a.bank||'Account')}</div>
+        <div class="acct-name">${esc(a.name)}</div>
         <div class="acct-bal ${bal>=0?'cg':'cr'}">${fmt(bal)}</div>
       </div>`;
     }).join('')
@@ -2685,9 +2759,9 @@ function renderRecurList() {
   }
   const freqLabel = { monthly:'monthly', weekly:'weekly', biweekly:'bi-weekly', quarterly:'quarterly' };
   el('recur-list').innerHTML = list.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
-    <span style="flex:1;font-size:13px">${r.desc||'—'}</span>
+    <span style="flex:1;font-size:13px">${esc(r.desc)||'—'}</span>
     <span class="${r.type==='income'?'amt-p':'amt-n'} num">${r.type==='income'?'+':'−'}${fmt(r.amount)}</span>
-    <span class="badge ${r.category}">${r.category}</span>
+    <span class="badge ${esc(r.category)}">${esc(r.category)}</span>
     <span class="recur-badge">↻ ${freqLabel[r.freq||'monthly']}</span>
     <span class="muted num" style="font-size:11px">day&nbsp;${r.day}</span>
     <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
@@ -2720,7 +2794,12 @@ function renderTagChips() {
   _curTags.forEach((tag,i) => {
     const chip = document.createElement('span');
     chip.className = 'ti-chip';
-    chip.innerHTML = `${tag}<button onclick="removeTag(${i})">×</button>`;
+    const txt = document.createTextNode(tag);
+    const btn = document.createElement('button');
+    btn.setAttribute('onclick', `removeTag(${i})`);
+    btn.textContent = '×';
+    chip.appendChild(txt);
+    chip.appendChild(btn);
     el('tags-wrap').insertBefore(chip, input);
   });
 }
@@ -2752,10 +2831,10 @@ function onTypeChange() {
 
 function refreshAccountSelect() {
   const opts = '<option value="">No account</option>' +
-    DATA.accounts.map(a=>`<option value="${a.id}">${a.name}${a.bank?' ('+a.bank+')':''}</option>`).join('');
+    DATA.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`).join('');
   el('ef-acct').innerHTML = opts;
   el('ef-acct-to').innerHTML = '<option value="">Select destination</option>' +
-    DATA.accounts.map(a=>`<option value="${a.id}">${a.name}${a.bank?' ('+a.bank+')':''}</option>`).join('');
+    DATA.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`).join('');
 }
 
 function descSearch() {
@@ -2945,19 +3024,19 @@ function renderEntries() {
     const cls   = isI ? 'amt-p' : (isT ? 'num' : 'amt-n');
     const sign  = isI ? '+' : (isT ? '⇄' : '−');
     const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
-    const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${t}')">${t}</span>`).join('');
+    const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${esc(t)}')">${esc(t)}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
     const checked = _selEntries.has(e.id) ? 'checked' : '';
     return `<tr>
       <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
-      <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${e.date}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${(e.desc||'').replace(/'/g,'&apos;')}')">${e.desc||'<span class="muted">—</span>'}${rBadge}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${e.formula||e.amount}')">
+      <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${esc(e.date)}</td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${esc(e.desc||'')}')">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}</td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${esc(e.formula||String(e.amount))}')">
         <span class="${cls}">${sign}${fmt(e.amount)}</span>
       </td>
-      <td><span class="badge ${e.category}">${e.category}</span></td>
+      <td><span class="badge ${esc(e.category)}">${esc(e.category)}</span></td>
       <td>${tagChips}${tagEditBtn}</td>
-      <td>${e.formula?`<span class="formula-pill">${e.formula}</span>`:'<span class="muted">—</span>'}</td>
+      <td>${e.formula?`<span class="formula-pill">${esc(e.formula)}</span>`:'<span class="muted">—</span>'}</td>
       <td><button class="btn xs ghost" onclick="duplicateEntry('${e.id}')" title="Duplicate entry" style="margin-right:2px">⧉</button><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
   }).join('') + `<tr class="trow-sum">
@@ -3398,15 +3477,15 @@ function renderGrocery() {
           storeTip = `<span class="store-tip cheaper">✓ cheapest store</span>`;
         }
       } else if (stores.length >= 2 && !g.store) {
-        storeTip = `<span class="store-tip cheaper">best: ${stores[0][0]} ${fmt(stores[0][1])}</span>`;
+        storeTip = `<span class="store-tip cheaper">best: ${esc(stores[0][0])} ${fmt(stores[0][1])}</span>`;
       }
     }
 
     return `<tr>
       <td><input type="checkbox" class="gcheck" ${g.bought?'checked':''} onchange="toggleGrocery('${g.id}')"></td>
-      <td class="${g.bought?'strike muted':''}">${g.name}</td>
-      <td style="font-size:11px;color:var(--ink3)">${GR_CATS[g.category]||g.category}</td>
-      <td class="muted" style="font-size:12px">${g.store||'—'}${storeTip}</td>
+      <td class="${g.bought?'strike muted':''}">${esc(g.name)}</td>
+      <td style="font-size:11px;color:var(--ink3)">${GR_CATS[g.category]||esc(g.category)}</td>
+      <td class="muted" style="font-size:12px">${esc(g.store||'—')}${storeTip}</td>
       <td><input class="gr-edit-input" type="number" value="${g.qty}" min="1" step="1" style="width:45px"
         onchange="updateGroceryField('${g.id}','qty',Math.max(1,+this.value||1))"></td>
       <td><input class="gr-edit-input" type="text" value="${g.price||''}" placeholder="—"
@@ -3509,8 +3588,8 @@ function renderAcctList() {
       `<span style="font-size:11px;font-family:var(--mono);color:${delta>=0?'var(--Gm)':'var(--Rm)'};margin-left:6px">${delta>=0?'+':''}${fmt(delta)} from entries</span>`;
     return `<div class="acct-row" style="flex-wrap:wrap;gap:6px">
       <div style="flex:1;min-width:120px">
-        <strong style="font-size:13px">${a.name}</strong>
-        <span class="muted" style="font-size:12px;margin-left:6px">${a.bank||''}</span><br>
+        <strong style="font-size:13px">${esc(a.name)}</strong>
+        <span class="muted" style="font-size:12px;margin-left:6px">${esc(a.bank||'')}</span><br>
         <span style="font-size:11px;color:var(--ink3)">Opening balance:</span>
         <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${computed>=0?'var(--Gm)':'var(--Rm)'};margin-left:4px">${fmt(computed)} current</span>
         ${deltaStr}
@@ -3751,7 +3830,7 @@ function renderBillCalendar(month) {
     const isToday = isThisMon && d === todayDate;
     const dayBills = bills[d] || [];
     const pills = dayBills.map(b =>
-      `<span class="cal-bill-pill ${b.type}" title="${b.desc}: ${fmt(b.amount)}">${b.desc.length > 12 ? b.desc.slice(0,11)+'…' : b.desc}</span>`
+      `<span class="cal-bill-pill ${b.type}" title="${esc(b.desc)}: ${fmt(b.amount)}">${esc(b.desc.length > 12 ? b.desc.slice(0,11)+'…' : b.desc)}</span>`
     ).join('');
     cells.push(`<div class="cal-day${isToday?' today':''}">
       <div class="cal-day-num">${d}</div>
@@ -3894,7 +3973,7 @@ function renderInstallments() {
     const pct = Math.round(paidCount / inst.n * 100);
     return `<div class="inst-row">
       <div style="flex:1;min-width:120px">
-        <span style="font-size:13px;font-weight:500">${inst.desc}</span>
+        <span style="font-size:13px;font-weight:500">${esc(inst.desc)}</span>
         <span class="inst-pill">${paidCount}/${inst.n}</span>
         <div style="font-size:11px;color:var(--ink3);margin-top:2px">${fmt(inst.total / inst.n)}/mo · ${remaining} payment${remaining===1?'':'s'} left</div>
       </div>
@@ -4234,8 +4313,8 @@ function renderStocks() {
 
     return `<div class="stock-card">
       <div class="stock-card-head" onclick="toggleStockHistory('${s.id}')">
-        <div class="stock-name">${s.name}</div>
-        <span class="stock-ccy-badge" style="${ccyStyle}">${s.currency}</span>
+        <div class="stock-name">${esc(s.name)}</div>
+        <span class="stock-ccy-badge" style="${ccyStyle}">${esc(s.currency)}</span>
         ${spark}
         <div style="text-align:right">
           <div class="stock-price-big">${sym}${curPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</div>
@@ -4665,7 +4744,7 @@ function renderSavingsGoals() {
     }
     return `<div class="goal-card">
       <div class="goal-header">
-        <span class="goal-name">${g.name}</span>
+        <span class="goal-name">${esc(g.name)}</span>
         <div style="display:flex;align-items:center;gap:8px">
           ${deadlineStr ? `<span class="goal-deadline">by ${deadlineStr}</span>` : ''}
           <button class="btn xs danger" onclick="deleteSavingsGoal('${g.id}')">✕</button>
@@ -4865,8 +4944,8 @@ function renderSubscriptions() {
       <span>Annual total: <strong>${fmt(totalAnnual)}</strong></span>
     </div>
     ${subs.map(s => `<div class="sub-item">
-      <span class="sub-name">${s.name}</span>
-      <span class="sub-freq">${s.freq}</span>
+      <span class="sub-name">${esc(s.name)}</span>
+      <span class="sub-freq">${esc(s.freq)}</span>
       <div>
         <div class="sub-cost">${fmt(s.avg)}</div>
         <div class="sub-annual">${fmt(s.avg * s.annualMult)}/yr</div>
@@ -4959,13 +5038,13 @@ function renderPortfolioAlloc() {
     const col = palette[i % palette.length];
     return `<path d="M${xi1.toFixed(1)},${yi1.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${xi2.toFixed(1)},${yi2.toFixed(1)} A${rInner},${rInner} 0 ${large},0 ${xi1.toFixed(1)},${yi1.toFixed(1)} Z"
       fill="${col}" stroke="var(--s0)" stroke-width="1.5">
-      <title>${s.name}: ${fmt(s.eur)} (${(pct*100).toFixed(1)}%)</title></path>`;
+      <title>${esc(s.name)}: ${fmt(s.eur)} (${(pct*100).toFixed(1)}%)</title></path>`;
   }).join('');
 
   const legend = slices.map((s,i) => `
     <div class="donut-leg-item">
       <div class="donut-leg-dot" style="background:${palette[i%palette.length]}"></div>
-      <span>${s.name} <span style="font-family:var(--mono);color:var(--ink3)">${(s.eur/total*100).toFixed(1)}%</span></span>
+      <span>${esc(s.name)} <span style="font-family:var(--mono);color:var(--ink3)">${(s.eur/total*100).toFixed(1)}%</span></span>
     </div>`).join('');
 
   container.innerHTML = `
@@ -5028,14 +5107,14 @@ function renderHealthCheck() {
     if (!inc || !inc.amount) return false;
     return e.amount > inc.amount * 0.5;
   });
-  if (bigOnes.length) issues.push({ level:'warn', icon:'⚠', text:`${bigOnes.length} expense${bigOnes.length===1?'':'s'} >50% of monthly income`, sub:bigOnes.slice(0,2).map(e=>`${e.desc||'?'} ${fmt(e.amount)}`).join(' · ') });
+  if (bigOnes.length) issues.push({ level:'warn', icon:'⚠', text:`${bigOnes.length} expense${bigOnes.length===1?'':'s'} >50% of monthly income`, sub:bigOnes.slice(0,2).map(e=>`${esc(e.desc||'?')} ${fmt(e.amount)}`).join(' · ') });
 
   container.innerHTML = issues.map(iss => `
     <div class="health-issue">
       <div class="health-icon ${iss.level}">${iss.icon}</div>
       <div>
-        <div class="health-text">${iss.text}</div>
-        ${iss.sub ? `<div class="health-sub">${iss.sub}</div>` : ''}
+        <div class="health-text">${esc(iss.text)}</div>
+        ${iss.sub ? `<div class="health-sub">${esc(iss.sub)}</div>` : ''}
       </div>
     </div>`).join('');
 }
