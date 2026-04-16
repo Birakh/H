@@ -1205,6 +1205,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           Stored encrypted in your <strong>private</strong> repository. Only someone with your passphrase can read the contents.
           · <span id="last-sync"></span>
         </div>
+
+        <!-- Legacy vault migration banner — hidden unless old format detected -->
+        <div id="legacy-banner" class="banner warn" style="display:none;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="flex:1;min-width:180px">⚠ This vault was encrypted with the old format (token as key). Migrate now to re-encrypt with your passphrase — required before switching repos or rotating your token.</span>
+          <button class="btn xs warn" onclick="migrateVault()">Migrate now</button>
+        </div>
+
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
           <button class="btn sm" onclick="ghPull()">↓ Pull from GitHub</button>
           <button class="btn sm primary" onclick="ghPush()">↑ Push to GitHub</button>
@@ -1214,6 +1221,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           Auto-push every 5 minutes when changes are pending
         </label>
         <div style="font-size:11px;color:var(--ink3);margin-top:6px">When enabled, unsaved changes (orange dot in header) will be automatically pushed after 5 minutes.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Switch vault repository</div>
+        <div style="font-size:13px;color:var(--ink2);margin-bottom:12px">Move your vault to a different GitHub repository — for example from a public repo to a private one. Your data is re-encrypted with your current passphrase and pushed to the new location. The old repository file is <strong>not</strong> deleted.</div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>New owner</label><input type="text" id="sw-owner" placeholder="username" autocomplete="off" autocapitalize="none"></div>
+          <div class="fg" style="margin:0"><label>New repo (private)</label><input type="text" id="sw-repo" placeholder="v-store" autocomplete="off" autocapitalize="none"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm primary" onclick="switchRepo()">Switch repository →</button>
+          <span id="sw-status" style="font-size:12px;color:var(--ink3)"></span>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Your token must have <strong>Contents: read &amp; write</strong> permission on the new repository. The vault file will be created as <code>budget.enc</code>. After switching, point your token scope to the new repo only.</div>
       </div>
 
       <div class="card">
@@ -1582,6 +1603,7 @@ let PAT=null, PASS=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
 let _grCatFilter='all', _curTags=[], _entryMonthVal='';
 let _cache={};               // unified dropdown cache: { 'd0':item, 'c0':item, … }
 let _selEntries=new Set();
+let _legacyVault=false;      // true when vault was opened with old PAT-as-key scheme
 const LS_CFG='vf4_cfg', LS_ENC='vf4_enc', LS_DARK='vf4_dark', LS_MONTH='vf4_month';
 
 // HTML-escape user-sourced strings before inserting via innerHTML.
@@ -1765,8 +1787,16 @@ async function enterApp() {
           DATA = migrate(data); SALT = salt;
           toast('Loaded from local cache');
         } catch {
-          DATA = FRESH(); SALT = null;
-          toast('Could not decrypt local cache — starting fresh', 1);
+          // Legacy fallback: local cache encrypted with PAT
+          try {
+            const { data, salt } = await CX.open(local, PAT);
+            DATA = migrate(data); SALT = salt;
+            _legacyVault = true;
+            toast('Loaded from local cache (legacy format — please migrate)');
+          } catch {
+            DATA = FRESH(); SALT = null;
+            toast('Could not decrypt local cache — starting fresh', 1);
+          }
         }
       } else {
         DATA = FRESH(); SALT = null;
@@ -1818,7 +1848,18 @@ async function doPull(silent=false) {
   if (!r.ok) throw new Error(`GitHub ${r.status}`);
   const j = await r.json();
   const b64str = atob(j.content.replace(/\n/g,'')); // decode GitHub's outer base64 → get our b64 string
-  const { data, salt } = await CX.open(b64str, PASS);
+  let data, salt;
+  try {
+    ({ data, salt } = await CX.open(b64str, PASS));
+  } catch {
+    // Legacy fallback: vault was encrypted with PAT as passphrase (pre-passphrase scheme)
+    try {
+      ({ data, salt } = await CX.open(b64str, PAT));
+      _legacyVault = true;
+    } catch {
+      throw new Error('Wrong passphrase — could not decrypt vault. If you just added a passphrase, the vault may still use your old token as the key. Enter your token as the passphrase to open it, then migrate.');
+    }
+  }
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
   await saveLocalNow();
@@ -1879,15 +1920,98 @@ function updateLastSync() {
 }
 
 // ══════════════════════════════════════════
+// LEGACY MIGRATION  —  old vaults used PAT as key; migrate to passphrase scheme
+// ══════════════════════════════════════════
+function showLegacyMigrationBanner() {
+  _legacyVault = true;
+  const b = el('legacy-banner');
+  if (b) b.style.display = 'flex';
+}
+
+async function migrateVault() {
+  try {
+    setSyncBadge('migrating…');
+    await doPush(); // re-seals with PASS + fresh salt, overwrites remote
+    _legacyVault = false;
+    const b = el('legacy-banner');
+    if (b) b.style.display = 'none';
+    toast('Vault migrated — now encrypted with your passphrase');
+    setSyncBadge(''); markClean(); updateLastSync();
+  } catch(e) { toast(e.message || 'Migration failed.', 1); setSyncBadge('error'); }
+}
+
+// ══════════════════════════════════════════
+// SWITCH REPO  —  re-encrypt + push to new repo, update CFG
+// ══════════════════════════════════════════
+async function switchRepo() {
+  const newOwner = el('sw-owner').value.trim();
+  const newRepo  = el('sw-repo').value.trim();
+  const swSt     = el('sw-status');
+  if (!newOwner || !newRepo) { swSt.textContent = 'Enter both owner and repo name.'; return; }
+  if (newOwner === CFG.owner && newRepo === CFG.repo) { swSt.textContent = 'Already on that repository.'; return; }
+  swSt.textContent = 'Testing access…';
+  try {
+    const test = await ghReq(`repos/${newOwner}/${newRepo}`, PAT);
+    if (!test.ok) throw new Error(`GitHub ${test.status} — check the repo name and token permissions.`);
+    swSt.textContent = 'Re-encrypting and pushing to new repo…';
+    // Deep-copy data, strip SHA — new repo has no existing file to update
+    const dataCopy = JSON.parse(JSON.stringify(DATA));
+    if (dataCopy.meta) delete dataCopy.meta.sha;
+    // Fresh salt + new key derived from PASS
+    const { b64, salt } = await CX.seal(dataCopy, PASS, null);
+    const path = CFG.path || 'budget.enc';
+    const body = { message: `vault init ${ymd()}`, content: btoa(b64) };
+    const pr = await ghReq(`repos/${newOwner}/${newRepo}/contents/${path}`, PAT, {
+      method: 'PUT', body: JSON.stringify(body)
+    });
+    if (!pr.ok) {
+      // 422 = file already exists in new repo — need its SHA to overwrite
+      if (pr.status === 422) {
+        const existing = await ghReq(`repos/${newOwner}/${newRepo}/contents/${path}`, PAT);
+        if (existing.ok) {
+          const ej = await existing.json();
+          const body2 = { message: `vault init ${ymd()}`, content: btoa(b64), sha: ej.sha };
+          const pr2 = await ghReq(`repos/${newOwner}/${newRepo}/contents/${path}`, PAT, {
+            method: 'PUT', body: JSON.stringify(body2)
+          });
+          if (!pr2.ok) { const e2=await pr2.json(); throw new Error(e2.message||`Push failed: ${pr2.status}`); }
+          const j2 = await pr2.json();
+          DATA.meta.sha = j2.content.sha;
+        }
+      } else {
+        const e = await pr.json();
+        throw new Error(e.message || `Push failed: GitHub ${pr.status}`);
+      }
+    } else {
+      const pj = await pr.json();
+      DATA.meta.sha = pj.content.sha;
+    }
+    // Commit state
+    SALT = salt;
+    DATA.meta.lastSync = new Date().toISOString();
+    CFG = { owner: newOwner, repo: newRepo, path };
+    localStorage.setItem(LS_CFG, JSON.stringify(CFG));
+    await saveLocalNow();
+    el('sw-owner').value = ''; el('sw-repo').value = '';
+    swSt.textContent = '';
+    renderSettings();
+    markClean(); updateLastSync();
+    toast(`Switched to ${newOwner}/${newRepo}`);
+  } catch(e) { swSt.textContent = e.message || 'Switch failed.'; }
+}
+
+// ══════════════════════════════════════════
 // LOCAL SAVE  —  saveLocalNow is truly async.
 // saveLocal debounces; disconnect() cancels the timer.
 // ══════════════════════════════════════════
 let _st;
 async function saveLocalNow() {
   if (!PASS || !DATA) return;
-  const { b64, salt } = await CX.seal(DATA, PASS, SALT);
-  SALT = salt;
-  localStorage.setItem(LS_ENC, b64);
+  try {
+    const { b64, salt } = await CX.seal(DATA, PASS, SALT);
+    SALT = salt;
+    localStorage.setItem(LS_ENC, b64);
+  } catch(e) { toast('Local save failed — ' + (e.message||'unknown error'), 1); }
 }
 function saveLocal() {
   markDirty();
@@ -1983,6 +2107,8 @@ function boot() {
   toggleAutoPush(localStorage.getItem(LS_AUTO_PUSH) === '1');
   toggleAutoTheme(localStorage.getItem(LS_AUTO_THEME) === '1');
   markClean(); // fresh boot = no unsaved changes
+  // Show legacy migration banner if vault was opened with old scheme
+  if (_legacyVault) setTimeout(showLegacyMigrationBanner, 600);
 }
 
 // ══════════════════════════════════════════
@@ -2701,6 +2827,7 @@ function csvImport() {
 }
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
+  try {
   const [yr, mo] = month.split('-').map(Number);
   const lastDay  = new Date(yr, mo, 0).getDate();
   let added = 0;
@@ -2748,6 +2875,7 @@ async function applyRecurring(month) {
   saveLocal();
   toast(`Applied ${added} recurring entr${added===1?'y':'ies'}`);
   render();
+  } catch(e) { toast(e.message || 'Failed to apply recurring entries.', 1); }
 }
 
 function renderRecurList() {
@@ -2769,8 +2897,10 @@ function renderRecurList() {
 }
 
 async function deleteRecur(id) {
-  DATA.recurring = DATA.recurring.filter(r=>r.id!==id);
-  saveLocal(); renderRecurList(); toast('Recurring removed');
+  try {
+    DATA.recurring = DATA.recurring.filter(r=>r.id!==id);
+    saveLocal(); renderRecurList(); toast('Recurring removed');
+  } catch(e) { toast(e.message || 'Failed to remove recurring entry.', 1); }
 }
 
 // ══════════════════════════════════════════
@@ -2862,6 +2992,7 @@ function pickDesc(key) {
 }
 
 async function addEntry() {
+  try {
   const date   = el('ef-date').value || ymd();
   const desc   = el('ef-desc').value.trim();
   const amtRaw = el('ef-amt').value.trim();
@@ -2938,18 +3069,21 @@ async function addEntry() {
   _curTags=[]; renderTagChips();
   el('acct-balance-preview').style.display = 'none';
   render();
+  } catch(e) { toast(e.message || 'Failed to save entry.', 1); }
 }
 
 async function deleteEntry(id) {
-  const entry = DATA.entries.find(e => e.id === id);
-  if (!entry) return;
-  const idx = DATA.entries.indexOf(entry);
-  DATA.entries = DATA.entries.filter(e => e.id !== id);
-  saveLocal(); render();
-  toast('Entry deleted', 0, () => {
-    DATA.entries.splice(idx, 0, entry);
-    saveLocal(); render(); toast('Entry restored');
-  });
+  try {
+    const entry = DATA.entries.find(e => e.id === id);
+    if (!entry) return;
+    const idx = DATA.entries.indexOf(entry);
+    DATA.entries = DATA.entries.filter(e => e.id !== id);
+    saveLocal(); render();
+    toast('Entry deleted', 0, () => {
+      DATA.entries.splice(idx, 0, entry);
+      saveLocal(); render(); toast('Entry restored');
+    });
+  } catch(e) { toast(e.message || 'Failed to delete entry.', 1); }
 }
 
 function makeEditable(td, id, field, cur) {
@@ -2960,10 +3094,12 @@ function makeEditable(td, id, field, cur) {
   td.querySelector('input').select();
 }
 async function commitEdit(id, field, val) {
-  const e = DATA.entries.find(x=>x.id===id); if(!e) return;
-  if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
-  else e[field]=val;
-  saveLocal(); render();
+  try {
+    const e = DATA.entries.find(x=>x.id===id); if(!e) return;
+    if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
+    else e[field]=val;
+    saveLocal(); render();
+  } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
 
 function renderEntries() {
@@ -3215,18 +3351,20 @@ function showColPreview() {
   el('col-preview').textContent='Preview: '+(p||'—');
 }
 async function applyColMap() {
-  const ni=+el('map-n').value,pi=+el('map-p').value,si=+el('map-s').value;
-  if (ni<0) return toast('Select a name column.',1);
-  DATA.catalog=_rawRows.map(row=>({
-    name:String(row[ni]||'').trim(),
-    price:pi>=0?parseFloat(String(row[pi]).replace(',','.'))||0:0,
-    store:si>=0?String(row[si]||'').trim():'',
-    lastPrice:null, lastDate:null, priceHistory:[]
-  })).filter(r=>r.name);
-  el('col-map-ui').style.display='none';
-  updateCatalogInfo(); saveLocal();
-  renderCatalogEditor();
-  toast(`Imported ${DATA.catalog.length} products`);
+  try {
+    const ni=+el('map-n').value,pi=+el('map-p').value,si=+el('map-s').value;
+    if (ni<0) return toast('Select a name column.',1);
+    DATA.catalog=_rawRows.map(row=>({
+      name:String(row[ni]||'').trim(),
+      price:pi>=0?parseFloat(String(row[pi]).replace(',','.'))||0:0,
+      store:si>=0?String(row[si]||'').trim():'',
+      lastPrice:null, lastDate:null, priceHistory:[]
+    })).filter(r=>r.name);
+    el('col-map-ui').style.display='none';
+    updateCatalogInfo(); saveLocal();
+    renderCatalogEditor();
+    toast(`Imported ${DATA.catalog.length} products`);
+  } catch(e) { toast(e.message || 'Import failed.', 1); }
 }
 function updateCatalogInfo() {
   el('catalog-info').textContent=(DATA.catalog?.length||0)?`${DATA.catalog.length} products in catalog`:'No catalog loaded';
@@ -3304,10 +3442,12 @@ function addCatalogItem() {
 }
 
 async function clearCatalog() {
-  showConfirm('Clear entire catalog?', 'This removes all product data. Your shopping list and entries are kept.', () => {
-    DATA.catalog = []; saveLocal(); updateCatalogInfo(); renderCatalogEditor();
-    toast('Catalog cleared');
-  });
+  try {
+    showConfirm('Clear entire catalog?', 'This removes all product data. Your shopping list and entries are kept.', () => {
+      DATA.catalog = []; saveLocal(); updateCatalogInfo(); renderCatalogEditor();
+      toast('Catalog cleared');
+    });
+  } catch(e) { toast(e.message || 'Failed to clear catalog.', 1); }
 }
 
 // ══════════════════════════════════════════
@@ -3370,60 +3510,68 @@ el('gr-price')?.addEventListener('input', () => {
 });
 
 async function addShopItem() {
-  const name=el('gr-search').value.trim(); if(!name) return toast('Enter an item.',1);
-  const price=parseFloat(el('gr-price').value)||0;
-  DATA.grocery.push({
-    id:uid(), name, store:el('gr-store').value.trim(),
-    category:el('gr-cat').value,
-    qty:parseInt(el('gr-qty').value)||1,
-    price, bought:false, boughtDate:null
-  });
-  // update catalog lastPrice and price history
-  if (price) {
-    const cat=DATA.catalog.find(c=>c.name.toLowerCase()===name.toLowerCase());
-    if (cat) {
-      cat.lastPrice=price; cat.lastDate=ymd();
-      if (!cat.priceHistory) cat.priceHistory=[];
-      cat.priceHistory.push({price, date:ymd(), store:el('gr-store').value.trim()||''});
-      if (cat.priceHistory.length>12) cat.priceHistory.shift();
+  try {
+    const name=el('gr-search').value.trim(); if(!name) return toast('Enter an item.',1);
+    const price=parseFloat(el('gr-price').value)||0;
+    DATA.grocery.push({
+      id:uid(), name, store:el('gr-store').value.trim(),
+      category:el('gr-cat').value,
+      qty:parseInt(el('gr-qty').value)||1,
+      price, bought:false, boughtDate:null
+    });
+    // update catalog lastPrice and price history
+    if (price) {
+      const cat=DATA.catalog.find(c=>c.name.toLowerCase()===name.toLowerCase());
+      if (cat) {
+        cat.lastPrice=price; cat.lastDate=ymd();
+        if (!cat.priceHistory) cat.priceHistory=[];
+        cat.priceHistory.push({price, date:ymd(), store:el('gr-store').value.trim()||''});
+        if (cat.priceHistory.length>12) cat.priceHistory.shift();
+      }
     }
-  }
-  saveLocal();
-  el('gr-search').value=''; el('gr-price').value=''; el('gr-qty').value='1';
-  el('gr-price-warn').style.display='none'; el('gr-price-delta').textContent='';
-  renderGrocery();
+    saveLocal();
+    el('gr-search').value=''; el('gr-price').value=''; el('gr-qty').value='1';
+    el('gr-price-warn').style.display='none'; el('gr-price-delta').textContent='';
+    renderGrocery();
+  } catch(e) { toast(e.message || 'Failed to add item.', 1); }
 }
 
 async function toggleGrocery(id) {
-  const g=DATA.grocery.find(x=>x.id===id); if(!g) return;
-  g.bought=!g.bought; g.boughtDate=g.bought?ymd():null;
-  // update catalog lastPrice on purchase
-  if (g.bought && g.price) {
-    const cat=DATA.catalog.find(c=>c.name.toLowerCase()===g.name.toLowerCase());
-    if (cat) {
-      cat.lastPrice=g.price; cat.lastDate=g.boughtDate;
-      if (!cat.priceHistory) cat.priceHistory=[];
-      cat.priceHistory.push({price:g.price, date:g.boughtDate, store:g.store||''});
-      if (cat.priceHistory.length>12) cat.priceHistory.shift();
+  try {
+    const g=DATA.grocery.find(x=>x.id===id); if(!g) return;
+    g.bought=!g.bought; g.boughtDate=g.bought?ymd():null;
+    // update catalog lastPrice on purchase
+    if (g.bought && g.price) {
+      const cat=DATA.catalog.find(c=>c.name.toLowerCase()===g.name.toLowerCase());
+      if (cat) {
+        cat.lastPrice=g.price; cat.lastDate=g.boughtDate;
+        if (!cat.priceHistory) cat.priceHistory=[];
+        cat.priceHistory.push({price:g.price, date:g.boughtDate, store:g.store||''});
+        if (cat.priceHistory.length>12) cat.priceHistory.shift();
+      }
     }
-  }
-  saveLocal(); renderGrocery();
+    saveLocal(); renderGrocery();
+  } catch(e) { toast(e.message || 'Failed to update item.', 1); }
 }
 async function deleteGrocery(id) {
-  const item = DATA.grocery.find(g => g.id === id);
-  if (!item) return;
-  const idx = DATA.grocery.indexOf(item);
-  DATA.grocery = DATA.grocery.filter(g => g.id !== id);
-  saveLocal(); renderGrocery();
-  toast('Item removed', 0, () => {
-    DATA.grocery.splice(idx, 0, item);
-    saveLocal(); renderGrocery(); toast('Item restored');
-  });
+  try {
+    const item = DATA.grocery.find(g => g.id === id);
+    if (!item) return;
+    const idx = DATA.grocery.indexOf(item);
+    DATA.grocery = DATA.grocery.filter(g => g.id !== id);
+    saveLocal(); renderGrocery();
+    toast('Item removed', 0, () => {
+      DATA.grocery.splice(idx, 0, item);
+      saveLocal(); renderGrocery(); toast('Item restored');
+    });
+  } catch(e) { toast(e.message || 'Failed to delete item.', 1); }
 }
 async function clearBought() {
-  if (!DATA.grocery.some(g=>g.bought)) return toast('No bought items.');
-  DATA.grocery=DATA.grocery.filter(g=>!g.bought);
-  saveLocal(); renderGrocery(); toast('Cleared bought items');
+  try {
+    if (!DATA.grocery.some(g=>g.bought)) return toast('No bought items.');
+    DATA.grocery=DATA.grocery.filter(g=>!g.bought);
+    saveLocal(); renderGrocery(); toast('Cleared bought items');
+  } catch(e) { toast(e.message || 'Failed to clear bought items.', 1); }
 }
 
 function renderGrocery() {
@@ -3541,18 +3689,20 @@ function updateSplitBar(key,color) {
 }
 function updateGoalBar(key,color) { /* visual feedback optional */ }
 async function saveSplits() {
-  const n=parseInt(el('split-needs').value)||0;
-  const w=parseInt(el('split-wants').value)||0;
-  const s=parseInt(el('split-savings').value)||0;
-  if (n+w+s!==100) return toast('Splits must add up to 100%.',1);
-  DATA.splits={needs:n,wants:w,savings:s};
-  DATA.goals={
-    needs:parseFloat(el('goal-needs').value)||null,
-    wants:parseFloat(el('goal-wants').value)||null,
-    savings:parseFloat(el('goal-savings').value)||null
-  };
-  saveLocal(); toast('Splits & goals saved');
-  if (VIEW==='dash') renderDash();
+  try {
+    const n=parseInt(el('split-needs').value)||0;
+    const w=parseInt(el('split-wants').value)||0;
+    const s=parseInt(el('split-savings').value)||0;
+    if (n+w+s!==100) return toast('Splits must add up to 100%.',1);
+    DATA.splits={needs:n,wants:w,savings:s};
+    DATA.goals={
+      needs:parseFloat(el('goal-needs').value)||null,
+      wants:parseFloat(el('goal-wants').value)||null,
+      savings:parseFloat(el('goal-savings').value)||null
+    };
+    saveLocal(); toast('Splits & goals saved');
+    if (VIEW==='dash') renderDash();
+  } catch(e) { toast(e.message || 'Failed to save splits.', 1); }
 }
 
 // ══════════════════════════════════════════
@@ -3616,21 +3766,16 @@ function saveNewAccount() {
   toast('Account added');
 }
 async function deleteAcct(id) {
-  showConfirm('Remove account?', 'This only removes the account record — entries linked to it are kept.', async () => {
-    DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
-    saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
-  });
+  try {
+    showConfirm('Remove account?', 'This only removes the account record — entries linked to it are kept.', async () => {
+      DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
+      saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
+    });
+  } catch(e) { toast(e.message || 'Failed to remove account.', 1); }
 }
 function updateAcctBalance(id,val) {
   const a=DATA.accounts.find(x=>x.id===id); if(!a) return;
   a.balance=parseFloat(val)||0; saveLocal(); renderAccountCards();
-}
-
-function renderSettings() {
-  renderSplitsUI();
-  renderAcctList();
-  el('cfg-label').textContent=`${CFG.owner}/${CFG.repo}`;
-  updateLastSync();
 }
 
 // ══════════════════════════════════════════
@@ -3710,14 +3855,18 @@ function exportJSON() {
 }
 
 async function clearEntries() {
-  showConfirm('Clear all entries?',
-    'This will permanently delete all entries. Recurring definitions are kept. Remember to push to GitHub afterward.',
-    () => { DATA.entries=[]; saveLocal(); render(); toast('Entries cleared'); });
+  try {
+    showConfirm('Clear all entries?',
+      'This will permanently delete all entries. Recurring definitions are kept. Remember to push to GitHub afterward.',
+      () => { DATA.entries=[]; saveLocal(); render(); toast('Entries cleared'); });
+  } catch(e) { toast(e.message || 'Failed to clear entries.', 1); }
 }
 async function clearAll() {
-  showConfirm('Clear everything?',
-    'This will permanently delete all entries, grocery list, catalog, accounts, and recurring definitions. Push to GitHub afterward if you want to clear the remote too.',
-    () => { DATA=migrate(FRESH()); saveLocal(); render(); toast('All data cleared'); });
+  try {
+    showConfirm('Clear everything?',
+      'This will permanently delete all entries, grocery list, catalog, accounts, and recurring definitions. Push to GitHub afterward if you want to clear the remote too.',
+      () => { DATA=migrate(FRESH()); saveLocal(); render(); toast('All data cleared'); });
+  } catch(e) { toast(e.message || 'Failed to clear data.', 1); }
 }
 
 // ══════════════════════════════════════════
@@ -4077,55 +4226,59 @@ function toEur(nativeValue, currency) {
 function currencySymbol(c) { return c === 'USD' ? '$' : c === 'ILS' ? '₪' : '€'; }
 
 async function skPreviewConvert() {
-  const ccy    = el('sk-currency')?.value || 'USD';
-  const shares = parseFloat(el('sk-shares')?.value) || 0;
-  const price  = parseFloat(el('sk-native')?.value) || 0;
-  const buy    = parseFloat(el('sk-buy')?.value) || 0;
-  if (ccy !== 'EUR' && !_fxRates[ccy]) await fetchFxRates();
-  const sym    = currencySymbol(ccy);
-  const totalNative = shares * price;
-  const totalEur    = toEur(totalNative, ccy);
-  const pnlNative   = shares > 0 && buy > 0 ? (price - buy) * shares : null;
-  let preview = '';
-  if (shares > 0 && price > 0) {
-    preview = `${sym}${totalNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
-    if (totalEur !== null && ccy !== 'EUR') preview += ` ≈ ${fmt(totalEur)}`;
-    if (pnlNative !== null) {
-      const sign = pnlNative >= 0 ? '+' : '';
-      preview += ` · P&L ${sign}${sym}${pnlNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
+  try {
+    const ccy    = el('sk-currency')?.value || 'USD';
+    const shares = parseFloat(el('sk-shares')?.value) || 0;
+    const price  = parseFloat(el('sk-native')?.value) || 0;
+    const buy    = parseFloat(el('sk-buy')?.value) || 0;
+    if (ccy !== 'EUR' && !_fxRates[ccy]) await fetchFxRates();
+    const sym    = currencySymbol(ccy);
+    const totalNative = shares * price;
+    const totalEur    = toEur(totalNative, ccy);
+    const pnlNative   = shares > 0 && buy > 0 ? (price - buy) * shares : null;
+    let preview = '';
+    if (shares > 0 && price > 0) {
+      preview = `${sym}${totalNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
+      if (totalEur !== null && ccy !== 'EUR') preview += ` ≈ ${fmt(totalEur)}`;
+      if (pnlNative !== null) {
+        const sign = pnlNative >= 0 ? '+' : '';
+        preview += ` · P&L ${sign}${sym}${pnlNative.toLocaleString('de-AT',{maximumFractionDigits:2})}`;
+      }
     }
-  }
-  const previewEl = el('sk-total-preview');
-  if (previewEl) previewEl.textContent = preview || '—';
-  const eurEl = el('sk-eur-preview');
-  if (eurEl) eurEl.textContent = (totalEur !== null && ccy !== 'EUR' && price > 0) ? `≈ ${fmt(toEur(price, ccy))}` : '';
+    const previewEl = el('sk-total-preview');
+    if (previewEl) previewEl.textContent = preview || '—';
+    const eurEl = el('sk-eur-preview');
+    if (eurEl) eurEl.textContent = (totalEur !== null && ccy !== 'EUR' && price > 0) ? `≈ ${fmt(toEur(price, ccy))}` : '';
+  } catch(e) { toast(e.message || 'FX conversion failed.', 1); }
 }
 
 // ── Stocks ───────────────────────────────────────────────────────────────────
 async function addStock() {
-  const name     = el('sk-name').value.trim();
-  const currency = el('sk-currency').value;
-  const shares   = parseFloat(el('sk-shares').value) || 0;
-  const buyPrice = parseFloat(el('sk-buy').value) || 0;
-  const curPrice = parseFloat(el('sk-native').value) || 0;
-  const closePrice = parseFloat(el('sk-close')?.value) || 0;
-  if (!name)     return toast('Enter a symbol / name.', 1);
-  if (!curPrice) return toast('Enter the current price.', 1);
-  if (currency !== 'EUR' && !_fxRates[currency]) await fetchFxRates();
-  const today = ymd();
-  DATA.stocks.push({
-    id: uid(), name, currency, shares, avgBuyPrice: buyPrice,
-    currentPrice: curPrice, closePrice: closePrice || null,
-    priceHistory: [{ date: today, price: curPrice, close: closePrice || null }],
-    // legacy compat
-    nativeValue: shares > 0 ? shares * curPrice : curPrice,
-    history: [{ date: today, value: shares > 0 ? shares * curPrice : curPrice }]
-  });
-  el('sk-name').value=''; el('sk-shares').value=''; el('sk-buy').value='';
-  el('sk-native').value=''; if(el('sk-close')) el('sk-close').value='';
-  el('sk-eur-preview').textContent=''; el('sk-total-preview').textContent='—';
-  saveLocal(); renderStocks();
-  toast(`${name} added`);
+  try {
+    const name     = el('sk-name').value.trim();
+    const currency = el('sk-currency').value;
+    const shares   = parseFloat(el('sk-shares').value) || 0;
+    const buyPrice = parseFloat(el('sk-buy').value) || 0;
+    const curPrice = parseFloat(el('sk-native').value) || 0;
+    const closePrice = parseFloat(el('sk-close')?.value) || 0;
+    if (!name)     return toast('Enter a symbol / name.', 1);
+    if (!curPrice) return toast('Enter the current price.', 1);
+    if (currency !== 'EUR' && !_fxRates[currency]) await fetchFxRates();
+    const today = ymd();
+    DATA.stocks.push({
+      id: uid(), name, currency, shares, avgBuyPrice: buyPrice,
+      currentPrice: curPrice, closePrice: closePrice || null,
+      priceHistory: [{ date: today, price: curPrice, close: closePrice || null }],
+      // legacy compat
+      nativeValue: shares > 0 ? shares * curPrice : curPrice,
+      history: [{ date: today, value: shares > 0 ? shares * curPrice : curPrice }]
+    });
+    el('sk-name').value=''; el('sk-shares').value=''; el('sk-buy').value='';
+    el('sk-native').value=''; if(el('sk-close')) el('sk-close').value='';
+    el('sk-eur-preview').textContent=''; el('sk-total-preview').textContent='—';
+    saveLocal(); renderStocks();
+    toast(`${name} added`);
+  } catch(e) { toast(e.message || 'Failed to add position.', 1); }
 }
 
 function updateStockCurrentPrice(id, newPrice) {
