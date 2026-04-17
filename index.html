@@ -606,7 +606,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="fg">
     <label>Vault passphrase</label>
     <input type="password" id="c-pass" placeholder="Five random words or 20+ characters…" autocomplete="new-password">
-    <div class="pat-note">🔑 Used <strong>only for local encryption</strong> — never transmitted. Independent of your token; rotating or revoking the token does not lock you out of your data. Use a unique passphrase stored in a password manager.</div>
+    <div class="pat-note">🔑 Used <strong>only for local encryption</strong> — never transmitted. Independent of your token; rotating or revoking the token does not lock you out of your data. Use a unique passphrase stored in a password manager.<br><span style="color:var(--Am);font-weight:500">Existing vault?</span> Leave blank to open with your old token as key, then migrate in Settings → Sync.</div>
   </div>
 
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
@@ -1477,6 +1477,8 @@ const GR_CATS = {
 // CRYPTO  —  AES-256-GCM · PBKDF2(600k)
 // Disk format: base64( salt[16] | iv[12] | ciphertext )
 // Key material: vault passphrase (PASS), independent of the GitHub PAT.
+// openLegacy uses 120k iterations for backward compat with vaults sealed
+// by the original app (which used the PAT as key at 120k iterations).
 // b64e uses loop (not spread) to avoid stack overflow on large vaults.
 // ══════════════════════════════════════════
 const CX = (() => {
@@ -1484,10 +1486,10 @@ const CX = (() => {
   function b64e(u8) { let s=''; for(let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
   function b64d(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
 
-  async function kdf(pass, salt) {
+  async function kdf(pass, salt, iterations=600000) {
     const raw = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
-      { name:'PBKDF2', salt, iterations:600000, hash:'SHA-256' },
+      { name:'PBKDF2', salt, iterations, hash:'SHA-256' },
       raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
     );
   }
@@ -1509,7 +1511,15 @@ const CX = (() => {
     const pt   = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
     return { data: JSON.parse(td.decode(pt)), salt };
   }
-  return { seal, open };
+  // Legacy: original app used PAT as passphrase at 120k iterations
+  async function openLegacy(b64str, pass) {
+    const buf  = b64d(b64str);
+    const salt = buf.slice(0, 16), iv = buf.slice(16, 28), ct = buf.slice(28);
+    const key  = await kdf(pass, salt, 120000);
+    const pt   = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+    return { data: JSON.parse(td.decode(pt)), salt };
+  }
+  return { seal, open, openLegacy };
 })();
 
 // ══════════════════════════════════════════
@@ -1769,7 +1779,6 @@ async function enterApp() {
   const pat  = el('c-pat').value.trim();
   const pass = el('c-pass').value;
   if (!pat)  return cStatus('err', 'PAT required.');
-  if (!pass) return cStatus('err', 'Vault passphrase required.');
   const cfg = cfgFromInputs();
   if (!cfg.owner || !cfg.repo) return cStatus('err', 'Owner and repo required.');
   PAT = pat; PASS = pass; CFG = cfg;
@@ -1782,21 +1791,24 @@ async function enterApp() {
       cStatus('loading', 'No remote file — checking local cache…');
       const local = localStorage.getItem(LS_ENC);
       if (local) {
+        let localData = null, localSalt = null;
         try {
           const { data, salt } = await CX.open(local, PASS);
-          DATA = migrate(data); SALT = salt;
-          toast('Loaded from local cache');
+          localData = data; localSalt = salt;
         } catch {
-          // Legacy fallback: local cache encrypted with PAT
+          // Legacy fallback: local cache encrypted with PAT at 120k iterations
           try {
-            const { data, salt } = await CX.open(local, PAT);
-            DATA = migrate(data); SALT = salt;
+            const { data, salt } = await CX.openLegacy(local, PAT);
+            localData = data; localSalt = salt;
             _legacyVault = true;
-            toast('Loaded from local cache (legacy format — please migrate)');
-          } catch {
-            DATA = FRESH(); SALT = null;
-            toast('Could not decrypt local cache — starting fresh', 1);
-          }
+          } catch { /* will handle below */ }
+        }
+        if (localData) {
+          DATA = migrate(localData); SALT = localSalt;
+          toast(_legacyVault ? 'Loaded from local cache (legacy format — migrate in Settings)' : 'Loaded from local cache');
+        } else {
+          DATA = FRESH(); SALT = null;
+          toast('Could not decrypt local cache — starting fresh', 1);
         }
       } else {
         DATA = FRESH(); SALT = null;
@@ -1852,9 +1864,9 @@ async function doPull(silent=false) {
   try {
     ({ data, salt } = await CX.open(b64str, PASS));
   } catch {
-    // Legacy fallback: vault was encrypted with PAT as passphrase (pre-passphrase scheme)
+    // Legacy fallback: vault was encrypted with PAT as passphrase at 120k iterations
     try {
-      ({ data, salt } = await CX.open(b64str, PAT));
+      ({ data, salt } = await CX.openLegacy(b64str, PAT));
       _legacyVault = true;
     } catch {
       throw new Error('Wrong passphrase — could not decrypt vault. If you just added a passphrase, the vault may still use your old token as the key. Enter your token as the passphrase to open it, then migrate.');
@@ -1868,6 +1880,7 @@ async function doPull(silent=false) {
 }
 
 async function doPush() {
+  if (!PASS) throw new Error('Set a vault passphrase first — go to Settings → Sync and click Migrate now.');
   const { owner, repo, path } = CFG;
   // Pass null for existingSalt → fresh salt + new derived key on every remote push.
   const { b64, salt } = await CX.seal(DATA, PASS, null);
@@ -1929,6 +1942,11 @@ function showLegacyMigrationBanner() {
 }
 
 async function migrateVault() {
+  if (!PASS) {
+    const p = prompt('Enter a new vault passphrase to complete migration:\n(Use 5+ random words or 20+ characters. Store it in a password manager — it cannot be recovered.)');
+    if (!p || !p.trim()) { toast('Migration cancelled — passphrase required.', 1); return; }
+    PASS = p.trim();
+  }
   try {
     setSyncBadge('migrating…');
     await doPush(); // re-seals with PASS + fresh salt, overwrites remote
@@ -2006,7 +2024,8 @@ async function switchRepo() {
 // ══════════════════════════════════════════
 let _st;
 async function saveLocalNow() {
-  if (!PASS || !DATA) return;
+  if (!DATA) return;
+  if (!PASS) return; // no passphrase set — don't overwrite local cache until migrated
   try {
     const { b64, salt } = await CX.seal(DATA, PASS, SALT);
     SALT = salt;
