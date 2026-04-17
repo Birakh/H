@@ -1262,6 +1262,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
     </section>
 
+    </section>
+
     <!-- WEALTH -->
     <section id="sec-wealth" class="section">
 
@@ -1437,6 +1439,83 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <select id="annual-yr" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderAnnualGrid()"></select>
         </div>
         <div class="annual-grid-wrap"><div id="annual-grid"></div></div>
+      </div>
+
+      <!-- ── Exchange Rate Margin Checker ── -->
+      <div class="card">
+        <div class="card-title">Exchange rate margin checker
+          <button class="btn xs ghost" id="rm-fetch-btn" onclick="rmFetch()">↻ Fetch market rate</button>
+        </div>
+
+        <!-- Inputs row -->
+        <div class="g3" style="margin-bottom:14px">
+          <div class="fg" style="margin:0">
+            <label>Currency pair</label>
+            <select id="rm-pair" onchange="rmFetch()" style="width:100%">
+              <option value="USD">EUR / USD</option>
+              <option value="GBP">EUR / GBP</option>
+              <option value="CHF">EUR / CHF</option>
+              <option value="JPY">EUR / JPY</option>
+              <option value="CAD">EUR / CAD</option>
+              <option value="AUD">EUR / AUD</option>
+              <option value="HUF">EUR / HUF</option>
+              <option value="PLN">EUR / PLN</option>
+              <option value="CZK">EUR / CZK</option>
+              <option value="HRK">EUR / HRK</option>
+              <option value="ILS">EUR / ILS</option>
+            </select>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Bank rate <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(what your bank quotes)</span></label>
+            <input type="number" id="rm-bank" value="3.110" step="0.0001" min="0" oninput="rmCalc()">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>My limit <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(max acceptable margin)</span></label>
+            <input type="number" id="rm-limit" value="0.02" step="0.001" min="0" oninput="rmCalc()">
+          </div>
+        </div>
+
+        <!-- Market rate row: auto-fetched + manual override -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:160px">
+            <div class="lbl" style="margin-bottom:3px">Market rate <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(mid-market, ECB via open API)</span></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="rm-market" step="0.0001" min="0" placeholder="Fetching…" oninput="rmCalc()" style="flex:1;font-family:var(--mono)">
+              <span id="rm-source" style="font-size:10px;color:var(--ink3);white-space:nowrap"></span>
+            </div>
+          </div>
+          <button class="btn sm" onclick="rmFetch(true)" style="flex-shrink:0;margin-top:14px">↻ Re-fetch</button>
+        </div>
+
+        <!-- Results stats -->
+        <div class="stat-grid" id="rm-stats" style="margin-bottom:10px">
+          <div class="stat" id="rm-stat-bank">
+            <div class="stat-lbl">Bank rate</div>
+            <div class="stat-val" id="rm-val-bank">—</div>
+          </div>
+          <div class="stat" id="rm-stat-market">
+            <div class="stat-lbl">Market rate</div>
+            <div class="stat-val" id="rm-val-market">—</div>
+          </div>
+          <div class="stat" id="rm-stat-margin">
+            <div class="stat-lbl">Margin</div>
+            <div class="stat-val" id="rm-val-margin">—</div>
+          </div>
+          <div class="stat" id="rm-stat-pct">
+            <div class="stat-lbl">Margin %</div>
+            <div class="stat-val" id="rm-val-pct">—</div>
+          </div>
+        </div>
+
+        <!-- Warning banner — hidden until triggered -->
+        <div id="rm-warning" class="banner alert" style="display:none">
+          <span id="rm-warning-msg"></span>
+        </div>
+        <div id="rm-ok" class="banner info" style="display:none">
+          <span id="rm-ok-msg"></span>
+        </div>
+
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Market rate sourced from ECB via open public APIs — refreshes automatically on pair change. Enter your bank's quoted rate to check the hidden margin.</div>
       </div>
 
     </section>
@@ -5409,6 +5488,151 @@ function renderWeeklySummary() {
       ${weekBudget>0?`<span style="color:${onTrack?'var(--Gm)':'var(--Rm)'};font-weight:600">${onTrack?'✓ on track':'⚠ over pace'}</span>`:''}
     </div>`;
 }
+
+// ══════════════════════════════════════════
+// EXCHANGE RATE MARGIN CHECKER
+// ══════════════════════════════════════════
+const _rmCache  = {};   // { 'USD': { rate, source, ts } }
+
+async function rmFetch(force = false) {
+  const ccy    = el('rm-pair')?.value || 'USD';
+  const srcEl  = el('rm-source');
+  const mktEl  = el('rm-market');
+  const btnEl  = el('rm-fetch-btn');
+
+  // Cache hit: use cached value if < 1 hour old and not forced
+  const cached = _rmCache[ccy];
+  if (!force && cached && Date.now() - cached.ts < 3600000) {
+    if (mktEl) mktEl.value = cached.rate.toFixed(4);
+    if (srcEl) srcEl.textContent = cached.source + ' (cached)';
+    rmCalc(); return;
+  }
+
+  if (srcEl) srcEl.textContent = 'fetching…';
+  if (btnEl) btnEl.disabled = true;
+
+  // API chain: try three independent free sources
+  // All three return how many foreign currency units = 1 EUR
+  const apis = [
+    async () => {
+      const r = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json`);
+      if (!r.ok) throw new Error('cdn-api');
+      const j = await r.json();
+      const raw = j?.eur?.[ccy.toLowerCase()];
+      if (!raw) throw new Error('no data');
+      return { rate: +raw.toFixed(6), source: 'fawazahmed0' };
+    },
+    async () => {
+      const r = await fetch(`https://open.er-api.com/v6/latest/EUR`);
+      if (!r.ok) throw new Error('er-api');
+      const j = await r.json();
+      const raw = j?.rates?.[ccy];
+      if (!raw) throw new Error('no data');
+      return { rate: +raw.toFixed(6), source: 'open.er-api.com' };
+    },
+    async () => {
+      const r = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${ccy}`);
+      if (!r.ok) throw new Error('frankfurter');
+      const j = await r.json();
+      const raw = j?.rates?.[ccy];
+      if (!raw) throw new Error('no data');
+      return { rate: +raw.toFixed(6), source: 'frankfurter.app' };
+    }
+  ];
+
+  let result = null;
+  for (const api of apis) {
+    try { result = await api(); break; } catch { /* try next */ }
+  }
+
+  if (btnEl) btnEl.disabled = false;
+
+  if (result) {
+    _rmCache[ccy] = { ...result, ts: Date.now() };
+    if (mktEl) mktEl.value = result.rate.toFixed(4);
+    if (srcEl) srcEl.textContent = result.source;
+  } else {
+    if (srcEl) srcEl.textContent = 'fetch failed — enter manually';
+  }
+  rmCalc();
+}
+
+function rmCalc() {
+  const bankRate   = parseFloat(el('rm-bank')?.value);
+  const marketRate = parseFloat(el('rm-market')?.value);
+  const myLimit    = parseFloat(el('rm-limit')?.value);
+
+  const hasMarket = !isNaN(marketRate) && marketRate > 0;
+  const hasBank   = !isNaN(bankRate)   && bankRate   > 0;
+  const hasLimit  = !isNaN(myLimit);
+
+  // ── Stat cards ──
+  const setVal = (id, txt, cls) => {
+    const e = el(id); if (!e) return;
+    e.textContent = txt;
+    e.className = 'stat-val' + (cls ? ' ' + cls : '');
+  };
+  const setCard = (id, cls) => {
+    const e = el(id); if (!e) return;
+    e.className = 'stat' + (cls ? ' ' + cls : '');
+  };
+
+  setVal('rm-val-bank',   hasBank   ? bankRate.toFixed(4)   : '—');
+  setVal('rm-val-market', hasMarket ? marketRate.toFixed(4) : '—');
+
+  if (!hasMarket || !hasBank) {
+    setVal('rm-val-margin', '—');
+    setVal('rm-val-pct', '—');
+    el('rm-warning').style.display = 'none';
+    el('rm-ok').style.display      = 'none';
+    return;
+  }
+
+  const margin    = bankRate - marketRate;
+  const marginPct = (margin / marketRate) * 100;
+
+  setVal('rm-val-margin', (margin >= 0 ? '+' : '') + margin.toFixed(4));
+  setVal('rm-val-pct',    (marginPct >= 0 ? '+' : '') + marginPct.toFixed(2) + '%');
+
+  // ── Colour the stat cards based on limit ──
+  const warnMarket = hasLimit && marketRate > myLimit;
+  const warnMargin = hasLimit && margin     > myLimit;
+  const warnAny    = warnMarket || warnMargin;
+
+  setCard('rm-stat-bank',   '');
+  setCard('rm-stat-market', warnMarket ? 'danger-hi' : '');
+  setCard('rm-stat-margin', warnMargin ? 'danger-hi' : (margin < 0 ? 'highlight' : ''));
+  setCard('rm-stat-pct',    warnMargin ? 'danger-hi' : (margin < 0 ? 'highlight' : ''));
+
+  setVal('rm-val-market', marketRate.toFixed(4), warnMarket ? 'cr' : '');
+  setVal('rm-val-margin', (margin >= 0 ? '+' : '') + margin.toFixed(4), warnMargin ? 'cr' : (margin < 0 ? 'cg' : ''));
+  setVal('rm-val-pct',    (marginPct >= 0 ? '+' : '') + marginPct.toFixed(2) + '%', warnMargin ? 'cr' : (margin < 0 ? 'cg' : ''));
+
+  // ── Warning / OK banner ──
+  const warnEl = el('rm-warning'), okEl = el('rm-ok');
+  const msgEl  = el('rm-warning-msg'), okMsgEl = el('rm-ok-msg');
+
+  if (warnAny) {
+    const lines = [];
+    if (warnMarket) lines.push(`Market rate ${marketRate.toFixed(4)} exceeds your limit of ${myLimit.toFixed(4)}.`);
+    if (warnMargin) lines.push(`Margin of ${margin.toFixed(4)} (${marginPct.toFixed(2)}%) exceeds your limit of ${myLimit.toFixed(4)} — your bank is adding a ${marginPct.toFixed(2)}% markup.`);
+    if (msgEl) msgEl.textContent = '⚠ ' + lines.join('  ');
+    if (warnEl) warnEl.style.display = 'flex';
+    if (okEl)   okEl.style.display   = 'none';
+  } else if (hasLimit) {
+    const pctLabel = marginPct >= 0 ? `+${marginPct.toFixed(2)}%` : `${marginPct.toFixed(2)}%`;
+    if (okMsgEl) okMsgEl.textContent = `✓ Within limit — margin is ${margin.toFixed(4)} (${pctLabel}), limit is ${myLimit.toFixed(4)}.`;
+    if (okEl)   okEl.style.display   = 'flex';
+    if (warnEl) warnEl.style.display = 'none';
+  } else {
+    if (warnEl) warnEl.style.display = 'none';
+    if (okEl)   okEl.style.display   = 'none';
+  }
+}
+
+// Auto-fetch on wealth tab load
+const _rmOrig = RENDERS.wealth;
+RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); };
 
 // ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
