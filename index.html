@@ -1441,73 +1441,84 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="annual-grid-wrap"><div id="annual-grid"></div></div>
       </div>
 
-      <!-- ── Exchange Rate Margin Checker ── -->
+      <!-- ── Mortgage Rate Margin Checker ── -->
       <div class="card">
-        <div class="card-title">Exchange rate margin checker
-          <button class="btn xs ghost" id="rm-fetch-btn" onclick="rmFetch()">↻ Fetch market rate</button>
+        <div class="card-title">Mortgage rate checker
+          <button class="btn xs ghost" id="rm-fetch-btn" onclick="rmFetch()">↻ Fetch Euribor</button>
         </div>
 
-        <!-- Inputs row -->
-        <div class="g3" style="margin-bottom:14px">
+        <!-- ECB next decision countdown -->
+        <div id="rm-ecb-box" style="display:flex;align-items:stretch;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="stat" style="flex:1;min-width:130px">
+            <div class="stat-lbl">Next ECB decision</div>
+            <div class="stat-val cb" id="rm-ecb-date" style="font-size:15px">—</div>
+          </div>
+          <div class="stat" style="flex:1;min-width:110px">
+            <div class="stat-lbl">Days away</div>
+            <div class="stat-val" id="rm-ecb-days">—</div>
+          </div>
+          <div class="stat" style="flex:2;min-width:180px">
+            <div class="stat-lbl">ECB deposit rate (current)</div>
+            <div class="stat-val" id="rm-ecb-rate">—</div>
+          </div>
+          <div id="rm-ecb-soon" class="banner warn" style="display:none;flex:100%;margin:0">
+            <span id="rm-ecb-soon-msg"></span>
+          </div>
+        </div>
+
+        <!-- Inputs -->
+        <div class="g3" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
-            <label>Currency pair</label>
-            <select id="rm-pair" onchange="rmFetch()" style="width:100%">
-              <option value="USD">EUR / USD</option>
-              <option value="GBP">EUR / GBP</option>
-              <option value="CHF">EUR / CHF</option>
-              <option value="JPY">EUR / JPY</option>
-              <option value="CAD">EUR / CAD</option>
-              <option value="AUD">EUR / AUD</option>
-              <option value="HUF">EUR / HUF</option>
-              <option value="PLN">EUR / PLN</option>
-              <option value="CZK">EUR / CZK</option>
-              <option value="HRK">EUR / HRK</option>
-              <option value="ILS">EUR / ILS</option>
+            <label>Euribor term</label>
+            <select id="rm-term" onchange="rmFetch()" style="width:100%">
+              <option value="3M">Euribor 3-month</option>
+              <option value="6M">Euribor 6-month</option>
+              <option value="12M" selected>Euribor 12-month</option>
             </select>
           </div>
           <div class="fg" style="margin:0">
-            <label>Bank rate <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(what your bank quotes)</span></label>
-            <input type="number" id="rm-bank" value="3.110" step="0.0001" min="0" oninput="rmCalc()">
+            <label>Your bank rate <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">% p.a.</span></label>
+            <input type="number" id="rm-bank" value="3.110" step="0.001" min="0" oninput="rmCalc()">
           </div>
           <div class="fg" style="margin:0">
-            <label>My limit <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(max acceptable margin)</span></label>
-            <input type="number" id="rm-limit" value="0.02" step="0.001" min="0" oninput="rmCalc()">
+            <label>Max spread limit <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(pp above Euribor)</span></label>
+            <input type="number" id="rm-limit" value="1.50" step="0.01" min="0" oninput="rmCalc()">
           </div>
         </div>
 
-        <!-- Market rate row: auto-fetched + manual override -->
+        <!-- Euribor fetch row -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <div style="flex:1;min-width:160px">
-            <div class="lbl" style="margin-bottom:3px">Market rate <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(mid-market, ECB via open API)</span></div>
+            <div class="lbl" style="margin-bottom:3px">Euribor <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(ECB SDW — live)</span></div>
             <div style="display:flex;align-items:center;gap:6px">
-              <input type="number" id="rm-market" step="0.0001" min="0" placeholder="Fetching…" oninput="rmCalc()" style="flex:1;font-family:var(--mono)">
+              <input type="number" id="rm-market" step="0.001" min="0" placeholder="Fetching…" oninput="rmCalc()" style="flex:1;font-family:var(--mono)">
               <span id="rm-source" style="font-size:10px;color:var(--ink3);white-space:nowrap"></span>
             </div>
           </div>
           <button class="btn sm" onclick="rmFetch(true)" style="flex-shrink:0;margin-top:14px">↻ Re-fetch</button>
         </div>
 
-        <!-- Results stats -->
-        <div class="stat-grid" id="rm-stats" style="margin-bottom:10px">
+        <!-- Result stats -->
+        <div class="stat-grid" style="margin-bottom:10px">
           <div class="stat" id="rm-stat-bank">
             <div class="stat-lbl">Bank rate</div>
             <div class="stat-val" id="rm-val-bank">—</div>
           </div>
           <div class="stat" id="rm-stat-market">
-            <div class="stat-lbl">Market rate</div>
+            <div class="stat-lbl">Euribor</div>
             <div class="stat-val" id="rm-val-market">—</div>
           </div>
           <div class="stat" id="rm-stat-margin">
-            <div class="stat-lbl">Margin</div>
+            <div class="stat-lbl">Spread (pp)</div>
             <div class="stat-val" id="rm-val-margin">—</div>
           </div>
           <div class="stat" id="rm-stat-pct">
-            <div class="stat-lbl">Margin %</div>
+            <div class="stat-lbl">Spread %</div>
             <div class="stat-val" id="rm-val-pct">—</div>
           </div>
         </div>
 
-        <!-- Warning banner — hidden until triggered -->
+        <!-- Alert banners -->
         <div id="rm-warning" class="banner alert" style="display:none">
           <span id="rm-warning-msg"></span>
         </div>
@@ -1515,7 +1526,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="rm-ok-msg"></span>
         </div>
 
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Market rate sourced from ECB via open public APIs — refreshes automatically on pair change. Enter your bank's quoted rate to check the hidden margin.</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates are the published Governing Council monetary policy schedule. Rate decisions are announced at 13:45 CET — check <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener">ecb.europa.eu</a> for the latest.</div>
       </div>
 
     </section>
@@ -5490,149 +5501,228 @@ function renderWeeklySummary() {
 }
 
 // ══════════════════════════════════════════
-// EXCHANGE RATE MARGIN CHECKER
+// MORTGAGE RATE CHECKER  —  Euribor + ECB countdown
 // ══════════════════════════════════════════
-const _rmCache  = {};   // { 'USD': { rate, source, ts } }
 
+// Published ECB Governing Council monetary policy meeting dates.
+// Rate decisions announced at 13:45 CET on these dates.
+// Source: https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html
+// 2027 dates are estimated based on the ECB's published pattern (≈6-week cycle).
+const ECB_MEETINGS = [
+  // 2025 (published)
+  '2025-01-30','2025-03-06','2025-04-17','2025-06-05',
+  '2025-07-24','2025-09-11','2025-10-30','2025-12-18',
+  // 2026 (published)
+  '2026-01-29','2026-03-05','2026-04-23','2026-06-04',
+  '2026-07-23','2026-09-10','2026-10-29','2026-12-17',
+  // 2027 (estimated — verify at ecb.europa.eu)
+  '2027-01-28','2027-03-11','2027-04-22','2027-06-03',
+  '2027-07-22','2027-09-09','2027-10-28','2027-12-16',
+];
+
+// ECB Statistical Data Warehouse — SDMX series keys for EURIBOR fixing rates.
+// Dataset: FM (Financial Markets), frequency: M (monthly), area: U2 (Euro area)
+// Using the standard EURIBOR series identifiers published by the ECB.
+const RM_SERIES = {
+  '3M':  'FM/M.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA',
+  '6M':  'FM/M.U2.EUR.RT0.MM.EURIBOR6MD_.HSTA',
+  '12M': 'FM/M.U2.EUR.RT0.MM.EURIBOR1YD_.HSTA',
+};
+// ECB deposit facility rate (the key policy rate — what markets watch for hikes/cuts)
+const ECB_DFR_SERIES = 'FM/B.U2.EUR.4F.KR.DFR.LEV';
+
+const _rmCache   = {};   // { '3M': { rate, source, ts } }
+let   _rmEcbRate = null;
+
+// ── ECB SDW SDMX-JSON parser ─────────────────────────────────────────────────
+// Fetches an ECB Statistical Data Warehouse series and returns the latest value.
+async function ecbSdwFetch(series) {
+  const url = `https://data-api.ecb.europa.eu/service/data/${series}?lastNObservations=1&format=jsondata`;
+  const r   = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`ECB SDW HTTP ${r.status}`);
+  const j   = await r.json();
+  // SDMX-JSON 1.0: dataSets[0].series → first series key → observations → latest → [0]
+  const seriesMap = j?.dataSets?.[0]?.series;
+  if (!seriesMap) throw new Error('SDMX: no dataSets.series');
+  const firstSeries = Object.values(seriesMap)[0];
+  const obs = firstSeries?.observations;
+  if (!obs || !Object.keys(obs).length) throw new Error('SDMX: no observations');
+  // Sort observation keys numerically — highest = latest period
+  const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
+  const val = obs[latestKey]?.[0];
+  if (val == null || isNaN(+val)) throw new Error('SDMX: observation value is null/NaN');
+  return +val;
+}
+
+// ── ECB meeting countdown renderer ───────────────────────────────────────────
+function rmRenderEcb() {
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  const upcoming = ECB_MEETINGS
+    .map(d => new Date(d + 'T00:00:00'))
+    .filter(d => d.getTime() >= todayMs)
+    .sort((a, b) => a - b);
+
+  const nextEl  = el('rm-ecb-date');
+  const daysEl  = el('rm-ecb-days');
+  const rateEl  = el('rm-ecb-rate');
+  const soonEl  = el('rm-ecb-soon');
+  const soonMsg = el('rm-ecb-soon-msg');
+
+  if (!upcoming.length) {
+    if (nextEl) nextEl.textContent = 'TBA';
+    if (daysEl) daysEl.textContent = '—';
+  } else {
+    const next = upcoming[0];
+    const days = Math.round((next.getTime() - todayMs) / 86400000);
+    const dateLabel = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    if (nextEl) nextEl.textContent = dateLabel;
+    if (daysEl) {
+      daysEl.textContent = days === 0 ? 'Today' : String(days);
+      // Colour coding: red ≤ 7 days, amber ≤ 14, blue otherwise
+      daysEl.className = 'stat-val ' + (days <= 7 ? 'cr' : days <= 14 ? 'ca' : 'cb');
+    }
+
+    // Imminent alert banner — shown ≤ 10 days before the meeting
+    if (soonEl && soonMsg) {
+      if (days <= 10) {
+        const estimated2027 = next.getFullYear() >= 2027;
+        const suffix = estimated2027 ? ' (estimated date — verify at ecb.europa.eu).' : '.';
+        soonMsg.textContent = days === 0
+          ? '⚡ ECB rate decision is today — decision announced at 13:45 CET. Your Euribor-linked mortgage rate may change at the next reset date.'
+          : `⏰ ECB rate decision in ${days} day${days === 1 ? '' : 's'} (${dateLabel})${suffix} If rates change, your Euribor-linked mortgage will adjust at its next reset.`;
+        soonEl.style.display = 'flex';
+      } else {
+        soonEl.style.display = 'none';
+      }
+    }
+  }
+
+  // ECB deposit facility rate display
+  if (rateEl) {
+    rateEl.textContent = _rmEcbRate != null ? `${_rmEcbRate.toFixed(2)}%` : '—';
+    rateEl.className   = 'stat-val' + (_rmEcbRate != null ? ' cb' : '');
+  }
+}
+
+// ── Euribor + DFR fetch ──────────────────────────────────────────────────────
 async function rmFetch(force = false) {
-  const ccy    = el('rm-pair')?.value || 'USD';
-  const srcEl  = el('rm-source');
-  const mktEl  = el('rm-market');
-  const btnEl  = el('rm-fetch-btn');
+  const term  = el('rm-term')?.value || '12M';
+  const srcEl = el('rm-source');
+  const mktEl = el('rm-market');
+  const btnEl = el('rm-fetch-btn');
 
-  // Cache hit: use cached value if < 1 hour old and not forced
-  const cached = _rmCache[ccy];
+  rmRenderEcb(); // countdown never needs a fetch
+
+  // Cache hit — valid for 1 hour
+  const cached = _rmCache[term];
   if (!force && cached && Date.now() - cached.ts < 3600000) {
-    if (mktEl) mktEl.value = cached.rate.toFixed(4);
+    if (mktEl) mktEl.value = cached.rate.toFixed(3);
     if (srcEl) srcEl.textContent = cached.source + ' (cached)';
-    rmCalc(); return;
+    rmCalc();
+    return;
   }
 
   if (srcEl) srcEl.textContent = 'fetching…';
   if (btnEl) btnEl.disabled = true;
 
-  // API chain: try three independent free sources
-  // All three return how many foreign currency units = 1 EUR
-  const apis = [
-    async () => {
-      const r = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json`);
-      if (!r.ok) throw new Error('cdn-api');
-      const j = await r.json();
-      const raw = j?.eur?.[ccy.toLowerCase()];
-      if (!raw) throw new Error('no data');
-      return { rate: +raw.toFixed(6), source: 'fawazahmed0' };
-    },
-    async () => {
-      const r = await fetch(`https://open.er-api.com/v6/latest/EUR`);
-      if (!r.ok) throw new Error('er-api');
-      const j = await r.json();
-      const raw = j?.rates?.[ccy];
-      if (!raw) throw new Error('no data');
-      return { rate: +raw.toFixed(6), source: 'open.er-api.com' };
-    },
-    async () => {
-      const r = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${ccy}`);
-      if (!r.ok) throw new Error('frankfurter');
-      const j = await r.json();
-      const raw = j?.rates?.[ccy];
-      if (!raw) throw new Error('no data');
-      return { rate: +raw.toFixed(6), source: 'frankfurter.app' };
-    }
-  ];
-
   let result = null;
-  for (const api of apis) {
-    try { result = await api(); break; } catch { /* try next */ }
+  try {
+    const val = await ecbSdwFetch(RM_SERIES[term]);
+    result = { rate: +val.toFixed(4), source: 'ECB SDW' };
+  } catch (e) {
+    // ECB SDW failed — no reliable free alternative for EURIBOR; prompt manual entry
+    if (srcEl) srcEl.textContent = 'fetch failed — enter manually';
   }
 
   if (btnEl) btnEl.disabled = false;
 
   if (result) {
-    _rmCache[ccy] = { ...result, ts: Date.now() };
-    if (mktEl) mktEl.value = result.rate.toFixed(4);
+    _rmCache[term] = { ...result, ts: Date.now() };
+    if (mktEl) mktEl.value = result.rate.toFixed(3);
     if (srcEl) srcEl.textContent = result.source;
-  } else {
-    if (srcEl) srcEl.textContent = 'fetch failed — enter manually';
   }
+
   rmCalc();
+
+  // Background: fetch ECB deposit facility rate (informational — non-blocking)
+  if (_rmEcbRate == null || force) {
+    ecbSdwFetch(ECB_DFR_SERIES)
+      .then(v => { _rmEcbRate = v; rmRenderEcb(); })
+      .catch(() => { /* DFR is informational — silently skip */ });
+  }
 }
 
+// ── Mortgage spread calculation ──────────────────────────────────────────────
 function rmCalc() {
-  const bankRate   = parseFloat(el('rm-bank')?.value);
-  const marketRate = parseFloat(el('rm-market')?.value);
-  const myLimit    = parseFloat(el('rm-limit')?.value);
+  const bankRate = parseFloat(el('rm-bank')?.value);
+  const euribor  = parseFloat(el('rm-market')?.value);
+  const myLimit  = parseFloat(el('rm-limit')?.value);
 
-  const hasMarket = !isNaN(marketRate) && marketRate > 0;
-  const hasBank   = !isNaN(bankRate)   && bankRate   > 0;
-  const hasLimit  = !isNaN(myLimit);
+  const hasEuribor = !isNaN(euribor)  && euribor  > 0;
+  const hasBank    = !isNaN(bankRate)  && bankRate  > 0;
+  const hasLimit   = !isNaN(myLimit)   && myLimit  >= 0;
 
-  // ── Stat cards ──
-  const setVal = (id, txt, cls) => {
-    const e = el(id); if (!e) return;
-    e.textContent = txt;
-    e.className = 'stat-val' + (cls ? ' ' + cls : '');
-  };
-  const setCard = (id, cls) => {
-    const e = el(id); if (!e) return;
-    e.className = 'stat' + (cls ? ' ' + cls : '');
-  };
+  const setVal  = (id, txt, cls) => { const e = el(id); if (!e) return; e.textContent = txt; e.className = 'stat-val' + (cls ? ' ' + cls : ''); };
+  const setCard = (id, cls)      => { const e = el(id); if (!e) return; e.className = 'stat' + (cls ? ' ' + cls : ''); };
 
-  setVal('rm-val-bank',   hasBank   ? bankRate.toFixed(4)   : '—');
-  setVal('rm-val-market', hasMarket ? marketRate.toFixed(4) : '—');
+  setVal('rm-val-bank',   hasBank    ? bankRate.toFixed(3) + '%' : '—');
+  setVal('rm-val-market', hasEuribor ? euribor.toFixed(3)  + '%' : '—');
 
-  if (!hasMarket || !hasBank) {
+  if (!hasEuribor || !hasBank) {
     setVal('rm-val-margin', '—');
     setVal('rm-val-pct', '—');
-    el('rm-warning').style.display = 'none';
-    el('rm-ok').style.display      = 'none';
+    el('rm-warning') && (el('rm-warning').style.display = 'none');
+    el('rm-ok')      && (el('rm-ok').style.display      = 'none');
     return;
   }
 
-  const margin    = bankRate - marketRate;
-  const marginPct = (margin / marketRate) * 100;
+  // Spread = bank rate − Euribor (percentage points above index)
+  // Positive = bank charges above Euribor; negative = below (unusual/good)
+  const spread    = +(bankRate - euribor).toFixed(4);
+  // How much of your total rate is the bank's margin (as % of Euribor)
+  const spreadPct = euribor > 0 ? +(spread / euribor * 100).toFixed(2) : 0;
 
-  setVal('rm-val-margin', (margin >= 0 ? '+' : '') + margin.toFixed(4));
-  setVal('rm-val-pct',    (marginPct >= 0 ? '+' : '') + marginPct.toFixed(2) + '%');
-
-  // ── Colour the stat cards based on limit ──
-  const warnMarket = hasLimit && marketRate > myLimit;
-  const warnMargin = hasLimit && margin     > myLimit;
-  const warnAny    = warnMarket || warnMargin;
+  const warnSpread = hasLimit && spread > myLimit;
 
   setCard('rm-stat-bank',   '');
-  setCard('rm-stat-market', warnMarket ? 'danger-hi' : '');
-  setCard('rm-stat-margin', warnMargin ? 'danger-hi' : (margin < 0 ? 'highlight' : ''));
-  setCard('rm-stat-pct',    warnMargin ? 'danger-hi' : (margin < 0 ? 'highlight' : ''));
+  setCard('rm-stat-market', '');
+  setCard('rm-stat-margin', warnSpread ? 'danger-hi' : (spread <= 0 ? 'highlight' : ''));
+  setCard('rm-stat-pct',    warnSpread ? 'danger-hi' : (spread <= 0 ? 'highlight' : ''));
 
-  setVal('rm-val-market', marketRate.toFixed(4), warnMarket ? 'cr' : '');
-  setVal('rm-val-margin', (margin >= 0 ? '+' : '') + margin.toFixed(4), warnMargin ? 'cr' : (margin < 0 ? 'cg' : ''));
-  setVal('rm-val-pct',    (marginPct >= 0 ? '+' : '') + marginPct.toFixed(2) + '%', warnMargin ? 'cr' : (margin < 0 ? 'cg' : ''));
+  setVal('rm-val-market', euribor.toFixed(3) + '%');
+  setVal('rm-val-margin', (spread >= 0 ? '+' : '') + spread.toFixed(3) + ' pp',
+    warnSpread ? 'cr' : (spread <= 0 ? 'cg' : ''));
+  setVal('rm-val-pct', (spreadPct >= 0 ? '+' : '') + spreadPct.toFixed(1) + '% of Euribor',
+    warnSpread ? 'cr' : (spread <= 0 ? 'cg' : ''));
 
-  // ── Warning / OK banner ──
-  const warnEl = el('rm-warning'), okEl = el('rm-ok');
-  const msgEl  = el('rm-warning-msg'), okMsgEl = el('rm-ok-msg');
+  const warnEl   = el('rm-warning'), okEl   = el('rm-ok');
+  const msgEl    = el('rm-warning-msg'), okMsg = el('rm-ok-msg');
 
-  if (warnAny) {
-    const lines = [];
-    if (warnMarket) lines.push(`Market rate ${marketRate.toFixed(4)} exceeds your limit of ${myLimit.toFixed(4)}.`);
-    if (warnMargin) lines.push(`Margin of ${margin.toFixed(4)} (${marginPct.toFixed(2)}%) exceeds your limit of ${myLimit.toFixed(4)} — your bank is adding a ${marginPct.toFixed(2)}% markup.`);
-    if (msgEl) msgEl.textContent = '⚠ ' + lines.join('  ');
-    if (warnEl) warnEl.style.display = 'flex';
-    if (okEl)   okEl.style.display   = 'none';
+  if (warnSpread) {
+    if (msgEl) msgEl.textContent =
+      `⚠ Bank spread of +${spread.toFixed(3)} pp exceeds your limit of ${myLimit.toFixed(2)} pp — ` +
+      `your total rate is ${bankRate.toFixed(3)}% vs Euribor ${euribor.toFixed(3)}%. ` +
+      `Consider negotiating your margin or comparing lenders.`;
+    warnEl && (warnEl.style.display = 'flex');
+    okEl   && (okEl.style.display   = 'none');
   } else if (hasLimit) {
-    const pctLabel = marginPct >= 0 ? `+${marginPct.toFixed(2)}%` : `${marginPct.toFixed(2)}%`;
-    if (okMsgEl) okMsgEl.textContent = `✓ Within limit — margin is ${margin.toFixed(4)} (${pctLabel}), limit is ${myLimit.toFixed(4)}.`;
-    if (okEl)   okEl.style.display   = 'flex';
-    if (warnEl) warnEl.style.display = 'none';
+    if (okMsg) okMsg.textContent =
+      `✓ Within limit — bank spread is +${spread.toFixed(3)} pp above Euribor ${euribor.toFixed(3)}%, ` +
+      `limit is ${myLimit.toFixed(2)} pp. Total rate: ${bankRate.toFixed(3)}%.`;
+    okEl   && (okEl.style.display   = 'flex');
+    warnEl && (warnEl.style.display = 'none');
   } else {
-    if (warnEl) warnEl.style.display = 'none';
-    if (okEl)   okEl.style.display   = 'none';
+    warnEl && (warnEl.style.display = 'none');
+    okEl   && (okEl.style.display   = 'none');
   }
 }
 
-// Auto-fetch on wealth tab load
+// Auto-run when Wealth tab opens
 const _rmOrig = RENDERS.wealth;
-RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); };
+RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb(); };
 
 // ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
