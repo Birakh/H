@@ -527,6 +527,59 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .export-format-tab{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s1);color:var(--ink2);transition:all .14s}
 .export-format-tab.active{background:var(--ink);color:var(--bg);border-color:transparent}
 
+/* ── FUEL TRACKER ── */
+.fuel-type-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.fuel-type-badge.petrol{background:var(--Gbg);color:var(--G)}
+.fuel-type-badge.diesel{background:var(--Bbg);color:var(--B)}
+.fuel-type-badge.lpg{background:var(--Abg);color:var(--A)}
+.fuel-type-badge.electric{background:var(--Tbg);color:var(--T)}
+.fuel-type-badge.other{background:var(--s2);color:var(--ink2)}
+
+/* ── OFFLINE INDICATOR ── */
+#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:var(--Abg);color:var(--Am);font-size:12px;font-weight:500;text-align:center;padding:5px 12px;border-bottom:.5px solid rgba(176,110,20,.25)}
+#offline-bar.show{display:block}
+
+/* ── NET WORTH TIMELINE ── */
+.nw-chart-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.nw-chart-wrap svg{display:block;min-width:380px}
+
+/* ── BUDGET VS ACTUAL HEATMAP ── */
+.bva-grid{display:grid;gap:3px}
+.bva-cell{border-radius:3px;height:22px;position:relative;cursor:default;transition:opacity .15s}
+.bva-cell:hover{opacity:.8;outline:1.5px solid var(--bdr2)}
+.bva-row-lbl{font-size:11px;font-weight:600;color:var(--ink2);display:flex;align-items:center;padding-right:6px;width:62px;flex-shrink:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.bva-row{display:flex;align-items:center;gap:3px;margin-bottom:3px}
+.bva-cols{display:flex;gap:3px;flex:1}
+.bva-legend{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:10px;color:var(--ink3);flex-wrap:wrap}
+.bva-swatch{width:20px;height:8px;border-radius:2px;display:inline-block;margin-right:3px;vertical-align:middle}
+
+/* ── RECURRING 12-MONTH CALENDAR ── */
+.rc12-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.rc12-month{background:var(--s1);border-radius:var(--rs);padding:8px 10px}
+.rc12-hdr{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.rc12-pill{font-size:10px;padding:2px 6px;border-radius:3px;margin:2px 0;display:flex;justify-content:space-between;gap:4px;align-items:center}
+.rc12-pill.expense{background:var(--Rbg);color:var(--Rm)}
+.rc12-pill.income{background:var(--Gbg);color:var(--Gm)}
+.rc12-total{font-size:10px;font-family:var(--mono);font-weight:600;margin-top:5px;padding-top:4px;border-top:.5px solid var(--bdr);color:var(--ink2)}
+@media(max-width:680px){.rc12-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ── DUPLICATE DETECTOR BANNER ── */
+.dup-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr)}
+.dup-item:last-child{border-bottom:none}
+.dup-entries{font-size:12px;color:var(--ink2);line-height:1.7}
+
+/* ── EURIBOR SPARKLINE ── */
+.euribor-spark{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.euribor-spark svg{display:block;min-width:360px}
+
+/* ── SUBSCRIPTION YEARLY TOGGLE ── */
+.sub-view-tabs{display:flex;gap:4px;margin-bottom:12px}
+.sub-view-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s1);color:var(--ink2);transition:all .14s}
+.sub-view-tab.active{background:var(--ink);color:var(--bg);border-color:transparent}
+.sub-yr-bar{height:6px;border-radius:100px;background:var(--Bm);transition:width .4s}
+.sub-yr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr)}
+.sub-yr-row:last-child{border-bottom:none}
+
 @media(max-width:680px){
   header{padding:0 10px;gap:5px}
   .tab{padding:4px 8px;font-size:11px}
@@ -622,6 +675,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 <!-- ══════ APP ══════ -->
 <div id="screen-app">
+  <div id="offline-bar">⚡ You're offline — changes are saved locally and will sync when reconnected.</div>
   <header>
     <span class="h-brand">vault<span>.</span>fin</span>
     <div class="tabs">
@@ -629,6 +683,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <button class="tab"        data-s="entries"  onclick="nav('entries')">Entries</button>
       <button class="tab"        data-s="grocery"  onclick="nav('grocery')">Grocery</button>
       <button class="tab"        data-s="wealth"   onclick="nav('wealth')">Wealth</button>
+      <button class="tab"        data-s="fuel"     onclick="nav('fuel')">Fuel</button>
       <button class="tab"        data-s="settings" onclick="nav('settings')">Settings</button>
     </div>
     <div class="h-right">
@@ -673,7 +728,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="keys-box">
       <div class="keys-title">⌨ Keyboard Shortcuts</div>
       <div class="keys-grid">
-        <div class="key-row"><span class="key-badge">1–5</span><span class="key-desc">Navigate tabs</span></div>
+        <div class="key-row"><span class="key-badge">1–6</span><span class="key-desc">Navigate tabs</span></div>
         <div class="key-row"><span class="key-badge">N</span><span class="key-desc">New quick entry</span></div>
         <div class="key-row"><span class="key-badge">R</span><span class="key-desc">Receipt mode</span></div>
         <div class="key-row"><span class="key-badge">W</span><span class="key-desc">What-if planner (Overview)</span></div>
@@ -865,6 +920,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Budget vs actual — last 12 months</div>
+        <div id="d-bva"></div>
+        <div id="d-bva-tip" class="heatmap-tip"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Net worth timeline</div>
+        <div class="nw-chart-wrap"><div id="d-nw-timeline"></div></div>
+      </div>
+
+      <div class="card">
         <div class="card-title" id="notes-card-title">Notes</div>
         <textarea class="notes-ta" id="d-notes" placeholder="Add a note for this month — e.g. paid annual insurance, unusual expenses…" oninput="scheduleNoteSave()"></textarea>
         <div class="notes-saved" id="notes-saved">✓ Saved</div>
@@ -1012,6 +1078,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="card" id="dup-card" style="display:none">
+        <div class="card-title" style="color:var(--Am)">
+          Possible duplicates
+          <div style="display:flex;gap:6px">
+            <button class="btn xs ghost" onclick="renderDuplicates()">↻ Re-scan</button>
+            <button class="btn xs ghost" onclick="el('dup-card').style.display='none'">✕ Dismiss</button>
+          </div>
+        </div>
+        <div id="dup-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Recurring — 12 months
+          <select id="rc12-yr" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderRecurring12()"></select>
+        </div>
+        <div id="d-rc12"></div>
       </div>
 
       <div class="card">
@@ -1428,7 +1512,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <!-- ── Subscription Detector ── -->
       <div class="card">
         <div class="card-title">Subscription detector
-          <button class="btn xs ghost" onclick="renderSubscriptions()">↻ Refresh</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div class="sub-view-tabs">
+              <span class="sub-view-tab active" id="sub-tab-monthly" onclick="setSubView('monthly')">Monthly</span>
+              <span class="sub-view-tab" id="sub-tab-yearly" onclick="setSubView('yearly')">Yearly</span>
+            </div>
+            <button class="btn xs ghost" onclick="renderSubscriptions()">↻ Refresh</button>
+          </div>
         </div>
         <div id="d-subscriptions"><div style="font-size:13px;color:var(--ink3)">Scanning entries for recurring patterns…</div></div>
       </div>
@@ -1526,7 +1616,127 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="rm-ok-msg"></span>
         </div>
 
+        <!-- Euribor rate history sparkline -->
+        <div style="margin-top:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Euribor history <span id="rm-spark-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink3)"></span></div>
+          <div class="euribor-spark"><div id="rm-spark"></div></div>
+        </div>
+
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates are the published Governing Council monetary policy schedule. Rate decisions are announced at 13:45 CET — check <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener">ecb.europa.eu</a> for the latest.</div>
+      </div>
+
+    </section>
+
+    <!-- FUEL -->
+    <section id="sec-fuel" class="section">
+
+      <!-- ── Stats row ── -->
+      <div class="stat-grid" id="fuel-stats" style="margin-bottom:14px">
+        <div class="stat"><div class="stat-lbl">Avg price/L</div><div class="stat-val" id="fs-ppl">—</div></div>
+        <div class="stat"><div class="stat-lbl">Avg refuel</div><div class="stat-val" id="fs-liters">—</div></div>
+        <div class="stat"><div class="stat-lbl">Avg interval</div><div class="stat-val" id="fs-interval">—</div></div>
+        <div class="stat"><div class="stat-lbl">Cost/100 km</div><div class="stat-val" id="fs-per100">—</div></div>
+        <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val" id="fs-total">—</div></div>
+        <div class="stat"><div class="stat-lbl">Last odometer</div><div class="stat-val" id="fs-odo">—</div></div>
+      </div>
+
+      <!-- ── Price trend chart ── -->
+      <div class="card">
+        <div class="card-title">Price per litre — trend
+          <span id="fuel-trend-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div style="overflow-x:auto"><div id="fuel-chart"></div></div>
+      </div>
+
+      <!-- ── Log refuel form ── -->
+      <div class="card">
+        <div class="card-title">Log refuel</div>
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fg" style="margin:0">
+            <label>Date</label>
+            <input type="date" id="fuel-date">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Fuel type</label>
+            <select id="fuel-type" style="width:100%">
+              <option value="petrol">Petrol (E5/E10)</option>
+              <option value="diesel">Diesel</option>
+              <option value="lpg">LPG</option>
+              <option value="electric">Electric (kWh)</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Station / location</label>
+            <input type="text" id="fuel-station" placeholder="Shell, OMV…" autocomplete="off">
+          </div>
+        </div>
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fg" style="margin:0">
+            <label>Litres (or kWh)</label>
+            <input type="number" id="fuel-liters" min="0" step="0.01" placeholder="45.00" style="font-family:var(--mono)" oninput="fuelPreview()">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Price per litre (€)</label>
+            <input type="number" id="fuel-ppl" min="0" step="0.001" placeholder="1.729" style="font-family:var(--mono)" oninput="fuelPreview()">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Total cost (€) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">auto-fills</span></label>
+            <input type="number" id="fuel-total" min="0" step="0.01" placeholder="77.81" style="font-family:var(--mono)" oninput="fuelPreviewFromTotal()">
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="fg" style="margin:0">
+            <label>Odometer (km) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
+            <input type="number" id="fuel-odo" min="0" step="1" placeholder="87 420" style="font-family:var(--mono)">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
+            <input type="text" id="fuel-note" placeholder="Full tank, highway fill…">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary" onclick="addFuel()">Log refuel</button>
+          <span id="fuel-preview" style="font-size:13px;color:var(--ink2);font-family:var(--mono)"></span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+            <input type="checkbox" id="fuel-add-entry"> Also add as expense entry
+          </label>
+        </div>
+      </div>
+
+      <!-- ── Log table ── -->
+      <div class="card">
+        <div class="card-title">
+          Refuel history
+          <div style="display:flex;gap:6px">
+            <select id="fuel-filter-type" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderFuel()">
+              <option value="">All types</option>
+              <option value="petrol">Petrol</option>
+              <option value="diesel">Diesel</option>
+              <option value="lpg">LPG</option>
+              <option value="electric">Electric</option>
+            </select>
+            <button class="btn xs ghost" onclick="exportFuelCSV()">↓ CSV</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Type</th><th>Station</th>
+              <th class="num">Litres</th><th class="num">€/L</th>
+              <th class="num">Total</th><th class="num">Odometer</th>
+              <th class="num">km since</th><th class="num">L/100km</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="fuel-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Monthly cost card ── -->
+      <div class="card">
+        <div class="card-title">Monthly fuel cost</div>
+        <div id="fuel-monthly"></div>
       </div>
 
     </section>
@@ -1555,6 +1765,7 @@ const FRESH = () => ({
   catalog:      [],
   notes:        {},
   stocks:       [],
+  fuel:         [],   // { id, date, type, station, liters, ppl, total, odo, note }
   meta:         { sha: null, lastSync: null }
 });
 
@@ -2156,6 +2367,7 @@ function migrate(d) {
   d.catalog?.forEach(c => { if (!c.priceHistory) c.priceHistory = []; });
   if (!d.stocks)        d.stocks        = [];
   if (!d.savingsGoals)  d.savingsGoals  = [];
+  if (!d.fuel)          d.fuel          = [];
   // normalize recurring freq field
   d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
   return d;
@@ -2218,6 +2430,7 @@ function boot() {
   markClean(); // fresh boot = no unsaved changes
   // Show legacy migration banner if vault was opened with old scheme
   if (_legacyVault) setTimeout(showLegacyMigrationBanner, 600);
+  updateOfflineBar();
 }
 
 // ══════════════════════════════════════════
@@ -2228,6 +2441,7 @@ RENDERS.dash     = () => renderDash();
 RENDERS.entries  = () => renderEntries();
 RENDERS.grocery  = () => renderGrocery();
 RENDERS.wealth   = () => renderWealth();
+RENDERS.fuel     = () => renderFuel();
 RENDERS.settings = () => renderSettings();
 
 function nav(sec) {
@@ -2236,6 +2450,8 @@ function nav(sec) {
   el('sec-'+sec).classList.add('active');
   document.querySelector(`.tab[data-s="${sec}"]`).classList.add('active');
   VIEW = sec;
+  // Reset tag input when entering entries to prevent stale tags from previous session
+  if (sec === 'entries') resetTagInput();
   RENDERS[sec]?.();
 }
 function render() { RENDERS[VIEW]?.(); }
@@ -2363,6 +2579,8 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  renderBudgetVsActualHeatmap();
+  renderNetWorthTimeline();
   renderMonthlyNote(month);
 }
 
@@ -3043,15 +3261,23 @@ function renderTagChips() {
   });
 }
 function removeTag(i) { _curTags.splice(i,1); renderTagChips(); }
+function resetTagInput() { _curTags = []; el('tags-input').value = ''; renderTagChips(); el('tags-dd').classList.remove('open'); }
 function tagsSuggest() {
   const q = el('tags-input').value.toLowerCase();
   if (!q) { el('tags-dd').classList.remove('open'); return; }
   const allTags = [...new Set(DATA.entries.flatMap(e=>e.tags||[]))].filter(t=>t.includes(q)&&!_curTags.includes(t));
   if (!allTags.length) { el('tags-dd').classList.remove('open'); return; }
-  el('tags-dd').innerHTML = allTags.slice(0,8).map(t =>
-    `<div class="ddi" onmousedown="pickTag('${t}')">${t}</div>`
-  ).join('');
-  el('tags-dd').classList.add('open');
+  // Build dropdown using DOM — never innerHTML with vault data
+  const dd = el('tags-dd');
+  dd.innerHTML = '';
+  allTags.slice(0,8).forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'ddi';
+    d.textContent = t;
+    d.addEventListener('mousedown', () => pickTag(t));
+    dd.appendChild(d);
+  });
+  dd.classList.add('open');
 }
 function pickTag(t) {
   if (!_curTags.includes(t)) { _curTags.push(t); renderTagChips(); }
@@ -3219,6 +3445,8 @@ function renderEntries() {
   }
   renderRecurList();
   renderInstallments();
+  renderRecurring12();
+  renderDuplicates();
   refreshAccountSelect();
 
   // month filter — preserve selection
@@ -5162,7 +5390,7 @@ function renderSubscriptions() {
     byDesc[key].push(e);
   });
 
-  // Keep entries appearing in ≥ 2 distinct months with consistent amount (±20%)
+  // Keep entries appearing in ≥ 2 distinct months with consistent amount (±40%)
   const subs = [];
   Object.entries(byDesc).forEach(([key, entries]) => {
     const months = [...new Set(entries.map(e => ym(e.date)))].sort();
@@ -5171,8 +5399,7 @@ function renderSubscriptions() {
     const avg  = amounts.reduce((s,v) => s+v, 0) / amounts.length;
     const max  = Math.max(...amounts);
     const min  = Math.min(...amounts);
-    if (max / min > 1.4) return; // too variable to be a subscription
-    // Frequency detection
+    if (max / min > 1.4) return;
     const gaps = [];
     for (let i = 1; i < months.length; i++) {
       const [y1,m1] = months[i-1].split('-').map(Number);
@@ -5181,16 +5408,16 @@ function renderSubscriptions() {
     }
     const avgGap = gaps.reduce((s,v)=>s+v,0) / gaps.length;
     let freq = 'monthly', annualMult = 12;
-    if (avgGap >= 10 && avgGap <= 14) { freq = 'monthly'; annualMult = 12; }
-    else if (avgGap >= 2 && avgGap <= 4) { freq = 'weekly-ish'; annualMult = 52; }
-    else if (avgGap >= 5 && avgGap <= 9) { freq = 'bi-monthly'; annualMult = 6; }
-    else if (avgGap >= 22 && avgGap <= 26) { freq = 'bi-annual'; annualMult = 2; }
-    else if (avgGap >= 11) { freq = 'annual'; annualMult = 1; }
+    if (avgGap >= 10 && avgGap <= 14)  { freq = 'monthly';    annualMult = 12; }
+    else if (avgGap >= 2 && avgGap <= 4)  { freq = 'weekly-ish'; annualMult = 52; }
+    else if (avgGap >= 5 && avgGap <= 9)  { freq = 'bi-monthly'; annualMult = 6;  }
+    else if (avgGap >= 22 && avgGap <= 26){ freq = 'bi-annual';  annualMult = 2;  }
+    else if (avgGap >= 11)               { freq = 'annual';     annualMult = 1;  }
     const lastEntry = entries.sort((a,b)=>b.date.localeCompare(a.date))[0];
-    subs.push({ name: lastEntry.desc, avg, freq, annualMult, months: months.length, last: lastEntry.date });
+    subs.push({ name: lastEntry.desc, avg, freq, annualMult, months: months.length, last: lastEntry.date, annualCost: avg * annualMult });
   });
 
-  subs.sort((a,b) => b.avg * b.annualMult - a.avg * a.annualMult);
+  subs.sort((a,b) => b.annualCost - a.annualCost);
 
   if (!subs.length) {
     container.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring patterns detected yet — needs at least 2 months of data.</div>';
@@ -5198,22 +5425,39 @@ function renderSubscriptions() {
   }
 
   const totalMonthly = subs.filter(s=>s.freq==='monthly').reduce((t,s)=>t+s.avg,0);
-  const totalAnnual  = subs.reduce((t,s)=>t+s.avg*s.annualMult,0);
+  const totalAnnual  = subs.reduce((t,s)=>t+s.annualCost,0);
+  const maxAnnual    = subs[0]?.annualCost || 1;
 
-  container.innerHTML = `
-    <div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;color:var(--ink2);font-family:var(--mono);flex-wrap:wrap">
-      <span>Monthly subscriptions: <strong>${fmt(totalMonthly)}</strong></span>
-      <span>Annual total: <strong>${fmt(totalAnnual)}</strong></span>
-    </div>
-    ${subs.map(s => `<div class="sub-item">
+  const summary = `<div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;color:var(--ink2);font-family:var(--mono);flex-wrap:wrap">
+    <span>Monthly: <strong>${fmt(totalMonthly)}</strong></span>
+    <span>Annual total: <strong>${fmt(totalAnnual)}</strong></span>
+  </div>`;
+
+  if (_subView === 'yearly') {
+    // Yearly bar chart view — sorted by annual cost descending
+    container.innerHTML = summary + subs.map(s => {
+      const barW = Math.round(s.annualCost / maxAnnual * 100);
+      return `<div class="sub-yr-row">
+        <div style="flex:1;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${esc(s.name)}</div>
+        <span class="sub-freq" style="flex-shrink:0">${esc(s.freq)}</span>
+        <div style="flex:2;min-width:80px">
+          <div class="sub-yr-bar" style="width:${barW}%"></div>
+        </div>
+        <div style="text-align:right;min-width:72px;font-family:var(--mono);font-size:13px;font-weight:600">${fmt(s.annualCost)}/yr</div>
+      </div>`;
+    }).join('');
+  } else {
+    // Monthly card view (original)
+    container.innerHTML = summary + subs.map(s => `<div class="sub-item">
       <span class="sub-name">${esc(s.name)}</span>
       <span class="sub-freq">${esc(s.freq)}</span>
       <div>
-        <div class="sub-cost">${fmt(s.avg)}</div>
-        <div class="sub-annual">${fmt(s.avg * s.annualMult)}/yr</div>
+        <div class="sub-cost">${fmt(s.avg)}/mo</div>
+        <div class="sub-annual">${fmt(s.annualCost)}/yr</div>
       </div>
       <span style="font-size:11px;color:var(--ink3)">${s.months} mo · last ${s.last}</span>
-    </div>`).join('')}`;
+    </div>`).join('');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -5646,6 +5890,7 @@ async function rmFetch(force = false) {
   }
 
   rmCalc();
+  fetchEuriborHistory(); // non-blocking sparkline
 
   // Background: fetch ECB deposit facility rate (informational — non-blocking)
   if (_rmEcbRate == null || force) {
@@ -5725,6 +5970,643 @@ const _rmOrig = RENDERS.wealth;
 RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb(); };
 
 // ══════════════════════════════════════════
+// OFFLINE INDICATOR
+// ══════════════════════════════════════════
+function updateOfflineBar() {
+  const bar = el('offline-bar');
+  if (!bar) return;
+  if (!navigator.onLine) {
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+    // Auto-push pending changes when back online
+    if (_isDirty && PAT && DATA) ghPush().catch(() => {});
+  }
+}
+window.addEventListener('online',  updateOfflineBar);
+window.addEventListener('offline', updateOfflineBar);
+
+// ══════════════════════════════════════════
+// NET WORTH TIMELINE
+// Plots monthly net worth: accounts + savings goals saved amounts
+// Uses all incomes & expenses to reconstruct a running net figure
+// ══════════════════════════════════════════
+function renderNetWorthTimeline() {
+  const wrap = el('d-nw-timeline'); if (!wrap) return;
+  const months = [...new Set(DATA.entries.map(e => ym(e.date)))].sort();
+  // Add any income-only months
+  Object.keys(DATA.incomes || {}).forEach(m => { if (!months.includes(m)) months.push(m); });
+  months.sort();
+  if (months.length < 2) { wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not enough data yet — add entries across multiple months.</div>'; return; }
+
+  // For each month: base income − expenses (cumulative running net)
+  let running = 0;
+  const points = months.map(m => {
+    const mes = DATA.entries.filter(e => ym(e.date) === m);
+    const inc = (DATA.incomes[m]?.amount || 0) + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const exp = mes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+    running += inc - exp;
+    return { m, v: running };
+  });
+
+  const W = 600, H = 120, padL = 52, padR = 16, padT = 12, padB = 24;
+  const cW = W - padL - padR, cH = H - padT - padB;
+  const vals = points.map(p => p.v);
+  const minV = Math.min(0, ...vals), maxV = Math.max(...vals, 1);
+  const range = maxV - minV || 1;
+  const xStep = cW / Math.max(points.length - 1, 1);
+  const yScale = v => padT + cH - ((v - minV) / range) * cH;
+  const xScale = i => padL + i * xStep;
+
+  const zeroY = yScale(0);
+  const polyPts = points.map((p, i) => `${xScale(i).toFixed(1)},${yScale(p.v).toFixed(1)}`).join(' ');
+  // Area fill path
+  const areaD = `M${xScale(0).toFixed(1)},${zeroY.toFixed(1)} ` +
+    points.map((p,i) => `L${xScale(i).toFixed(1)},${yScale(p.v).toFixed(1)}`).join(' ') +
+    ` L${xScale(points.length-1).toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+  // Y axis labels
+  const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
+    `<text x="${padL-5}" y="${yScale(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${v>=0?'€'+Math.round(v/1000)+'k':'-€'+Math.round(Math.abs(v)/1000)+'k'}</text>`
+  );
+  // X axis — show every 3rd label
+  const xLabels = points.map((p,i) => i % Math.max(1, Math.floor(points.length/6)) !== 0 ? '' :
+    `<text x="${xScale(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--chart-txt)">${p.m.slice(2)}</text>`
+  );
+
+  const lastPt = points[points.length-1];
+  const positive = lastPt.v >= 0;
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stop-opacity=".18"/>
+        <stop offset="100%" stop-color="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1"/>
+    <path d="${areaD}" fill="url(#nwGrad)"/>
+    <polyline points="${polyPts}" fill="none" stroke="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${yTicks.join('')}
+    ${xLabels.join('')}
+    <circle cx="${xScale(points.length-1).toFixed(1)}" cy="${yScale(lastPt.v).toFixed(1)}" r="3.5" fill="${positive?'var(--chart-inc)':'var(--chart-exp)'}"/>
+  </svg>`;
+}
+
+// ══════════════════════════════════════════
+// BUDGET VS ACTUAL HEATMAP  (last 12 months × 3 categories)
+// Colour: green = under budget, red = over, grey = no budget set
+// ══════════════════════════════════════════
+function renderBudgetVsActualHeatmap() {
+  const wrap = el('d-bva'); if (!wrap) return;
+  const tip  = el('d-bva-tip');
+  const months = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  const cats = [
+    { key:'needs',   label:'Needs',   color:'var(--Bm)' },
+    { key:'wants',   label:'Wants',   color:'var(--Am)' },
+    { key:'savings', label:'Savings', color:'var(--Gm)' },
+  ];
+  const { splits, goals } = DATA;
+
+  // Month header
+  const colHdrs = months.map(m =>
+    `<div style="flex:1;text-align:center;font-size:9px;color:var(--ink3);font-family:var(--mono)">${m.slice(5)}</div>`
+  ).join('');
+
+  const rows = cats.map(({ key, label }) => {
+    const goal = goals[key]; // absolute € goal
+    const cells = months.map(m => {
+      const mes = DATA.entries.filter(e => ym(e.date) === m && e.type === 'expense' && e.category === key);
+      const spent = mes.reduce((s,e) => s + e.amount, 0);
+      const inc   = (DATA.incomes[m]?.amount || 0);
+      // Budget = goal if set, else splits % × income
+      const budget = goal ? goal : (inc > 0 ? inc * splits[key] / 100 : 0);
+      if (budget === 0) {
+        return { spent, budget: 0, ratio: null, m };
+      }
+      return { spent, budget, ratio: spent / budget, m };
+    });
+
+    const cellDivs = cells.map(({ spent, budget, ratio, m }) => {
+      let bg, opacity;
+      if (ratio === null) { bg = 'var(--s2)'; opacity = 1; }
+      else if (ratio <= 0.5)  { bg = 'var(--chart-inc)'; opacity = 0.25; }
+      else if (ratio <= 0.75) { bg = 'var(--chart-inc)'; opacity = 0.55; }
+      else if (ratio <= 1.0)  { bg = 'var(--chart-inc)'; opacity = 1.0; }
+      else if (ratio <= 1.25) { bg = 'var(--chart-exp)'; opacity = 0.55; }
+      else                    { bg = 'var(--chart-exp)'; opacity = 1.0; }
+      const pct = ratio !== null ? Math.round(ratio * 100) + '%' : '—';
+      return `<div class="bva-cell" style="flex:1;background:${bg};opacity:${opacity}"
+        onmouseenter="bvaTip(event,'${label}','${m}',${spent.toFixed(2)},${budget.toFixed(2)},'${pct}')"
+        onmouseleave="el('d-bva-tip').style.display='none'"></div>`;
+    }).join('');
+
+    return `<div class="bva-row">
+      <div class="bva-row-lbl">${label}</div>
+      <div class="bva-cols">${cellDivs}</div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div style="display:flex;margin-left:62px;margin-bottom:3px">${colHdrs}</div>
+    ${rows}
+    <div class="bva-legend">
+      <span><span class="bva-swatch" style="background:var(--chart-inc);opacity:.25"></span>≤50%</span>
+      <span><span class="bva-swatch" style="background:var(--chart-inc);opacity:.55"></span>50–75%</span>
+      <span><span class="bva-swatch" style="background:var(--chart-inc)"></span>75–100%</span>
+      <span><span class="bva-swatch" style="background:var(--chart-exp);opacity:.55"></span>100–125%</span>
+      <span><span class="bva-swatch" style="background:var(--chart-exp)"></span>&gt;125%</span>
+      <span><span class="bva-swatch" style="background:var(--s2)"></span>No budget</span>
+    </div>`;
+}
+
+function bvaTip(e, cat, month, spent, budget, pct) {
+  const tip = el('d-bva-tip'); if (!tip) return;
+  tip.innerHTML = `<strong>${cat}</strong> · ${month}<br>${fmt(spent)} of ${fmt(budget)} budget (${pct})`;
+  tip.style.display = 'block';
+  tip.style.left = (e.clientX + 10) + 'px';
+  tip.style.top  = (e.clientY + 10) + 'px';
+}
+
+// ══════════════════════════════════════════
+// RECURRING 12-MONTH CALENDAR
+// Shows recurring entries plotted across a full year
+// ══════════════════════════════════════════
+function renderRecurring12() {
+  const wrap = el('d-rc12'); if (!wrap) return;
+  // Populate year selector
+  const yrSel = el('rc12-yr');
+  const curYr = new Date().getFullYear();
+  if (!yrSel.options.length) {
+    for (let y = curYr - 1; y <= curYr + 2; y++) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      if (y === curYr) o.selected = true;
+      yrSel.appendChild(o);
+    }
+  }
+  const yr = parseInt(yrSel.value) || curYr;
+
+  const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = MS.map((name, i) => {
+    const m = `${yr}-${String(i+1).padStart(2,'0')}`;
+    const daysInMo = new Date(yr, i+1, 0).getDate();
+    const pills = DATA.recurring.map(r => {
+      const freq = r.freq || 'monthly';
+      // Determine if this recurring fires this month
+      let fires = false;
+      if (freq === 'monthly') fires = true;
+      else if (freq === 'weekly' || freq === 'biweekly') fires = true;
+      else if (freq === 'quarterly') {
+        const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
+        const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) - 1 : i;
+        fires = ((i - originMo + 12) % 3 === 0);
+      }
+      if (!fires) return '';
+      const cls = r.type === 'income' ? 'income' : 'expense';
+      const sign = r.type === 'income' ? '+' : '−';
+      return `<div class="rc12-pill ${cls}" title="${esc(r.desc)} · day ${r.day}">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${esc(r.desc)}</span>
+        <span style="flex-shrink:0;font-family:var(--mono)">${sign}${fmt(r.amount).replace('€','')}</span>
+      </div>`;
+    }).join('');
+
+    // Monthly net from recurring
+    const monthExpenses = DATA.recurring.filter(r => {
+      const f = r.freq||'monthly';
+      if (f==='monthly') return true;
+      if (f==='weekly'||f==='biweekly') return true;
+      if (f==='quarterly') {
+        const firstApp = DATA.entries.filter(e=>e.recurId===r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
+        const o = firstApp ? parseInt(firstApp.date.slice(5,7))-1 : 0;
+        return ((MS.indexOf(name) - o + 12) % 3 === 0);
+      }
+      return false;
+    });
+    const exp = monthExpenses.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
+    const inc = monthExpenses.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
+    const net = inc - exp;
+
+    return `<div class="rc12-month">
+      <div class="rc12-hdr">${name}</div>
+      ${pills || '<div style="font-size:11px;color:var(--ink3)">—</div>'}
+      ${(exp > 0 || inc > 0) ? `<div class="rc12-total" style="color:${net>=0?'var(--Gm)':'var(--Rm)'}">${net>=0?'+':''}${fmt(net).replace('€','')}€</div>` : ''}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="rc12-grid">${months}</div>`;
+}
+
+// ══════════════════════════════════════════
+// SMART DUPLICATE DETECTOR
+// Flags entries with same description + amount within 3 days
+// ══════════════════════════════════════════
+function renderDuplicates() {
+  const card = el('dup-card'), list = el('dup-list'); if (!card || !list) return;
+  const groups = [];
+  const sorted = [...DATA.entries].sort((a,b) => a.date.localeCompare(b.date));
+  const used = new Set();
+
+  sorted.forEach((e, i) => {
+    if (used.has(e.id)) return;
+    const matches = [e];
+    for (let j = i+1; j < sorted.length; j++) {
+      const f = sorted[j];
+      if (used.has(f.id)) continue;
+      const dayDiff = Math.abs(new Date(e.date) - new Date(f.date)) / 86400000;
+      if (dayDiff > 3) break; // sorted by date — no further matches possible
+      if (Math.abs(e.amount - f.amount) < 0.01 &&
+          (e.desc||'').toLowerCase() === (f.desc||'').toLowerCase() &&
+          e.type === f.type) {
+        matches.push(f);
+        used.add(f.id);
+      }
+    }
+    if (matches.length > 1) {
+      used.add(e.id);
+      groups.push(matches);
+    }
+  });
+
+  if (!groups.length) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = '';
+  list.innerHTML = groups.map(g => {
+    const rows = g.map(e =>
+      `<div>${esc(e.date)} · ${esc(e.desc||'—')} · ${fmt(e.amount)} · <em style="color:var(--ink3)">${e.category}</em>
+        <button class="btn xs danger" style="margin-left:8px" onclick="deleteEntry('${e.id}')">Delete</button>
+      </div>`
+    ).join('');
+    return `<div class="dup-item">
+      <div style="font-size:18px;color:var(--Am);flex-shrink:0">⚠</div>
+      <div class="dup-entries">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// EURIBOR RATE HISTORY SPARKLINE
+// Fetches up to 24 months of historical data from ECB SDW
+// ══════════════════════════════════════════
+let _rmHistory = {};  // { '3M': [{period, value}] }
+
+async function fetchEuriborHistory() {
+  const term   = el('rm-term')?.value || '12M';
+  const spark  = el('rm-spark');
+  const lbl    = el('rm-spark-lbl');
+  if (!spark) return;
+
+  if (_rmHistory[term]) { renderEuriborSparkline(term); return; }
+
+  try {
+    const series = RM_SERIES[term];
+    const url = `https://data-api.ecb.europa.eu/service/data/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`;
+    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error('SDW ' + r.status);
+    const j = await r.json();
+    const seriesMap = j?.dataSets?.[0]?.series;
+    if (!seriesMap) throw new Error('no series');
+    const obs = Object.values(seriesMap)[0]?.observations;
+    if (!obs) throw new Error('no obs');
+    // SDMX structure: periods are in structure.dimensions.observation[0].values
+    const periods = j?.structure?.dimensions?.observation?.[0]?.values || [];
+    const pts = Object.entries(obs)
+      .map(([k, v]) => ({ period: periods[+k]?.id || k, value: +v[0] }))
+      .filter(p => !isNaN(p.value))
+      .sort((a,b) => a.period.localeCompare(b.period));
+    _rmHistory[term] = pts;
+    renderEuriborSparkline(term);
+  } catch {
+    if (spark) spark.innerHTML = '<div style="font-size:12px;color:var(--ink3)">History unavailable — ECB SDW fetch failed.</div>';
+  }
+}
+
+function renderEuriborSparkline(term) {
+  const spark = el('rm-spark'), lbl = el('rm-spark-lbl');
+  const pts = _rmHistory[term];
+  if (!spark || !pts || pts.length < 2) return;
+
+  if (lbl) lbl.textContent = `· ${term} · last ${pts.length} months`;
+
+  const W = 600, H = 72, padL = 40, padR = 12, padT = 8, padB = 20;
+  const cW = W - padL - padR, cH = H - padT - padB;
+  const vals = pts.map(p => p.value);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = maxV - minV || 0.01;
+  const xStep = cW / Math.max(pts.length - 1, 1);
+  const xS = i => padL + i * xStep;
+  const yS = v => padT + cH - ((v - minV) / range) * cH;
+
+  const polyPts = pts.map((p,i) => `${xS(i).toFixed(1)},${yS(p.value).toFixed(1)}`).join(' ');
+  const areaD = `M${xS(0).toFixed(1)},${(padT+cH).toFixed(1)} ` +
+    pts.map((p,i) => `L${xS(i).toFixed(1)},${yS(p.value).toFixed(1)}`).join(' ') +
+    ` L${xS(pts.length-1).toFixed(1)},${(padT+cH).toFixed(1)} Z`;
+
+  // Y ticks (min, max)
+  const yTicks = [minV, maxV].map(v =>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--chart-txt)" dominant-baseline="middle">${v.toFixed(2)}%</text>`
+  ).join('');
+  // X labels — first and last
+  const xLabels = [0, pts.length-1].map(i =>
+    `<text x="${xS(i).toFixed(1)}" y="${H-3}" text-anchor="${i===0?'start':'end'}" font-size="8" fill="var(--chart-txt)">${pts[i].period}</text>`
+  ).join('');
+
+  const current = pts[pts.length-1];
+  const prev    = pts[pts.length-2];
+  const rising  = current.value >= prev.value;
+
+  spark.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${areaD}" fill="${rising?'var(--chart-exp)':'var(--chart-inc)'}" opacity=".12"/>
+    <polyline points="${polyPts}" fill="none" stroke="${rising?'var(--chart-exp)':'var(--chart-inc)'}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    ${yTicks}${xLabels}
+    <circle cx="${xS(pts.length-1).toFixed(1)}" cy="${yS(current.value).toFixed(1)}" r="3" fill="${rising?'var(--chart-exp)':'var(--chart-inc)'}"/>
+    <text x="${xS(pts.length-1).toFixed(1)}" y="${yS(current.value).toFixed(1)-6}" text-anchor="end" font-size="9" fill="${rising?'var(--chart-exp)':'var(--chart-inc)'}" font-weight="600">${current.value.toFixed(3)}%</text>
+  </svg>`;
+}
+
+// ══════════════════════════════════════════
+// SUBSCRIPTION — YEARLY VIEW TOGGLE
+// ══════════════════════════════════════════
+let _subView = 'monthly';
+function setSubView(v) {
+  _subView = v;
+  el('sub-tab-monthly').classList.toggle('active', v === 'monthly');
+  el('sub-tab-yearly').classList.toggle('active', v === 'yearly');
+  renderSubscriptions();
+}
+
+// ══════════════════════════════════════════
+// FUEL TRACKER
+// Schema: DATA.fuel[] = { id, date, type, station, liters, ppl, total, odo, note }
+// ══════════════════════════════════════════
+
+const FUEL_LABELS = { petrol:'Petrol', diesel:'Diesel', lpg:'LPG', electric:'Electric', other:'Other' };
+
+// ── Initialise form defaults ──────────────────────────────────────────────────
+function fuelFormInit() {
+  const d = el('fuel-date'); if (d && !d.value) d.value = ymd();
+}
+
+// ── Live total/ppl preview ────────────────────────────────────────────────────
+function fuelPreview() {
+  const liters = parseFloat(el('fuel-liters').value);
+  const ppl    = parseFloat(el('fuel-ppl').value);
+  const prev   = el('fuel-preview');
+  if (liters > 0 && ppl > 0) {
+    const total = +(liters * ppl).toFixed(2);
+    el('fuel-total').value = total;
+    if (prev) prev.textContent = `= ${fmt(total)}`;
+  } else {
+    if (prev) prev.textContent = '';
+  }
+}
+function fuelPreviewFromTotal() {
+  const liters = parseFloat(el('fuel-liters').value);
+  const total  = parseFloat(el('fuel-total').value);
+  const prev   = el('fuel-preview');
+  if (liters > 0 && total > 0) {
+    const ppl = +(total / liters).toFixed(4);
+    el('fuel-ppl').value = ppl;
+    if (prev) prev.textContent = `= ${ppl.toFixed(3)} €/L`;
+  } else {
+    if (prev) prev.textContent = '';
+  }
+}
+
+// ── Add a refuel record ───────────────────────────────────────────────────────
+async function addFuel() {
+  try {
+    const date    = el('fuel-date').value || ymd();
+    const type    = el('fuel-type').value;
+    const station = el('fuel-station').value.trim();
+    const liters  = parseFloat(el('fuel-liters').value);
+    const ppl     = parseFloat(el('fuel-ppl').value);
+    const totalIn = parseFloat(el('fuel-total').value);
+    const odo     = parseFloat(el('fuel-odo').value) || null;
+    const note    = el('fuel-note').value.trim();
+
+    if (!liters || liters <= 0) return toast('Enter litres.', 1);
+    if (!ppl && !totalIn)       return toast('Enter price/L or total cost.', 1);
+
+    const total = totalIn > 0 ? totalIn : +(liters * ppl).toFixed(2);
+    const finalPpl = ppl > 0 ? ppl : +(total / liters).toFixed(4);
+
+    const record = { id: uid(), date, type, station, liters: +liters.toFixed(3),
+                     ppl: +finalPpl.toFixed(4), total, odo, note };
+    if (!DATA.fuel) DATA.fuel = [];
+    DATA.fuel.push(record);
+    DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
+
+    // Optionally log as budget entry
+    if (el('fuel-add-entry')?.checked) {
+      DATA.entries.unshift({ id: uid(), date, desc: station || FUEL_LABELS[type] + ' fuel',
+        amount: total, formula: null, type: 'expense', category: 'needs',
+        tags: ['fuel', type], accountId: null, recurId: null });
+    }
+
+    saveLocal();
+    // Clear form
+    el('fuel-liters').value = ''; el('fuel-ppl').value = '';
+    el('fuel-total').value  = ''; el('fuel-odo').value = '';
+    el('fuel-note').value   = ''; el('fuel-station').value = '';
+    el('fuel-preview').textContent = '';
+    renderFuel();
+    toast('Refuel logged');
+  } catch(e) { toast(e.message || 'Failed to log refuel.', 1); }
+}
+
+// ── Delete a refuel ───────────────────────────────────────────────────────────
+function deleteFuel(id) {
+  showConfirm('Remove refuel record?', 'This only removes the fuel log entry — any linked expense entry is kept.', () => {
+    DATA.fuel = DATA.fuel.filter(f => f.id !== id);
+    saveLocal(); renderFuel(); toast('Record removed');
+  });
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function renderFuel() {
+  fuelFormInit();
+  if (!DATA.fuel) DATA.fuel = [];
+
+  const typeFilter = el('fuel-filter-type')?.value || '';
+  const all = [...DATA.fuel].sort((a,b) => b.date.localeCompare(a.date));
+  const filtered = typeFilter ? all.filter(f => f.type === typeFilter) : all;
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  if (all.length) {
+    const totalSpent = all.reduce((s,f) => s + f.total, 0);
+    const avgPpl     = all.reduce((s,f) => s + f.ppl,   0) / all.length;
+    const avgLiters  = all.reduce((s,f) => s + f.liters, 0) / all.length;
+
+    // Refuel interval (average days between fills)
+    const sorted = [...all].sort((a,b) => a.date.localeCompare(b.date));
+    let intervals = [], odoRecords = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const days = (new Date(sorted[i].date) - new Date(sorted[i-1].date)) / 86400000;
+      if (days >= 0) intervals.push(days);
+      if (sorted[i].odo && sorted[i-1].odo) odoRecords.push({ km: sorted[i].odo - sorted[i-1].odo, liters: sorted[i].liters });
+    }
+    const avgInterval = intervals.length ? intervals.reduce((s,v)=>s+v,0)/intervals.length : null;
+
+    // L/100km from odometer pairs
+    const validOdo = odoRecords.filter(r => r.km > 0 && r.km < 2000);
+    const avgPer100 = validOdo.length
+      ? validOdo.reduce((s,r) => s + (r.liters / r.km * 100), 0) / validOdo.length
+      : null;
+
+    const lastOdo = sorted.filter(f=>f.odo).pop()?.odo;
+
+    el('fs-ppl').textContent      = `${avgPpl.toFixed(3)} €/L`;
+    el('fs-liters').textContent   = `${avgLiters.toFixed(1)} L`;
+    el('fs-interval').textContent = avgInterval != null ? `${avgInterval.toFixed(0)} days` : '—';
+    el('fs-per100').textContent   = avgPer100  != null ? `${avgPer100.toFixed(1)} L/100` : '—';
+    el('fs-total').textContent    = fmt(totalSpent);
+    el('fs-odo').textContent      = lastOdo ? lastOdo.toLocaleString() + ' km' : '—';
+  } else {
+    ['fs-ppl','fs-liters','fs-interval','fs-per100','fs-total','fs-odo'].forEach(id => { if(el(id)) el(id).textContent = '—'; });
+  }
+
+  // ── Price trend chart ──────────────────────────────────────────────────────
+  renderFuelChart(all);
+
+  // ── Table ──────────────────────────────────────────────────────────────────
+  const tbody = el('fuel-body'); if (!tbody) return;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
+  } else {
+    // Pre-sort ascending to compute consecutive deltas
+    const asc = [...filtered].sort((a,b) => a.date.localeCompare(b.date));
+    const withDeltas = asc.map((f, i) => {
+      const prev = asc[i-1];
+      const kmSince = (f.odo && prev?.odo) ? f.odo - prev.odo : null;
+      const lPer100 = (kmSince > 0 && kmSince < 2000) ? +(f.liters / kmSince * 100).toFixed(1) : null;
+      return { ...f, kmSince, lPer100 };
+    });
+    // Display newest first
+    const rows = [...withDeltas].reverse().map(f => {
+      const effCls = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
+      return `<tr>
+        <td class="num">${esc(f.date)}</td>
+        <td><span class="fuel-type-badge ${f.type}">${FUEL_LABELS[f.type]||esc(f.type)}</span></td>
+        <td>${esc(f.station||'—')}</td>
+        <td class="num">${f.liters.toFixed(2)} L</td>
+        <td class="num">${f.ppl.toFixed(3)} €</td>
+        <td class="num amt-n">−${fmt(f.total)}</td>
+        <td class="num">${f.odo ? f.odo.toLocaleString() : '—'}</td>
+        <td class="num">${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</td>
+        <td class="num ${effCls}">${f.lPer100 != null ? f.lPer100 + ' L' : '—'}</td>
+        <td><button class="btn xs danger" onclick="deleteFuel('${f.id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = rows;
+  }
+
+  // ── Monthly cost bar chart ─────────────────────────────────────────────────
+  renderFuelMonthly(all);
+}
+
+// ── Price-per-litre trend line chart ─────────────────────────────────────────
+function renderFuelChart(records) {
+  const wrap = el('fuel-chart'); if (!wrap) return;
+  const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
+  if (sorted.length < 2) { wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:12px 0">Add at least 2 refuels to see the trend.</div>'; return; }
+
+  el('fuel-trend-lbl').textContent = `· last ${sorted.length} fills`;
+
+  const W = 600, H = 110, padL = 48, padR = 12, padT = 10, padB = 22;
+  const cW = W - padL - padR, cH = H - padT - padB;
+  const ppls = sorted.map(f => f.ppl);
+  const minP = Math.min(...ppls) * 0.98, maxP = Math.max(...ppls) * 1.02;
+  const range = maxP - minP || 0.01;
+  const xS = i => padL + i * (cW / Math.max(sorted.length - 1, 1));
+  const yS = v => padT + cH - ((v - minP) / range) * cH;
+
+  const polyPts  = sorted.map((f,i) => `${xS(i).toFixed(1)},${yS(f.ppl).toFixed(1)}`).join(' ');
+  const areaD    = `M${xS(0).toFixed(1)},${(padT+cH).toFixed(1)} ` +
+    sorted.map((f,i) => `L${xS(i).toFixed(1)},${yS(f.ppl).toFixed(1)}`).join(' ') +
+    ` L${xS(sorted.length-1).toFixed(1)},${(padT+cH).toFixed(1)} Z`;
+
+  // Y ticks
+  const yTicks = [minP, (minP+maxP)/2, maxP].map(v =>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${v.toFixed(3)}</text>`
+  ).join('');
+
+  // X labels every N points
+  const every = Math.max(1, Math.ceil(sorted.length / 7));
+  const xLabels = sorted.map((f,i) => i % every !== 0 ? '' :
+    `<text x="${xS(i).toFixed(1)}" y="${H-3}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${f.date.slice(5)}</text>`
+  ).join('');
+
+  // Dots coloured by type
+  const typeColors = { petrol:'var(--Gm)', diesel:'var(--Bm)', lpg:'var(--Am)', electric:'var(--Tm)', other:'var(--ink3)' };
+  const dots = sorted.map((f,i) =>
+    `<circle cx="${xS(i).toFixed(1)}" cy="${yS(f.ppl).toFixed(1)}" r="3" fill="${typeColors[f.type]||'var(--ink3)'}">${f.station?`<title>${esc(f.station)}: ${f.ppl.toFixed(3)} €/L</title>`:''}</circle>`
+  ).join('');
+
+  // Latest value label
+  const last = sorted[sorted.length-1];
+  const rising = sorted.length > 1 && last.ppl >= sorted[sorted.length-2].ppl;
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${areaD}" fill="var(--Bm)" opacity=".08"/>
+    <polyline points="${polyPts}" fill="none" stroke="var(--Bm)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    ${yTicks}${xLabels}
+    <text x="${xS(sorted.length-1).toFixed(1)}" y="${yS(last.ppl).toFixed(1)-7}" text-anchor="end" font-size="9" fill="${rising?'var(--Rm)':'var(--Gm)'}" font-weight="600">${last.ppl.toFixed(3)} €/L</text>
+  </svg>`;
+}
+
+// ── Monthly fuel cost bars ────────────────────────────────────────────────────
+function renderFuelMonthly(records) {
+  const wrap = el('fuel-monthly'); if (!wrap) return;
+  if (!records.length) { wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No data yet.</div>'; return; }
+
+  const byMonth = {};
+  records.forEach(f => {
+    const m = ym(f.date);
+    if (!byMonth[m]) byMonth[m] = { total: 0, liters: 0, fills: 0 };
+    byMonth[m].total  += f.total;
+    byMonth[m].liters += f.liters;
+    byMonth[m].fills  += 1;
+  });
+
+  const months = Object.keys(byMonth).sort();
+  const maxCost = Math.max(...months.map(m => byMonth[m].total), 1);
+
+  wrap.innerHTML = months.reverse().map(m => {
+    const d = byMonth[m];
+    const pct = Math.round(d.total / maxCost * 100);
+    return `<div class="bar-block">
+      <div class="bar-meta">
+        <span class="bar-lbl">${m}</span>
+        <span class="bar-nums">${d.fills} fill${d.fills>1?'s':''} · ${d.liters.toFixed(1)} L · <strong>${fmt(d.total)}</strong></span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--Bm)"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+function exportFuelCSV() {
+  if (!DATA.fuel?.length) return toast('No fuel records to export.', 1);
+  const hdr = 'Date,Type,Station,Litres,Price/L,Total,Odometer,Notes';
+  const rows = [...DATA.fuel].sort((a,b) => a.date.localeCompare(b.date)).map(f =>
+    [f.date, f.type, `"${(f.station||'').replace(/"/g,'""')}"`,
+     f.liters, f.ppl, f.total, f.odo||'', `"${(f.note||'').replace(/"/g,'""')}"`].join(',')
+  );
+  dl([hdr, ...rows].join('\r\n'), `vault_fuel_${ymd()}.csv`, 'text/csv');
+  toast('Fuel CSV downloaded');
+}
+
+// ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
@@ -5733,7 +6615,8 @@ document.addEventListener('keydown', e => {
   if (e.key==='2') nav('entries');
   if (e.key==='3') nav('grocery');
   if (e.key==='4') nav('wealth');
-  if (e.key==='5') nav('settings');
+  if (e.key==='5') nav('fuel');
+  if (e.key==='6') nav('settings');
   if (e.key==='n') { nav('entries'); setTimeout(() => { el('qa-desc')?.focus() || el('ef-desc')?.focus(); }, 60); }
   if (e.key==='r') { if (!el('receipt-overlay').classList.contains('open')) openReceipt(); }
   if (e.key==='?') { el('keys-overlay').classList.contains('open') ? closeKeys() : openKeys(); }
