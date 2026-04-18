@@ -4100,6 +4100,7 @@ function saveNewAccount() {
   saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
   el('acct-name').value=''; el('acct-bank').value=''; el('acct-bal').value='';
   el('acct-add-form').classList.remove('open');
+  if (VIEW === 'dash') renderNetWorthTimeline();
   toast('Account added');
 }
 async function deleteAcct(id) {
@@ -4107,12 +4108,36 @@ async function deleteAcct(id) {
     showConfirm('Remove account?', 'This only removes the account record — entries linked to it are kept.', async () => {
       DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
       saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
+      if (VIEW === 'dash') renderNetWorthTimeline();
     });
   } catch(e) { toast(e.message || 'Failed to remove account.', 1); }
 }
-function updateAcctBalance(id,val) {
-  const a=DATA.accounts.find(x=>x.id===id); if(!a) return;
-  a.balance=parseFloat(val)||0; saveLocal(); renderAccountCards();
+function updateAcctBalance(id, val) {
+  const a = DATA.accounts.find(x => x.id === id); if (!a) return;
+  a.balance = parseFloat(val) || 0;
+  saveLocal();
+  // Recalculate every view that derives from account balances:
+  // 1. The Settings account list itself (current balance + delta labels)
+  renderAcctList();
+  // 2. Dashboard account cards and net worth stat
+  renderAccountCards();
+  if (VIEW === 'dash') {
+    // Recompute net worth stat inline without a full renderDash()
+    const netWorth = DATA.accounts.reduce((s, a) => s + computeAcctBalance(a), 0);
+    const nwEl = el('d-stats');
+    if (nwEl) {
+      const nwStat = nwEl.querySelector('[data-nw]');
+      if (nwStat) {
+        nwStat.className = `stat-val ${netWorth >= 0 ? 'cg' : 'cr'}`;
+        nwStat.textContent = fmt(netWorth);
+      }
+    }
+    renderNetWorthTimeline();
+  }
+  // 3. Entry form balance preview (if open with this account selected)
+  if (el('ef-acct')?.value === id) updateBalancePreview();
+  // 4. Wealth net worth display
+  if (VIEW === 'wealth') renderWealth();
 }
 
 // ══════════════════════════════════════════
