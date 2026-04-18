@@ -6018,64 +6018,116 @@ window.addEventListener('offline', updateOfflineBar);
 // ══════════════════════════════════════════
 function renderNetWorthTimeline() {
   const wrap = el('d-nw-timeline'); if (!wrap) return;
-  const months = [...new Set(DATA.entries.map(e => ym(e.date)))].sort();
-  // Add any income-only months
-  Object.keys(DATA.incomes || {}).forEach(m => { if (!months.includes(m)) months.push(m); });
-  months.sort();
-  if (months.length < 2) { wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not enough data yet — add entries across multiple months.</div>'; return; }
 
-  // For each month: base income − expenses (cumulative running net)
-  let running = 0;
+  // Build a sorted list of all months that have any data
+  const monthSet = new Set();
+  DATA.entries.forEach(e => monthSet.add(ym(e.date)));
+  Object.keys(DATA.incomes || {}).forEach(m => monthSet.add(m));
+  const months = [...monthSet].sort();
+
+  if (months.length < 2) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not enough data yet — add entries across multiple months.</div>';
+    return;
+  }
+
+  // For each historical month compute true net worth:
+  //   Σ account balances (opening seed + all entries up to end of that month)
+  //   + Σ savings goals saved amounts (static — no time-series, included as-is)
+  //   + Σ stock values in EUR at current prices (static snapshot)
+  // Account balances are the only time-varying component we can reconstruct
+  // historically — goals and stocks are added as a flat offset on the last point.
+
+  const goalsSaved  = (DATA.savingsGoals||[]).reduce((s,g) => s + (+g.saved||0), 0);
+  const stocksEur   = (DATA.stocks||[]).reduce((s,st) => {
+    const rate = (typeof _fxRates !== 'undefined' && _fxRates[st.currency]) || null;
+    const native = (st.shares||0) > 0 ? (st.shares * st.currentPrice) : (st.currentPrice||0);
+    return s + (st.currency === 'EUR' ? native : (rate ? native * rate : 0));
+  }, 0);
+  const nonAccountOffset = goalsSaved + stocksEur;
+
+  // Reconstruct account balance at end of each month:
+  // opening balance is fixed; delta accumulates entries up to that month
   const points = months.map(m => {
-    const mes = DATA.entries.filter(e => ym(e.date) === m);
-    const inc = (DATA.incomes[m]?.amount || 0) + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    const exp = mes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
-    running += inc - exp;
-    return { m, v: running };
+    const acctTotal = DATA.accounts.reduce((sum, acct) => {
+      const base = +acct.balance || 0;
+      let delta = 0;
+      DATA.entries.forEach(e => {
+        if (ym(e.date) > m) return; // only count entries up to this month
+        if (e.accountId === acct.id) {
+          if (e.type === 'income')   delta += e.amount;
+          if (e.type === 'expense')  delta -= e.amount;
+          if (e.type === 'transfer') delta -= e.amount;
+        }
+        if (e.accountIdTo === acct.id && e.type === 'transfer') delta += e.amount;
+      });
+      return sum + base + delta;
+    }, 0);
+    // Add non-account assets only to the final month (we have no history for them)
+    const isLast = m === months[months.length - 1];
+    return { m, v: +(acctTotal + (isLast ? nonAccountOffset : 0)).toFixed(2) };
   });
 
-  const W = 600, H = 120, padL = 52, padR = 16, padT = 12, padB = 24;
+  const W = 600, H = 130, padL = 58, padR = 16, padT = 12, padB = 24;
   const cW = W - padL - padR, cH = H - padT - padB;
   const vals = points.map(p => p.v);
-  const minV = Math.min(0, ...vals), maxV = Math.max(...vals, 1);
+  const minV = Math.min(...vals), maxV = Math.max(...vals, minV + 1);
   const range = maxV - minV || 1;
   const xStep = cW / Math.max(points.length - 1, 1);
   const yScale = v => padT + cH - ((v - minV) / range) * cH;
   const xScale = i => padL + i * xStep;
 
-  const zeroY = yScale(0);
+  const zeroY = yScale(Math.max(minV, 0));
   const polyPts = points.map((p, i) => `${xScale(i).toFixed(1)},${yScale(p.v).toFixed(1)}`).join(' ');
-  // Area fill path
   const areaD = `M${xScale(0).toFixed(1)},${zeroY.toFixed(1)} ` +
     points.map((p,i) => `L${xScale(i).toFixed(1)},${yScale(p.v).toFixed(1)}`).join(' ') +
     ` L${xScale(points.length-1).toFixed(1)},${zeroY.toFixed(1)} Z`;
 
-  // Y axis labels
+  // Fmt helper for axis (k/M abbreviation)
+  const fmtAx = v => {
+    const abs = Math.abs(v);
+    const s = v < 0 ? '-' : '';
+    if (abs >= 1000000) return s + '€' + (abs/1000000).toFixed(1) + 'M';
+    if (abs >= 1000)    return s + '€' + Math.round(abs/1000) + 'k';
+    return s + '€' + Math.round(abs);
+  };
+
   const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
-    `<text x="${padL-5}" y="${yScale(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${v>=0?'€'+Math.round(v/1000)+'k':'-€'+Math.round(Math.abs(v)/1000)+'k'}</text>`
+    `<text x="${padL-5}" y="${yScale(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`
   );
-  // X axis — show every 3rd label
-  const xLabels = points.map((p,i) => i % Math.max(1, Math.floor(points.length/6)) !== 0 ? '' :
+  const every = Math.max(1, Math.floor(points.length / 6));
+  const xLabels = points.map((p,i) => i % every !== 0 ? '' :
     `<text x="${xScale(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--chart-txt)">${p.m.slice(2)}</text>`
   );
 
-  const lastPt = points[points.length-1];
-  const positive = lastPt.v >= 0;
+  const lastPt  = points[points.length - 1];
+  const prevPt  = points[points.length - 2];
+  const rising  = lastPt.v >= prevPt.v;
+  const lineClr = lastPt.v >= 0 ? 'var(--chart-inc)' : 'var(--chart-exp)';
 
-  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stop-opacity=".18"/>
-        <stop offset="100%" stop-color="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1"/>
-    <path d="${areaD}" fill="url(#nwGrad)"/>
-    <polyline points="${polyPts}" fill="none" stroke="${positive?'var(--chart-inc)':'var(--chart-exp)'}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${yTicks.join('')}
-    ${xLabels.join('')}
-    <circle cx="${xScale(points.length-1).toFixed(1)}" cy="${yScale(lastPt.v).toFixed(1)}" r="3.5" fill="${positive?'var(--chart-inc)':'var(--chart-exp)'}"/>
-  </svg>`;
+  // Legend line: what's included
+  const legendParts = [];
+  if (DATA.accounts.length)    legendParts.push(`${DATA.accounts.length} account${DATA.accounts.length>1?'s':''}`);
+  if (goalsSaved > 0)          legendParts.push('savings goals');
+  if (stocksEur > 0)           legendParts.push('portfolio');
+  const legendTxt = legendParts.length ? legendParts.join(' · ') : '';
+
+  wrap.innerHTML = `
+    ${legendTxt ? `<div style="font-size:10px;color:var(--ink3);margin-bottom:4px">${esc(legendTxt)}</div>` : ''}
+    <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineClr}" stop-opacity=".18"/>
+          <stop offset="100%" stop-color="${lineClr}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1" stroke-dasharray="3,3"/>
+      <path d="${areaD}" fill="url(#nwGrad)"/>
+      <polyline points="${polyPts}" fill="none" stroke="${lineClr}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${yTicks.join('')}
+      ${xLabels.join('')}
+      <circle cx="${xScale(points.length-1).toFixed(1)}" cy="${yScale(lastPt.v).toFixed(1)}" r="3.5" fill="${lineClr}"/>
+      <text x="${xScale(points.length-1).toFixed(1)}" y="${yScale(lastPt.v).toFixed(1)-8}" text-anchor="end" font-size="9" fill="${lineClr}" font-weight="600">${fmtAx(lastPt.v)}</text>
+    </svg>`;
 }
 
 // ══════════════════════════════════════════
