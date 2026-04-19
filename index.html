@@ -3458,20 +3458,46 @@ async function commitEdit(id, field, val) {
   } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
 
-// Account cell: single-click opens a <select> in-place; blur or change commits.
+// Account cell: single-click opens a <select> in-place.
+// onchange commits; onblur without a change just restores the cell display.
 function makeAcctEditable(td, entryId) {
-  // Build select with all accounts + "No account"
+  const entry = DATA.entries.find(e => e.id === entryId);
+  if (!entry) return;
+
   const opts = ['<option value="">— no account —</option>',
     ...DATA.accounts.map(a => {
-      const sel = DATA.entries.find(e=>e.id===entryId)?.accountId === a.id ? ' selected' : '';
-      return `<option value="${a.id}"${sel}>${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`;
+      const sel = entry.accountId === a.id ? ' selected' : '';
+      return `<option value="${a.id}"${sel}>${esc(a.name)}${a.bank ? ' (' + esc(a.bank) + ')' : ''}</option>`;
     })
   ].join('');
-  td.innerHTML = `<select class="edit-in" style="font-size:12px;padding:1px 4px"
-    onchange="commitAcctEdit('${entryId}',this.value)"
-    onblur="commitAcctEdit('${entryId}',this.value)"
-    onkeydown="if(event.key==='Escape')render();">${opts}</select>`;
-  td.querySelector('select').focus();
+
+  const sel = document.createElement('select');
+  sel.className = 'edit-in';
+  sel.style.cssText = 'font-size:12px;padding:1px 4px';
+  sel.innerHTML = opts;
+
+  // Guard: only commit once — prevents onblur double-fire after render() tears down the DOM
+  let committed = false;
+
+  sel.addEventListener('change', () => {
+    if (committed) return;
+    committed = true;
+    commitAcctEdit(entryId, sel.value);
+  });
+
+  sel.addEventListener('blur', () => {
+    // If change already committed, render() already ran — nothing to do.
+    // If user clicked away without selecting, just restore the cell.
+    if (!committed) render();
+  });
+
+  sel.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { committed = true; render(); }
+  });
+
+  td.textContent = '';
+  td.appendChild(sel);
+  sel.focus();
 }
 
 async function commitAcctEdit(entryId, acctId) {
