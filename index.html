@@ -978,9 +978,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" id="fg-acct" style="margin:0">
-            <label>Account</label>
-            <select id="ef-acct" onchange="updateBalancePreview()"><option value="">No account</option></select>
+            <label>Account
+              <button class="btn xs ghost" id="ef-acct-edit-btn" style="display:none;margin-left:6px;padding:2px 7px;font-size:11px" onclick="toggleAcctInlineEdit()">✎ Edit</button>
+            </label>
+            <select id="ef-acct" onchange="updateBalancePreview();toggleAcctEditBtn()"><option value="">No account</option></select>
             <div id="acct-balance-preview" style="display:none;margin-top:5px;padding:7px 10px;border-radius:var(--rs);font-size:12px;font-family:var(--mono);background:var(--s1);border:.5px solid var(--bdr)"></div>
+            <!-- Inline account editor — shown when ✎ Edit is clicked -->
+            <div id="acct-inline-edit" style="display:none;margin-top:8px;padding:10px 12px;background:var(--s1);border-radius:var(--rs);border:.5px solid var(--bdr)">
+              <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Edit account</div>
+              <div class="g3" style="margin-bottom:8px">
+                <div class="fg" style="margin:0"><label>Name</label><input type="text" id="ef-acct-edit-name" autocomplete="off"></div>
+                <div class="fg" style="margin:0"><label>Bank</label><input type="text" id="ef-acct-edit-bank" autocomplete="off"></div>
+                <div class="fg" style="margin:0"><label>Opening balance (€)</label><input type="number" id="ef-acct-edit-bal" step="0.01" style="font-family:var(--mono)"></div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn xs primary" onclick="saveAcctInlineEdit()">Save</button>
+                <button class="btn xs ghost" onclick="toggleAcctInlineEdit()">Cancel</button>
+              </div>
+            </div>
           </div>
           <div class="fg" id="fg-acct-to" style="margin:0;display:none"><label>To account <span class="muted" style="text-transform:none;letter-spacing:0">(transfer destination)</span></label>
             <select id="ef-acct-to"><option value="">Select account</option></select>
@@ -2792,9 +2807,14 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     { key:'savings', label:'Savings', pct:splits.savings, color:'var(--Gm)' }
   ];
   el('d-bars-split').innerHTML = defs.map(({key,label,pct,color}) => {
-    const carry  = key !== 'savings' ? getCarryForward(key, curMonth()) : 0;
+    // Carry-forward: unspent surplus from last month flows to Savings only.
+    // Needs and Wants get no carry — underspend there doesn't increase next
+    // month's budget ceiling; instead it accumulates into Savings.
+    const carry = key === 'savings' ? getSavingsCarry(curMonth()) : 0;
     const target = totalInc * pct / 100 + carry;
-    const carryBadge = carry > 0 ? `<span class="carry-badge" title="Carry-forward from last month">+${fmt(carry)} carried</span>` : '';
+    const carryBadge = carry > 0
+      ? `<span class="carry-badge" style="background:var(--Gbg);color:var(--Gm)" title="Unspent surplus carried from last month">+${fmt(carry)} carried</span>`
+      : '';
     const goal   = goals[key];
     const actual = act[key] || 0;
     const fill   = target > 0 ? Math.min(100, Math.round(actual/target*100)) : 0;
@@ -3261,7 +3281,7 @@ function renderTagChips() {
   });
 }
 function removeTag(i) { _curTags.splice(i,1); renderTagChips(); }
-function resetTagInput() { _curTags = []; el('tags-input').value = ''; renderTagChips(); el('tags-dd').classList.remove('open'); }
+function resetTagInput() { _curTags = []; el('tags-input').value = ''; renderTagChips(); el('tags-dd').classList.remove('open'); el('acct-inline-edit').style.display='none'; el('ef-acct-edit-btn').style.display='none'; }
 function tagsSuggest() {
   const q = el('tags-input').value.toLowerCase();
   if (!q) { el('tags-dd').classList.remove('open'); return; }
@@ -3300,6 +3320,7 @@ function refreshAccountSelect() {
   el('ef-acct').innerHTML = opts;
   el('ef-acct-to').innerHTML = '<option value="">Select destination</option>' +
     DATA.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`).join('');
+  toggleAcctEditBtn();
 }
 
 function descSearch() {
@@ -4112,6 +4133,47 @@ async function deleteAcct(id) {
     });
   } catch(e) { toast(e.message || 'Failed to remove account.', 1); }
 }
+// ── Inline account editor (entry form) ───────────────────────────────────────
+function toggleAcctEditBtn() {
+  const id  = el('ef-acct').value;
+  const btn = el('ef-acct-edit-btn');
+  if (!btn) return;
+  btn.style.display = id ? 'inline-flex' : 'none';
+  // Hide edit panel if account changes
+  el('acct-inline-edit').style.display = 'none';
+}
+
+function toggleAcctInlineEdit() {
+  const panel = el('acct-inline-edit');
+  const open  = panel.style.display !== 'none';
+  if (open) { panel.style.display = 'none'; return; }
+  const id = el('ef-acct').value;
+  const a  = DATA.accounts.find(x => x.id === id);
+  if (!a) return;
+  el('ef-acct-edit-name').value = a.name;
+  el('ef-acct-edit-bank').value = a.bank || '';
+  el('ef-acct-edit-bal').value  = a.balance || 0;
+  panel.style.display = 'block';
+  el('ef-acct-edit-name').focus();
+}
+
+function saveAcctInlineEdit() {
+  const id   = el('ef-acct').value;
+  const a    = DATA.accounts.find(x => x.id === id); if (!a) return;
+  const name = el('ef-acct-edit-name').value.trim();
+  if (!name) return toast('Account name cannot be empty.', 1);
+  a.name    = name;
+  a.bank    = el('ef-acct-edit-bank').value.trim();
+  a.balance = parseFloat(el('ef-acct-edit-bal').value) || 0;
+  el('acct-inline-edit').style.display = 'none';
+  // Cascade all derived views — same as updateAcctBalance
+  saveLocal();
+  renderAcctList(); renderAccountCards(); refreshAccountSelect();
+  updateBalancePreview();
+  if (VIEW === 'dash') renderNetWorthTimeline();
+  toast(`${esc(a.name)} updated`);
+}
+
 function updateAcctBalance(id, val) {
   const a = DATA.accounts.find(x => x.id === id); if (!a) return;
   a.balance = parseFloat(val) || 0;
@@ -4257,9 +4319,20 @@ function saveSurplus(month) {
 
 // ══════════════════════════════════════════
 // CARRY-FORWARD
-// Underspend in Needs or Wants last month →
-// adds the difference to this month's budget ceiling.
+// Previous-month surplus flows to Savings only.
+// getSavingsCarry: total unspent (income − all expenses) from last month.
+// getCarryForward kept for reference but no longer used in split bars.
 // ══════════════════════════════════════════
+function getSavingsCarry(month) {
+  const prevMon   = prevMonStr(month);
+  const prevSaved = DATA.incomes[prevMon];
+  if (!prevSaved || !prevSaved.amount) return 0;
+  const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevSpent = prevMes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  return Math.max(0, +(prevInc - prevSpent).toFixed(2));
+}
+
 function getCarryForward(category, month) {
   const prevMon   = prevMonStr(month);
   const prevSaved = DATA.incomes[prevMon];
