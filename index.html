@@ -1149,7 +1149,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <thead><tr>
           <th style="width:28px"><input type="checkbox" class="row-sel" id="sel-all" onchange="toggleSelectAll(this.checked)"></th>
           <th>Date</th><th>Description</th><th>Amount</th>
-          <th>Category</th><th>Tags</th><th>Formula</th><th></th>
+          <th>Category</th><th>Account</th><th>Tags</th><th>Formula</th><th></th>
         </tr></thead>
         <tbody id="ent-body"></tbody>
       </table></div>
@@ -3458,6 +3458,34 @@ async function commitEdit(id, field, val) {
   } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
 
+// Account cell: single-click opens a <select> in-place; blur or change commits.
+function makeAcctEditable(td, entryId) {
+  // Build select with all accounts + "No account"
+  const opts = ['<option value="">— no account —</option>',
+    ...DATA.accounts.map(a => {
+      const sel = DATA.entries.find(e=>e.id===entryId)?.accountId === a.id ? ' selected' : '';
+      return `<option value="${a.id}"${sel}>${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`;
+    })
+  ].join('');
+  td.innerHTML = `<select class="edit-in" style="font-size:12px;padding:1px 4px"
+    onchange="commitAcctEdit('${entryId}',this.value)"
+    onblur="commitAcctEdit('${entryId}',this.value)"
+    onkeydown="if(event.key==='Escape')render();">${opts}</select>`;
+  td.querySelector('select').focus();
+}
+
+async function commitAcctEdit(entryId, acctId) {
+  try {
+    const e = DATA.entries.find(x => x.id === entryId); if (!e) return;
+    e.accountId = acctId || null;
+    saveLocal();
+    // Refresh account cards + net worth — account balance totals changed
+    renderAccountCards();
+    if (VIEW === 'dash') renderNetWorthTimeline();
+    render();
+  } catch(err) { toast(err.message || 'Failed to update account.', 1); }
+}
+
 function renderEntries() {
   // Sync entry date only when the viewed month doesn't match — preserve user edits
   const curDateVal = el('ef-date').value;
@@ -3493,9 +3521,9 @@ function renderEntries() {
       <td><input id="qa-desc" type="text" placeholder="Description…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
       <td><input id="qa-amt" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
       <td><select id="qa-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
-      <td colspan="2"></td>
+      <td colspan="3"></td>
       <td><button class="btn xs success" onclick="quickAdd()" title="Add (Enter)">+</button></td>
-    </tr><tr><td colspan="8" class="empty">No entries.</td></tr>`;
+    </tr><tr><td colspan="9" class="empty">No entries.</td></tr>`;
     return;
   }
 
@@ -3508,7 +3536,7 @@ function renderEntries() {
     <td><input id="qa-desc" type="text" placeholder="Quick add…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
     <td><input id="qa-amt" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
     <td><select id="qa-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
-    <td colspan="2" style="color:var(--ink3);font-size:11px">↵ Enter to add</td>
+    <td colspan="3" style="color:var(--ink3);font-size:11px">↵ Enter to add</td>
     <td><button class="btn xs success" onclick="quickAdd()" title="Add (Enter)">+</button></td>
   </tr>`;
 
@@ -3521,6 +3549,11 @@ function renderEntries() {
     const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${esc(t)}')">${esc(t)}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
     const checked = _selEntries.has(e.id) ? 'checked' : '';
+    // Account cell: show name if linked, '—' if not; click opens select
+    const acct = DATA.accounts.find(a => a.id === e.accountId);
+    const acctLabel = acct
+      ? `<span style="font-size:11px;color:var(--ink2)">${esc(acct.name)}</span>`
+      : `<span class="muted" style="font-size:11px">—</span>`;
     return `<tr>
       <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
       <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${esc(e.date)}</td>
@@ -3529,6 +3562,7 @@ function renderEntries() {
         <span class="${cls}">${sign}${fmt(e.amount)}</span>
       </td>
       <td><span class="badge ${esc(e.category)}">${esc(e.category)}</span></td>
+      <td class="editable" style="cursor:pointer" onclick="makeAcctEditable(this,'${e.id}')" title="Click to assign account">${acctLabel}</td>
       <td>${tagChips}${tagEditBtn}</td>
       <td>${e.formula?`<span class="formula-pill">${esc(e.formula)}</span>`:'<span class="muted">—</span>'}</td>
       <td><button class="btn xs ghost" onclick="duplicateEntry('${e.id}')" title="Duplicate entry" style="margin-right:2px">⧉</button><button class="btn xs danger" onclick="deleteEntry('${e.id}')">✕</button></td>
@@ -3538,7 +3572,7 @@ function renderEntries() {
     <td colspan="2" style="color:var(--ink2);font-size:12px">${list.length} entries</td>
     <td><span class="amt-p">+${fmt(sI)}</span></td>
     <td><span class="amt-n">−${fmt(sE)}</span></td>
-    <td colspan="3" class="num" style="color:${sI-sE>=0?'var(--G)':'var(--R)'}">net ${fmt(sI-sE)}</td>
+    <td colspan="4" class="num" style="color:${sI-sE>=0?'var(--G)':'var(--R)'}">net ${fmt(sI-sE)}</td>
   </tr>`;
 }
 
