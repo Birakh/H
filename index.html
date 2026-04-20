@@ -535,6 +535,41 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fuel-type-badge.electric{background:var(--Tbg);color:var(--T)}
 .fuel-type-badge.other{background:var(--s2);color:var(--ink2)}
 
+/* ── AUDIT LOG ── */
+.audit-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:.5px solid var(--bdr);font-size:12px}
+.audit-row:last-child{border-bottom:none}
+.audit-ts{font-family:var(--mono);font-size:10px;color:var(--ink3);white-space:nowrap;flex-shrink:0;padding-top:1px}
+.audit-action{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600;flex-shrink:0}
+.audit-action.push{background:var(--Gbg);color:var(--Gm)}
+.audit-action.pull{background:var(--Bbg);color:var(--Bm)}
+.audit-action.edit{background:var(--Abg);color:var(--Am)}
+.audit-summary{color:var(--ink2);flex:1}
+
+/* ── FX ACCOUNTS ── */
+.fx-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
+.fx-row:last-child{border-bottom:none}
+.fx-ccy{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--Bbg);color:var(--Bm);flex-shrink:0}
+.fx-eur{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink);min-width:70px;text-align:right}
+.fx-rate{font-size:10px;color:var(--ink3);font-family:var(--mono)}
+
+/* ── PLANNED INCOME ── */
+.income-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.planned-lbl{font-size:11px;color:var(--ink3)}
+
+/* ── AMORTISATION ── */
+.amort-table-wrap{overflow-x:auto;max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:10px}
+.amort-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.amort-tbl th{font-size:10px;font-weight:600;color:var(--ink3);text-align:right;padding:6px 8px;border-bottom:.5px solid var(--bdr);background:var(--s1);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;position:sticky;top:0}
+.amort-tbl th:first-child{text-align:left}
+.amort-tbl td{padding:5px 8px;border-bottom:.5px solid var(--bdr);font-family:var(--mono);text-align:right;white-space:nowrap}
+.amort-tbl td:first-child{text-align:left;font-family:var(--ff);color:var(--ink2)}
+.amort-tbl tr:last-child td{border-bottom:none}
+
+/* ── FUEL PRICE MAP ── */
+.fuel-station-card{background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px}
+.fuel-station-name{font-size:13px;font-weight:500;margin-bottom:6px}
+.fuel-station-meta{font-size:11px;color:var(--ink3);font-family:var(--mono)}
+
 /* ── OFFLINE INDICATOR ── */
 #offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:var(--Abg);color:var(--Am);font-size:12px;font-weight:500;text-align:center;padding:5px 12px;border-bottom:.5px solid rgba(176,110,20,.25)}
 #offline-bar.show{display:block}
@@ -824,6 +859,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <span style="font-size:11px;color:var(--ink3)">=expr ok</span>
             <button class="btn ghost xs" onclick="copyIncomeFromLastMonth()" style="font-size:11px;padding:2px 8px">↑ Copy from last month</button>
             <button class="btn ghost xs" onclick="openTax()" style="font-size:11px;padding:2px 8px">🇦🇹 Tax calc</button>
+          </div>
+          <div class="income-row" style="margin-top:6px">
+            <span class="planned-lbl">Expected:</span>
+            <input type="text" id="d-planned-income" placeholder="if different…"
+              style="width:130px;font-family:var(--mono);font-size:12px"
+              oninput="onPlannedIncomeInput()" title="Expected income for this month before it arrives — used for budget projections">
+            <span id="d-planned-lbl" style="font-size:11px;color:var(--ink3)"></span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -1353,14 +1395,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Sync audit log
+          <button class="btn xs ghost" onclick="renderAuditLog()">↻ Refresh</button>
+        </div>
+        <div id="audit-log-list"><div style="font-size:13px;color:var(--ink3)">No sync history yet.</div></div>
+      </div>
+
+      <div class="card">
         <div class="card-title" style="color:var(--R)">Danger zone</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn sm danger" onclick="clearEntries()">Clear all entries</button>
           <button class="btn sm danger" onclick="clearAll()">Clear everything</button>
         </div>
       </div>
-    </section>
-
     </section>
 
     <!-- WEALTH -->
@@ -1524,6 +1571,66 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="fire-result"></div>
       </div>
 
+      <!-- ── FX-Aware Balances ── -->
+      <div class="card">
+        <div class="card-title">Foreign currency holdings
+          <button class="btn xs success" onclick="toggleFxForm()">+ Add</button>
+        </div>
+        <div id="fx-add-form" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--s1);border-radius:var(--rs)">
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Label</label><input type="text" id="fx-label" placeholder="US savings" autocomplete="off"></div>
+            <div class="fg" style="margin:0"><label>Currency</label>
+              <select id="fx-currency" style="width:100%">
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="CHF">CHF (Fr)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CAD">CAD</option>
+                <option value="AUD">AUD</option>
+                <option value="ILS">ILS (₪)</option>
+                <option value="HUF">HUF (Ft)</option>
+                <option value="PLN">PLN (zł)</option>
+                <option value="CZK">CZK (Kč)</option>
+              </select>
+            </div>
+            <div class="fg" style="margin:0"><label>Amount (in that currency)</label><input type="number" id="fx-amount" min="0" step="0.01" style="font-family:var(--mono)"></div>
+          </div>
+          <div class="fg" style="margin-bottom:8px"><label>Note <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label><input type="text" id="fx-note" placeholder="Revolut, savings account…"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" onclick="addFxAccount()">Add</button>
+            <button class="btn sm ghost" onclick="toggleFxForm()">Cancel</button>
+          </div>
+        </div>
+        <div id="fx-list"></div>
+        <div id="fx-total" style="font-size:12px;color:var(--ink3);margin-top:8px;font-family:var(--mono)"></div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Rates fetched from the same live API used for stocks. Included in net worth timeline.</div>
+      </div>
+
+      <!-- ── Amortisation Calculator ── -->
+      <div class="card">
+        <div class="card-title">Loan amortisation calculator</div>
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Loan amount (€)</label><input type="number" id="am-principal" value="200000" min="0" step="1000" style="font-family:var(--mono)" oninput="amCalc()"></div>
+          <div class="fg" style="margin:0">
+            <label>Annual rate (%) <button class="btn xs ghost" style="font-size:10px;padding:1px 6px;margin-left:4px" onclick="amUseEuribor()" title="Use current Euribor + your spread from mortgage checker">Use Euribor</button></label>
+            <input type="number" id="am-rate" value="3.5" min="0" step="0.01" style="font-family:var(--mono)" oninput="amCalc()">
+          </div>
+          <div class="fg" style="margin:0"><label>Term (years)</label><input type="number" id="am-years" value="25" min="1" max="50" step="1" style="font-family:var(--mono)" oninput="amCalc()"></div>
+        </div>
+        <div class="stat-grid" id="am-stats" style="margin-bottom:10px">
+          <div class="stat"><div class="stat-lbl">Monthly payment</div><div class="stat-val" id="am-monthly">—</div></div>
+          <div class="stat"><div class="stat-lbl">Total repaid</div><div class="stat-val" id="am-total">—</div></div>
+          <div class="stat"><div class="stat-lbl">Total interest</div><div class="stat-val cr" id="am-interest">—</div></div>
+          <div class="stat"><div class="stat-lbl">Interest / principal</div><div class="stat-val" id="am-ratio">—</div></div>
+        </div>
+        <div class="amort-table-wrap">
+          <table class="amort-tbl">
+            <thead><tr><th>Year</th><th>Payment</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+            <tbody id="am-body"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ── Subscription Detector ── -->
       <div class="card">
         <div class="card-title">Subscription detector
@@ -1532,8 +1639,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <span class="sub-view-tab active" id="sub-tab-monthly" onclick="setSubView('monthly')">Monthly</span>
               <span class="sub-view-tab" id="sub-tab-yearly" onclick="setSubView('yearly')">Yearly</span>
             </div>
+            <button class="btn xs info" onclick="openYearlySub()">+ Yearly</button>
             <button class="btn xs ghost" onclick="renderSubscriptions()">↻ Refresh</button>
           </div>
+        </div>
+        <!-- Yearly subscription quick-log form -->
+        <div id="yearly-sub-form" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--s1);border-radius:var(--rs)">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Log annual subscription</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Name</label><input type="text" id="ys-name" placeholder="Netflix, Adobe…" autocomplete="off"></div>
+            <div class="fg" style="margin:0"><label>Annual cost (€)</label><input type="number" id="ys-amount" min="0" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Date paid</label><input type="date" id="ys-date"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" onclick="logYearlySub()">Log as entry</button>
+            <button class="btn sm ghost" onclick="closeYearlySub()">Cancel</button>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Creates a single expense entry tagged <code>subscription annual</code> under Wants.</div>
         </div>
         <div id="d-subscriptions"><div style="font-size:13px;color:var(--ink3)">Scanning entries for recurring patterns…</div></div>
       </div>
@@ -1754,6 +1876,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="fuel-monthly"></div>
       </div>
 
+      <!-- ── Station price map ── -->
+      <div class="card">
+        <div class="card-title">Station price map
+          <span id="fuel-map-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div id="fuel-map"></div>
+      </div>
+
     </section>
 
   </main>
@@ -1767,21 +1897,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // ══════════════════════════════════════════
 const FRESH = () => ({
   v: 8,
-  income:       { amount: 0, formula: null },
-  incomes:      {},
-  splits:       { needs: 50, wants: 30, savings: 20 },
-  goals:        { needs: null, wants: null, savings: null },
-  savingsGoals: [],   // { id, name, target, saved, deadline, color }
-  accounts:     [],
-  entries:      [],
-  recurring:    [],
-  installments: [],
-  grocery:      [],
-  catalog:      [],
-  notes:        {},
-  stocks:       [],
-  fuel:         [],   // { id, date, type, station, liters, ppl, total, odo, note }
-  meta:         { sha: null, lastSync: null }
+  income:        { amount: 0, formula: null },
+  incomes:       {},
+  plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
+  splits:        { needs: 50, wants: 30, savings: 20 },
+  goals:         { needs: null, wants: null, savings: null },
+  savingsGoals:  [],
+  accounts:      [],
+  entries:       [],
+  recurring:     [],
+  installments:  [],
+  grocery:       [],
+  catalog:       [],
+  notes:         {},
+  stocks:        [],
+  fuel:          [],   // { id, date, type, station, liters, ppl, total, odo, note }
+  fxAccounts:    [],   // { id, label, currency, amount, note }
+  auditLog:      [],   // { ts, action, summary }
+  meta:          { sha: null, lastSync: null }
 });
 
 const GR_CATS = {
@@ -2190,6 +2323,7 @@ async function doPull(silent=false) {
   }
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
+  auditRecord('pull', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
   await saveLocalNow();
   if (!silent) toast('Pulled from GitHub');
   return true;
@@ -2218,6 +2352,7 @@ async function doPush() {
   }
   const j = await r.json();
   DATA.meta.sha = j.content.sha;
+  auditRecord('push', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
   await saveLocalNow();
 }
 
@@ -2383,6 +2518,9 @@ function migrate(d) {
   if (!d.stocks)        d.stocks        = [];
   if (!d.savingsGoals)  d.savingsGoals  = [];
   if (!d.fuel)          d.fuel          = [];
+  if (!d.fxAccounts)    d.fxAccounts    = [];
+  if (!d.auditLog)      d.auditLog      = [];
+  if (!d.plannedIncome) d.plannedIncome = {};
   // normalize recurring freq field
   d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
   return d;
@@ -2446,6 +2584,7 @@ function boot() {
   // Show legacy migration banner if vault was opened with old scheme
   if (_legacyVault) setTimeout(showLegacyMigrationBanner, 600);
   updateOfflineBar();
+  syncPlannedIncomeField(savedMonth || curMonStr());
 }
 
 // ══════════════════════════════════════════
@@ -2513,10 +2652,9 @@ function defaultEntryDate() {
 function onMonthChange() {
   const m = curMonth();
   localStorage.setItem(LS_MONTH, m);
-  // Only pre-fill if this month has an explicit saved income — blank for new months
   const inc = DATA.incomes[m];
   el('d-income').value = inc ? (inc.formula || (inc.amount > 0 ? inc.amount : '')) : '';
-  // keep entry date in sync with viewed month
+  syncPlannedIncomeField(m);
   el('ef-date').value = defaultEntryDate();
   renderDash();
 }
@@ -2531,7 +2669,7 @@ function renderDash() {
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
   const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
-  const totalInc = base + addInc;
+  const totalInc = base + addInc || (DATA.plannedIncome?.[month] || 0);
   const act     = { needs:0, wants:0, savings:0 };
   mes.filter(e => e.type==='expense').forEach(e => { if (e.category in act) act[e.category] += e.amount; });
   const spent   = act.needs + act.wants + act.savings;
@@ -5275,6 +5413,8 @@ async function renderWealth() {
   wcUpdate();
   fireUpdate();
   renderPortfolioAlloc();
+  renderFxAccounts();
+  amCalc();
   renderSubscriptions();
   renderAnnualGrid();
 }
@@ -5284,7 +5424,7 @@ function renderSettings() {
   renderAcctList();
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
   updateLastSync();
-  // Restore toggle states
+  renderAuditLog();
   const apt = el('auto-push-toggle');
   if (apt) apt.checked = localStorage.getItem(LS_AUTO_PUSH) === '1';
   const att = el('auto-theme-toggle');
@@ -6451,7 +6591,7 @@ function renderDuplicates() {
   card.style.display = '';
   list.innerHTML = groups.map(g => {
     const rows = g.map(e =>
-      `<div>${esc(e.date)} · ${esc(e.desc||'—')} · ${fmt(e.amount)} · <em style="color:var(--ink3)">${e.category}</em>
+      `<div>${esc(e.date)} · ${esc(e.desc||'—')} · ${fmt(e.amount)} · <em style="color:var(--ink3)">${esc(e.category)}</em>
         <button class="btn xs danger" style="margin-left:8px" onclick="deleteEntry('${e.id}')">Delete</button>
       </div>`
     ).join('');
@@ -6721,6 +6861,7 @@ function renderFuel() {
 
   // ── Monthly cost bar chart ─────────────────────────────────────────────────
   renderFuelMonthly(all);
+  renderFuelMap();
 }
 
 // ── Price-per-litre trend line chart ─────────────────────────────────────────
@@ -6814,6 +6955,317 @@ function exportFuelCSV() {
   );
   dl([hdr, ...rows].join('\r\n'), `vault_fuel_${ymd()}.csv`, 'text/csv');
   toast('Fuel CSV downloaded');
+}
+
+// ══════════════════════════════════════════
+// PLANNED / IRREGULAR INCOME
+// Lets users set an expected income before it arrives.
+// Budget bars use max(actual, planned) so targets don't collapse to zero.
+// ══════════════════════════════════════════
+function onPlannedIncomeInput() {
+  const month = curMonth();
+  const val   = parseFloat(el('d-planned-income').value) || 0;
+  if (!DATA.plannedIncome) DATA.plannedIncome = {};
+  if (val > 0) DATA.plannedIncome[month] = val;
+  else delete DATA.plannedIncome[month];
+  saveLocal();
+  renderDash();
+  const lbl = el('d-planned-lbl');
+  if (lbl) lbl.textContent = val > 0 ? `projected ${fmt(val)}` : '';
+}
+
+function syncPlannedIncomeField(month) {
+  const inp = el('d-planned-income');
+  const lbl = el('d-planned-lbl');
+  if (!inp) return;
+  const planned = DATA.plannedIncome?.[month] || 0;
+  inp.value = planned > 0 ? planned : '';
+  if (lbl) lbl.textContent = planned > 0 ? `projected ${fmt(planned)}` : '';
+}
+
+// Returns the best available income figure for a month:
+// actual (saved) > planned > 0
+function effectiveIncome(month) {
+  const saved = DATA.incomes[month];
+  const actual = saved ? saved.amount : 0;
+  if (actual > 0) return actual;
+  return DATA.plannedIncome?.[month] || 0;
+}
+
+// ══════════════════════════════════════════
+// AUDIT LOG
+// Records every push/pull with a brief summary of what changed.
+// Stored in DATA.auditLog[] — max 100 entries.
+// ══════════════════════════════════════════
+function auditRecord(action, summary) {
+  if (!DATA.auditLog) DATA.auditLog = [];
+  DATA.auditLog.unshift({ ts: new Date().toISOString(), action, summary });
+  if (DATA.auditLog.length > 100) DATA.auditLog.length = 100;
+}
+
+function auditDiff(before, after) {
+  // Quick summary of what changed between two DATA snapshots
+  const parts = [];
+  const eB = before?.entries?.length || 0, eA = after?.entries?.length || 0;
+  if (eA !== eB) parts.push(`entries ${eB>eA?'-':'+'+(eA-eB)}`.replace('+-','+'));
+  const aB = before?.accounts?.length || 0, aA = after?.accounts?.length || 0;
+  if (aA !== aB) parts.push(`accounts ${aA>aB?'+':''}${aA-aB}`);
+  const fB = before?.fuel?.length || 0, fA = after?.fuel?.length || 0;
+  if (fA !== fB) parts.push(`fuel ${fA>fB?'+':''}${fA-fB}`);
+  return parts.length ? parts.join(', ') : 'no data changes';
+}
+
+function renderAuditLog() {
+  const wrap = el('audit-log-list'); if (!wrap) return;
+  const log = DATA.auditLog || [];
+  if (!log.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No sync history yet. Push or pull to start the log.</div>';
+    return;
+  }
+  wrap.innerHTML = log.slice(0, 50).map(e => {
+    const ts  = new Date(e.ts).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `<div class="audit-row">
+      <span class="audit-ts">${esc(ts)}</span>
+      <span class="audit-action ${esc(e.action)}">${esc(e.action)}</span>
+      <span class="audit-summary">${esc(e.summary)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// FX-AWARE FOREIGN CURRENCY ACCOUNTS
+// Stored in DATA.fxAccounts[] — converted to EUR using live rates.
+// ══════════════════════════════════════════
+function toggleFxForm() {
+  const f = el('fx-add-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display !== 'none') el('fx-label').focus();
+}
+
+async function addFxAccount() {
+  try {
+    const label    = el('fx-label').value.trim();
+    const currency = el('fx-currency').value;
+    const amount   = parseFloat(el('fx-amount').value);
+    if (!label)         return toast('Enter a label.', 1);
+    if (!amount || amount <= 0) return toast('Enter an amount.', 1);
+    if (!DATA.fxAccounts) DATA.fxAccounts = [];
+    DATA.fxAccounts.push({ id: uid(), label, currency, amount, note: el('fx-note').value.trim() });
+    el('fx-label').value = ''; el('fx-amount').value = ''; el('fx-note').value = '';
+    el('fx-add-form').style.display = 'none';
+    saveLocal();
+    await renderFxAccounts();
+    toast(`${label} added`);
+  } catch(e) { toast(e.message || 'Failed to add.', 1); }
+}
+
+function deleteFxAccount(id) {
+  DATA.fxAccounts = DATA.fxAccounts.filter(a => a.id !== id);
+  saveLocal(); renderFxAccounts();
+}
+
+async function renderFxAccounts() {
+  const wrap = el('fx-list'), totEl = el('fx-total');
+  if (!wrap) return;
+  if (!DATA.fxAccounts?.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No foreign currency accounts yet. Add one above.</div>';
+    if (totEl) totEl.textContent = '';
+    return;
+  }
+
+  // Ensure rates are available for currencies we need
+  const ccys = [...new Set(DATA.fxAccounts.map(a => a.currency).filter(c => c !== 'EUR'))];
+  const missing = ccys.filter(c => !_fxRates[c]);
+  if (missing.length) {
+    // Fetch missing currencies from API chain
+    for (const ccy of missing) {
+      try {
+        const r = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${ccy.toLowerCase()}.json`);
+        const j = await r.json();
+        const rate = j[ccy.toLowerCase()]?.eur;
+        if (rate) { _fxRates[ccy] = +rate.toFixed(6); _fxFetched[ccy] = Date.now(); }
+      } catch { /* use null rate — show ? */ }
+    }
+  }
+
+  let totalEur = 0;
+  wrap.innerHTML = DATA.fxAccounts.map(a => {
+    const rate = a.currency === 'EUR' ? 1 : (_fxRates[a.currency] || null);
+    const eur  = rate ? +(a.amount * rate).toFixed(2) : null;
+    if (eur !== null) totalEur += eur;
+    const sym  = currencySymbol(a.currency);
+    const rateStr = (rate && a.currency !== 'EUR') ? `1 ${a.currency} = €${rate.toFixed(4)}` : '';
+    return `<div class="fx-row">
+      <span class="fx-ccy">${esc(a.currency)}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${esc(a.label)}</div>
+        ${a.note ? `<div style="font-size:11px;color:var(--ink3)">${esc(a.note)}</div>` : ''}
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--ink2)">${sym}${a.amount.toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="fx-eur">${eur !== null ? fmt(eur) : '? €'}</div>
+        <div class="fx-rate">${esc(rateStr)}</div>
+      </div>
+      <button class="btn xs danger" onclick="deleteFxAccount('${a.id}')">✕</button>
+    </div>`;
+  }).join('');
+
+  if (totEl) {
+    totEl.textContent = `Total in EUR: ${fmt(totalEur)}${missing.length ? ' (some rates unavailable)' : ''}`;
+  }
+  // Keep net worth timeline in sync
+  if (VIEW === 'wealth') renderNetWorthTimeline();
+}
+
+// ══════════════════════════════════════════
+// AMORTISATION CALCULATOR
+// Standard annuity formula; yearly summary table.
+// ══════════════════════════════════════════
+function amCalc() {
+  const P = parseFloat(el('am-principal').value) || 0;
+  const r = (parseFloat(el('am-rate').value) || 0) / 100 / 12;
+  const n = (parseInt(el('am-years').value)   || 0) * 12;
+
+  if (P <= 0 || r <= 0 || n <= 0) {
+    ['am-monthly','am-total','am-interest','am-ratio'].forEach(id => { const e=el(id); if(e) e.textContent='—'; });
+    if (el('am-body')) el('am-body').innerHTML = '';
+    return;
+  }
+
+  // Monthly annuity payment
+  const M = P * (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+  const totalPaid = M * n;
+  const totalInt  = totalPaid - P;
+
+  el('am-monthly').textContent  = fmt(M);
+  el('am-total').textContent    = fmt(totalPaid);
+  el('am-interest').textContent = fmt(totalInt);
+  el('am-ratio').textContent    = (totalInt / P * 100).toFixed(1) + '%';
+
+  // Yearly summary table
+  const tbody = el('am-body'); if (!tbody) return;
+  let balance = P;
+  const years = parseInt(el('am-years').value) || 0;
+  const rows = [];
+  for (let y = 1; y <= years; y++) {
+    let yearPrincipal = 0, yearInterest = 0;
+    for (let mo = 0; mo < 12; mo++) {
+      const intPmt  = balance * r;
+      const prinPmt = Math.min(M - intPmt, balance);
+      yearInterest  += intPmt;
+      yearPrincipal += prinPmt;
+      balance       -= prinPmt;
+      if (balance < 0.01) { balance = 0; break; }
+    }
+    const cls = balance === 0 ? 'style="color:var(--Gm);font-weight:600"' : '';
+    rows.push(`<tr>
+      <td>${y}</td>
+      <td>${fmt(M * Math.min(12, n - (y-1)*12))}</td>
+      <td>${fmt(yearPrincipal)}</td>
+      <td style="color:var(--Rm)">${fmt(yearInterest)}</td>
+      <td ${cls}>${fmt(Math.max(0, balance))}</td>
+    </tr>`);
+    if (balance === 0) break;
+  }
+  tbody.innerHTML = rows.join('');
+}
+
+function amUseEuribor() {
+  // Pull current Euribor from mortgage checker + bank spread
+  const euribor  = parseFloat(el('rm-market')?.value) || 0;
+  const bankRate  = parseFloat(el('rm-bank')?.value)  || 0;
+  const rate = bankRate > 0 ? bankRate : euribor;
+  if (!rate) { toast('Fetch Euribor in the Mortgage checker first.', 1); return; }
+  el('am-rate').value = rate.toFixed(3);
+  amCalc();
+  toast(`Rate set to ${rate.toFixed(3)}%`);
+}
+
+// ══════════════════════════════════════════
+// FUEL STATION PRICE MAP
+// Groups all refuels by station, shows avg price/L and trend.
+// ══════════════════════════════════════════
+function renderFuelMap() {
+  const wrap = el('fuel-map'), lbl = el('fuel-map-lbl');
+  if (!wrap) return;
+  if (!DATA.fuel?.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No refuel records yet.</div>';
+    return;
+  }
+
+  // Group by station name (case-insensitive, fallback to fuel type)
+  const byStation = {};
+  DATA.fuel.forEach(f => {
+    const key = (f.station || f.type || 'Unknown').trim();
+    const k   = key.toLowerCase();
+    if (!byStation[k]) byStation[k] = { name: key, fills: [], ppls: [] };
+    byStation[k].fills.push(f);
+    byStation[k].ppls.push(f.ppl);
+  });
+
+  const stations = Object.values(byStation).map(s => {
+    const avg  = s.ppls.reduce((a,v)=>a+v,0) / s.ppls.length;
+    const min  = Math.min(...s.ppls);
+    const max  = Math.max(...s.ppls);
+    const last = [...s.fills].sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const total = s.fills.reduce((a,f)=>a+f.total,0);
+    return { name: s.name, avg, min, max, last, count: s.fills.length, total };
+  }).sort((a,b) => a.avg - b.avg); // cheapest first
+
+  if (lbl) lbl.textContent = `· ${stations.length} station${stations.length!==1?'s':''}`;
+
+  const globalMin = Math.min(...stations.map(s=>s.min));
+  const globalMax = Math.max(...stations.map(s=>s.max));
+  const range = globalMax - globalMin || 0.01;
+
+  wrap.innerHTML = stations.map((s, i) => {
+    const barW = Math.round((s.avg - globalMin) / range * 100);
+    const isBest  = i === 0;
+    const isWorst = i === stations.length - 1 && stations.length > 1;
+    const badge = isBest  ? `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:var(--Gbg);color:var(--Gm);font-weight:600;margin-left:6px">cheapest</span>` :
+                  isWorst ? `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:var(--Rbg);color:var(--Rm);font-weight:600;margin-left:6px">priciest</span>` : '';
+    return `<div class="fuel-station-card">
+      <div class="fuel-station-name">${esc(s.name)}${badge}</div>
+      <div style="background:var(--s2);border-radius:100px;height:6px;margin:4px 0 6px">
+        <div style="width:${barW}%;height:100%;border-radius:100px;background:${isBest?'var(--Gm)':isWorst?'var(--Rm)':'var(--Bm)'}"></div>
+      </div>
+      <div class="fuel-station-meta">
+        avg ${s.avg.toFixed(3)} €/L &nbsp;·&nbsp;
+        range ${s.min.toFixed(3)}–${s.max.toFixed(3)} &nbsp;·&nbsp;
+        ${s.count} fill${s.count!==1?'s':''} &nbsp;·&nbsp;
+        ${fmt(s.total)} total &nbsp;·&nbsp;
+        last ${s.last.date}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// YEARLY SUBSCRIPTION QUICK-LOG
+// ══════════════════════════════════════════
+function openYearlySub() {
+  const f = el('yearly-sub-form');
+  f.style.display = 'block';
+  const d = el('ys-date'); if (d && !d.value) d.value = ymd();
+  el('ys-name').focus();
+}
+function closeYearlySub() { el('yearly-sub-form').style.display = 'none'; }
+
+async function logYearlySub() {
+  try {
+    const name   = el('ys-name').value.trim();
+    const amount = parseFloat(el('ys-amount').value);
+    const date   = el('ys-date').value || ymd();
+    if (!name)          return toast('Enter a subscription name.', 1);
+    if (!amount || amount <= 0) return toast('Enter the annual cost.', 1);
+    DATA.entries.unshift({ id: uid(), date, desc: name, amount, formula: null,
+      type: 'expense', category: 'wants', tags: ['subscription', 'annual'],
+      recurId: null, accountId: null });
+    saveLocal(); render();
+    closeYearlySub();
+    el('ys-name').value = ''; el('ys-amount').value = '';
+    toast(`${name} logged — ${fmt(amount)}/yr`);
+  } catch(e) { toast(e.message || 'Failed to log.', 1); }
 }
 
 // ══════════════════════════════════════════
