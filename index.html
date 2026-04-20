@@ -2135,7 +2135,6 @@ function manualToggleTheme() {
   // manual toggle disables auto-theme temporarily for this session
   applyTheme(!isDark());
 }
-function toggleTheme() { applyTheme(!isDark()); }
 
 function shouldBeDark() {
   const h = new Date().getHours();
@@ -2665,6 +2664,7 @@ function renderDash() {
   const savedInc = DATA.incomes[month];
   if (document.activeElement !== el('d-income')) {
     el('d-income').value = savedInc ? (savedInc.formula || (savedInc.amount > 0 ? savedInc.amount : '')) : '';
+    syncPlannedIncomeField(month);
   }
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
@@ -4517,9 +4517,7 @@ function saveSurplus(month) {
 
 // ══════════════════════════════════════════
 // CARRY-FORWARD
-// Previous-month surplus flows to Savings only.
-// getSavingsCarry: total unspent (income − all expenses) from last month.
-// getCarryForward kept for reference but no longer used in split bars.
+// Previous-month surplus (income − all expenses) flows to Savings only.
 // ══════════════════════════════════════════
 function getSavingsCarry(month) {
   const prevMon   = prevMonStr(month);
@@ -4529,16 +4527,6 @@ function getSavingsCarry(month) {
   const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const prevSpent = prevMes.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
   return Math.max(0, +(prevInc - prevSpent).toFixed(2));
-}
-
-function getCarryForward(category, month) {
-  const prevMon   = prevMonStr(month);
-  const prevSaved = DATA.incomes[prevMon];
-  if (!prevSaved || !prevSaved.amount) return 0;
-  const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const prevSpent = prevMes.filter(e=>e.type==='expense'&&e.category===category).reduce((s,e)=>s+e.amount,0);
-  return Math.max(0, +(prevInc * DATA.splits[category] / 100 - prevSpent).toFixed(2));
 }
 
 // ══════════════════════════════════════════
@@ -5397,26 +5385,28 @@ function exportAIFile() {
 
 // ── Main render entry point for Wealth tab ────────────────────────────────────
 async function renderWealth() {
-  const aiFrom = el('ai-from'), aiTo = el('ai-to');
-  if (!aiFrom.value || !aiTo.value) {
-    aiFrom.value = offsetMonStr(-5);
-    aiTo.value   = curMonStr();
-  }
-  const savedInc = DATA.incomes[curMonth()];
-  if (savedInc?.amount > 0) {
-    const slider = el('wc-inc');
-    slider.value = Math.min(Math.max(savedInc.amount, +slider.min), +slider.max);
-    el('wc-inc-num').value = savedInc.amount;
-  }
-  fetchFxRates().then(() => renderStocks());
-  renderStocks();
-  wcUpdate();
-  fireUpdate();
-  renderPortfolioAlloc();
-  renderFxAccounts();
-  amCalc();
-  renderSubscriptions();
-  renderAnnualGrid();
+  try {
+    const aiFrom = el('ai-from'), aiTo = el('ai-to');
+    if (!aiFrom.value || !aiTo.value) {
+      aiFrom.value = offsetMonStr(-5);
+      aiTo.value   = curMonStr();
+    }
+    const savedInc = DATA.incomes[curMonth()];
+    if (savedInc?.amount > 0) {
+      const slider = el('wc-inc');
+      slider.value = Math.min(Math.max(savedInc.amount, +slider.min), +slider.max);
+      el('wc-inc-num').value = savedInc.amount;
+    }
+    fetchFxRates().then(() => renderStocks());
+    renderStocks();
+    wcUpdate();
+    fireUpdate();
+    renderPortfolioAlloc();
+    renderFxAccounts();
+    amCalc();
+    renderSubscriptions();
+    renderAnnualGrid();
+  } catch(e) { toast(e.message || 'Wealth tab error.', 1); }
 }
 
 function renderSettings() {
@@ -6156,46 +6146,47 @@ async function rmFetch(force = false) {
   const mktEl = el('rm-market');
   const btnEl = el('rm-fetch-btn');
 
-  rmRenderEcb(); // countdown never needs a fetch
-
-  // Cache hit — valid for 1 hour
-  const cached = _rmCache[term];
-  if (!force && cached && Date.now() - cached.ts < 3600000) {
-    if (mktEl) mktEl.value = cached.rate.toFixed(3);
-    if (srcEl) srcEl.textContent = cached.source + ' (cached)';
-    rmCalc();
-    return;
-  }
-
-  if (srcEl) srcEl.textContent = 'fetching…';
-  if (btnEl) btnEl.disabled = true;
-
-  let result = null;
   try {
-    const val = await ecbSdwFetch(RM_SERIES[term]);
-    result = { rate: +val.toFixed(4), source: 'ECB SDW' };
-  } catch (e) {
-    // ECB SDW failed — no reliable free alternative for EURIBOR; prompt manual entry
-    if (srcEl) srcEl.textContent = 'fetch failed — enter manually';
-  }
+    rmRenderEcb(); // countdown never needs a fetch
 
-  if (btnEl) btnEl.disabled = false;
+    // Cache hit — valid for 1 hour
+    const cached = _rmCache[term];
+    if (!force && cached && Date.now() - cached.ts < 3600000) {
+      if (mktEl) mktEl.value = cached.rate.toFixed(3);
+      if (srcEl) srcEl.textContent = cached.source + ' (cached)';
+      rmCalc();
+      return;
+    }
 
-  if (result) {
-    _rmCache[term] = { ...result, ts: Date.now() };
-    if (mktEl) mktEl.value = result.rate.toFixed(3);
-    if (srcEl) srcEl.textContent = result.source;
-  }
+    if (srcEl) srcEl.textContent = 'fetching…';
+    if (btnEl) btnEl.disabled = true;
 
-  rmCalc();
-  fetchEuriborHistory(); // non-blocking sparkline
+    let result = null;
+    try {
+      const val = await ecbSdwFetch(RM_SERIES[term]);
+      result = { rate: +val.toFixed(4), source: 'ECB SDW' };
+    } catch {
+      if (srcEl) srcEl.textContent = 'fetch failed — enter manually';
+    }
 
-  // Background: fetch ECB deposit facility rate (informational — non-blocking)
-  if (_rmEcbRate == null || force) {
-    ecbSdwFetch(ECB_DFR_SERIES)
-      .then(v => { _rmEcbRate = v; rmRenderEcb(); })
-      .catch(() => { /* DFR is informational — silently skip */ });
-  }
+    if (btnEl) btnEl.disabled = false;
+
+    if (result) {
+      _rmCache[term] = { ...result, ts: Date.now() };
+      if (mktEl) mktEl.value = result.rate.toFixed(3);
+      if (srcEl) srcEl.textContent = result.source;
+    }
+
+    rmCalc();
+    fetchEuriborHistory(); // non-blocking sparkline
+
+    // Background: fetch ECB deposit facility rate (informational — non-blocking)
+    if (_rmEcbRate == null || force) {
+      ecbSdwFetch(ECB_DFR_SERIES)
+        .then(v => { _rmEcbRate = v; rmRenderEcb(); })
+        .catch(() => {});
+    }
+  } catch(e) { toast(e.message || 'Mortgage rate fetch failed.', 1); if (btnEl) btnEl.disabled = false; }
 }
 
 // ── Mortgage spread calculation ──────────────────────────────────────────────
@@ -6316,7 +6307,12 @@ function renderNetWorthTimeline() {
     const native = (st.shares||0) > 0 ? (st.shares * st.currentPrice) : (st.currentPrice||0);
     return s + (st.currency === 'EUR' ? native : (rate ? native * rate : 0));
   }, 0);
-  const nonAccountOffset = goalsSaved + stocksEur;
+  const fxEur = (DATA.fxAccounts||[]).reduce((s,a) => {
+    if (a.currency === 'EUR') return s + (+a.amount||0);
+    const rate = (typeof _fxRates !== 'undefined' && _fxRates[a.currency]) || null;
+    return s + (rate ? (+a.amount||0) * rate : 0);
+  }, 0);
+  const nonAccountOffset = goalsSaved + stocksEur + fxEur;
 
   // Reconstruct account balance at end of each month:
   // opening balance is fixed; delta accumulates entries up to that month
@@ -6382,6 +6378,7 @@ function renderNetWorthTimeline() {
   if (DATA.accounts.length)    legendParts.push(`${DATA.accounts.length} account${DATA.accounts.length>1?'s':''}`);
   if (goalsSaved > 0)          legendParts.push('savings goals');
   if (stocksEur > 0)           legendParts.push('portfolio');
+  if (fxEur > 0)               legendParts.push('FX holdings');
   const legendTxt = legendParts.length ? legendParts.join(' · ') : '';
 
   wrap.innerHTML = `
@@ -6983,15 +6980,6 @@ function syncPlannedIncomeField(month) {
   if (lbl) lbl.textContent = planned > 0 ? `projected ${fmt(planned)}` : '';
 }
 
-// Returns the best available income figure for a month:
-// actual (saved) > planned > 0
-function effectiveIncome(month) {
-  const saved = DATA.incomes[month];
-  const actual = saved ? saved.amount : 0;
-  if (actual > 0) return actual;
-  return DATA.plannedIncome?.[month] || 0;
-}
-
 // ══════════════════════════════════════════
 // AUDIT LOG
 // Records every push/pull with a brief summary of what changed.
@@ -7001,18 +6989,6 @@ function auditRecord(action, summary) {
   if (!DATA.auditLog) DATA.auditLog = [];
   DATA.auditLog.unshift({ ts: new Date().toISOString(), action, summary });
   if (DATA.auditLog.length > 100) DATA.auditLog.length = 100;
-}
-
-function auditDiff(before, after) {
-  // Quick summary of what changed between two DATA snapshots
-  const parts = [];
-  const eB = before?.entries?.length || 0, eA = after?.entries?.length || 0;
-  if (eA !== eB) parts.push(`entries ${eB>eA?'-':'+'+(eA-eB)}`.replace('+-','+'));
-  const aB = before?.accounts?.length || 0, aA = after?.accounts?.length || 0;
-  if (aA !== aB) parts.push(`accounts ${aA>aB?'+':''}${aA-aB}`);
-  const fB = before?.fuel?.length || 0, fA = after?.fuel?.length || 0;
-  if (fA !== fB) parts.push(`fuel ${fA>fB?'+':''}${fA-fB}`);
-  return parts.length ? parts.join(', ') : 'no data changes';
 }
 
 function renderAuditLog() {
@@ -7060,8 +7036,11 @@ async function addFxAccount() {
 }
 
 function deleteFxAccount(id) {
-  DATA.fxAccounts = DATA.fxAccounts.filter(a => a.id !== id);
-  saveLocal(); renderFxAccounts();
+  try {
+    if (!DATA.fxAccounts) return;
+    DATA.fxAccounts = DATA.fxAccounts.filter(a => a.id !== id);
+    saveLocal(); renderFxAccounts();
+  } catch(e) { toast(e.message || 'Failed to remove.', 1); }
 }
 
 async function renderFxAccounts() {
