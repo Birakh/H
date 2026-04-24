@@ -527,6 +527,25 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .export-format-tab{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:.5px solid var(--bdr2);background:var(--s1);color:var(--ink2);transition:all .14s}
 .export-format-tab.active{background:var(--ink);color:var(--bg);border-color:transparent}
 
+/* ── RATE RESET CALENDAR ── */
+.rrc-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:.5px solid var(--bdr)}
+.rrc-row:last-child{border-bottom:none}
+.rrc-date{font-family:var(--mono);font-size:12px;font-weight:600;min-width:82px;flex-shrink:0;padding-top:1px}
+.rrc-body{flex:1}
+.rrc-label{font-size:12px;color:var(--ink);margin-bottom:3px}
+.rrc-meetings{font-size:11px;color:var(--ink3);line-height:1.7}
+.rrc-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600;margin-left:6px}
+.rrc-badge.change{background:var(--Abg);color:var(--Am)}
+.rrc-badge.stable{background:var(--Gbg);color:var(--Gm)}
+.rrc-badge.today{background:var(--Rbg);color:var(--Rm)}
+
+/* ── VAULT HEALTH ── */
+.vh-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px}
+.vh-item:last-child{border-bottom:none}
+.vh-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.vh-body{flex:1;color:var(--ink2)}
+.vh-fix{font-size:11px;color:var(--ink3);margin-top:2px}
+
 /* ── FUEL TRACKER ── */
 .fuel-type-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .fuel-type-badge.petrol{background:var(--Gbg);color:var(--G)}
@@ -1338,6 +1357,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Vault health
+          <button class="btn xs ghost" onclick="runVaultHealth()">Run check</button>
+        </div>
+        <div id="vh-list"><div style="font-size:13px;color:var(--ink3)">Click "Run check" to scan your vault for data issues.</div></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Sync &amp; auto-push</div>
         <div style="font-size:13px;color:var(--ink2);margin-bottom:4px">
           Vault file: <strong id="cfg-label"></strong> / <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
@@ -1760,6 +1786,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
 
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates are the published Governing Council monetary policy schedule. Rate decisions are announced at 13:45 CET — check <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener">ecb.europa.eu</a> for the latest.</div>
+
+        <!-- ── Rate Reset Calendar ── -->
+        <div style="margin-top:18px;border-top:.5px solid var(--bdr);padding-top:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Rate reset calendar
+            <button class="btn xs ghost" style="margin-left:8px;text-transform:none;letter-spacing:0" onclick="renderRateResetCalendar()">↻ Recalc</button>
+          </div>
+          <div class="g3" style="margin-bottom:12px">
+            <div class="fg" style="margin:0">
+              <label>My reset date <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">next upcoming</span></label>
+              <input type="date" id="rrc-date" oninput="renderRateResetCalendar()">
+            </div>
+            <div class="fg" style="margin:0">
+              <label>Reset frequency</label>
+              <select id="rrc-freq" style="width:100%" onchange="renderRateResetCalendar()">
+                <option value="3">Quarterly (every 3 months)</option>
+                <option value="6">Semi-annual (every 6 months)</option>
+                <option value="12" selected>Annual (every 12 months)</option>
+              </select>
+            </div>
+            <div class="fg" style="margin:0">
+              <label>Show next</label>
+              <select id="rrc-count" style="width:100%" onchange="renderRateResetCalendar()">
+                <option value="3">3 resets</option>
+                <option value="5" selected>5 resets</option>
+                <option value="8">8 resets</option>
+              </select>
+            </div>
+          </div>
+          <div id="rrc-list"><div style="font-size:13px;color:var(--ink3)">Enter your next reset date above.</div></div>
+        </div>
       </div>
 
     </section>
@@ -2180,7 +2236,7 @@ function toggleAutoPush(on) {
   clearInterval(_autoPushInterval);
   if (on) {
     _autoPushInterval = setInterval(() => {
-      if (_isDirty && PAT && DATA) {
+      if (_isDirty && PAT && DATA && navigator.onLine) {
         ghPush().then(() => markClean()).catch(() => {});
       }
     }, 300000); // 5 minutes
@@ -2266,6 +2322,8 @@ async function enterApp() {
     el('screen-connect').style.display = 'none';
     el('screen-app').style.display = 'flex';
     boot(); nav(VIEW);
+    // Run vault health silently on open so it's ready when user visits Settings
+    setTimeout(runVaultHealth, 500);
   } catch(e) { cStatus('err', e.message || 'Failed to open vault'); PAT = PASS = null; }
 }
 
@@ -2363,14 +2421,16 @@ async function ghPull() {
 async function ghPush() {
   showConfirm(
     'Push to GitHub',
-    'This will overwrite the remote file with your local data. Make sure you have pulled recent changes first.',
+    'This will sync your local data to GitHub. If another device has pushed since your last pull, a merge will happen automatically.',
     async () => {
       setSyncBadge('pushing…');
       try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); markClean(); updateLastSync(); }
       catch(e) {
-        toast(e.message, 1); setSyncBadge('error');
         if (e.message.includes('Conflict')) {
-          setTimeout(() => { showConfirm('Pull first?', 'Pull from GitHub now to get the latest version?', ghPull); }, 400);
+          toast('Conflict detected — merging with remote…', 0);
+          await mergeAndPush();
+        } else {
+          toast(e.message, 1); setSyncBadge('error');
         }
       }
     }
@@ -2459,6 +2519,9 @@ async function switchRepo() {
     DATA.meta.lastSync = new Date().toISOString();
     CFG = { owner: newOwner, repo: newRepo, path };
     localStorage.setItem(LS_CFG, JSON.stringify(CFG));
+    // Vault was re-sealed with PASS — no longer legacy format
+    _legacyVault = false;
+    const lb = el('legacy-banner'); if (lb) lb.style.display = 'none';
     await saveLocalNow();
     el('sw-owner').value = ''; el('sw-repo').value = '';
     swSt.textContent = '';
@@ -5415,6 +5478,7 @@ function renderSettings() {
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
   updateLastSync();
   renderAuditLog();
+  runVaultHealth();
   const apt = el('auto-push-toggle');
   if (apt) apt.checked = localStorage.getItem(LS_AUTO_PUSH) === '1';
   const att = el('auto-theme-toggle');
@@ -6256,7 +6320,7 @@ function rmCalc() {
 
 // Auto-run when Wealth tab opens
 const _rmOrig = RENDERS.wealth;
-RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb(); };
+RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb(); renderRateResetCalendar(); };
 
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
@@ -7046,6 +7110,7 @@ function deleteFxAccount(id) {
 async function renderFxAccounts() {
   const wrap = el('fx-list'), totEl = el('fx-total');
   if (!wrap) return;
+  try {
   if (!DATA.fxAccounts?.length) {
     wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No foreign currency accounts yet. Add one above.</div>';
     if (totEl) totEl.textContent = '';
@@ -7094,6 +7159,7 @@ async function renderFxAccounts() {
   }
   // Keep net worth timeline in sync
   if (VIEW === 'wealth') renderNetWorthTimeline();
+  } catch(e) { toast(e.message || 'Failed to render FX accounts.', 1); }
 }
 
 // ══════════════════════════════════════════
@@ -7245,6 +7311,224 @@ async function logYearlySub() {
     el('ys-name').value = ''; el('ys-amount').value = '';
     toast(`${name} logged — ${fmt(amount)}/yr`);
   } catch(e) { toast(e.message || 'Failed to log.', 1); }
+}
+
+// ══════════════════════════════════════════
+// RATE RESET CALENDAR
+// Shows upcoming Euribor reset dates for a variable-rate mortgage,
+// listing which ECB policy meetings fall in the preceding window
+// and flagging resets most exposed to rate change.
+// ══════════════════════════════════════════
+function renderRateResetCalendar() {
+  const wrap    = el('rrc-list'); if (!wrap) return;
+  const dateVal = el('rrc-date')?.value;
+  if (!dateVal) { wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Enter your next reset date above.</div>'; return; }
+
+  const freqMonths = parseInt(el('rrc-freq')?.value || 12);
+  const count      = parseInt(el('rrc-count')?.value || 5);
+  const today      = new Date(); today.setHours(0,0,0,0);
+
+  // Build list of reset dates
+  const resets = [];
+  let d = new Date(dateVal + 'T00:00:00');
+  // If first reset is in the past, advance until we have one in the future
+  while (d < today && resets.length < 1) {
+    d = new Date(d.getFullYear(), d.getMonth() + freqMonths, d.getDate());
+  }
+  for (let i = 0; i < count; i++) {
+    resets.push(new Date(d.getFullYear(), d.getMonth() + freqMonths * i, d.getDate()));
+  }
+
+  // For each reset, find ECB meetings that fall between prev reset and this reset
+  const meetingDates = ECB_MEETINGS.map(s => new Date(s + 'T00:00:00'));
+
+  wrap.innerHTML = resets.map((resetDate, i) => {
+    const prevReset = i === 0 ? today : resets[i - 1];
+    // ECB meetings that fall strictly between prev reset and this reset
+    const meetingsInWindow = meetingDates.filter(m => m > prevReset && m <= resetDate);
+    const isToday   = resetDate.getTime() === today.getTime();
+    const isPast    = resetDate < today;
+    const daysAway  = Math.round((resetDate - today) / 86400000);
+    const dateStr   = resetDate.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    const estimated = meetingsInWindow.some(m => m.getFullYear() >= 2027);
+
+    const badge = isToday   ? '<span class="rrc-badge today">today</span>'
+      : meetingsInWindow.length > 0 ? '<span class="rrc-badge change">ECB meets before this</span>'
+      : '<span class="rrc-badge stable">no ECB meeting before this</span>';
+
+    const meetingList = meetingsInWindow.length
+      ? meetingsInWindow.map(m => {
+          const est = m.getFullYear() >= 2027 ? ' <span style="color:var(--ink3)">(est.)</span>' : '';
+          return m.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) + est;
+        }).join(' &nbsp;·&nbsp; ')
+      : '<span style="color:var(--Gm)">No ECB decision in this window — rate is stable until this reset.</span>';
+
+    const countdownStr = isPast ? 'past' : daysAway === 0 ? 'today' : `in ${daysAway} day${daysAway===1?'':'s'}`;
+
+    return `<div class="rrc-row">
+      <div class="rrc-date">${esc(dateStr)}</div>
+      <div class="rrc-body">
+        <div class="rrc-label">Reset ${i+1} &nbsp;<span style="color:var(--ink3);font-size:11px">${esc(countdownStr)}</span>${badge}</div>
+        <div class="rrc-meetings">ECB meetings in window: ${meetingList}</div>
+        ${estimated ? '<div style="font-size:10px;color:var(--ink3);margin-top:2px">⚠ 2027 dates are estimated — verify at ecb.europa.eu</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// VAULT HEALTH CHECK
+// Scans DATA for structural issues: duplicate IDs, NaN amounts,
+// bad dates, orphaned references, invalid categories.
+// Safe to run at any time — read-only, fixes are offered separately.
+// ══════════════════════════════════════════
+const VALID_CATS  = new Set(['needs','wants','savings','income','transfer']);
+const VALID_TYPES = new Set(['expense','income','transfer']);
+
+function runVaultHealth() {
+  const wrap = el('vh-list'); if (!wrap) return;
+  const issues = [], notes = [];
+  const now = new Date(); now.setHours(0,0,0,0);
+  const oneYearFromNow = new Date(now.getFullYear()+1, now.getMonth(), now.getDate());
+  const acctIds = new Set((DATA.accounts||[]).map(a => a.id));
+
+  // ── 1. Duplicate entry IDs ────────────────────────────────────────────────
+  const entryIds = {};
+  (DATA.entries||[]).forEach(e => { entryIds[e.id] = (entryIds[e.id]||0)+1; });
+  const dupEntries = Object.entries(entryIds).filter(([,n])=>n>1).map(([id])=>id);
+  if (dupEntries.length) issues.push({ icon:'⚠', text:`${dupEntries.length} duplicate entry ID${dupEntries.length>1?'s':''}`, fix:'Rebuild IDs: export CSV → re-import, or use Clear All and re-enter.' });
+
+  // ── 2. NaN / negative / zero amounts ─────────────────────────────────────
+  const badAmounts = (DATA.entries||[]).filter(e => !isFinite(e.amount) || e.amount < 0 || e.amount === 0);
+  if (badAmounts.length) issues.push({ icon:'⚠', text:`${badAmounts.length} entr${badAmounts.length===1?'y':'ies'} with zero, negative, or invalid amount`, fix:`Affected descriptions: ${badAmounts.slice(0,3).map(e=>esc(e.desc||'—')).join(', ')}${badAmounts.length>3?'…':''}` });
+
+  // ── 3. Future-dated entries (>1 year ahead) ───────────────────────────────
+  const futureEntries = (DATA.entries||[]).filter(e => new Date(e.date+'T00:00:00') > oneYearFromNow);
+  if (futureEntries.length) issues.push({ icon:'⚠', text:`${futureEntries.length} entr${futureEntries.length===1?'y':'ies'} dated more than 1 year in the future`, fix:`Check for typos like 2204 instead of 2024.` });
+
+  // ── 4. Invalid category / type ────────────────────────────────────────────
+  const badCat  = (DATA.entries||[]).filter(e => e.category && !VALID_CATS.has(e.category));
+  const badType = (DATA.entries||[]).filter(e => e.type     && !VALID_TYPES.has(e.type));
+  if (badCat.length)  issues.push({ icon:'⚠', text:`${badCat.length} entr${badCat.length===1?'y':'ies'} with unrecognised category`, fix:`Values: ${[...new Set(badCat.map(e=>esc(e.category)))].join(', ')}` });
+  if (badType.length) issues.push({ icon:'⚠', text:`${badType.length} entr${badType.length===1?'y':'ies'} with unrecognised type`, fix:`Values: ${[...new Set(badType.map(e=>esc(e.type)))].join(', ')}` });
+
+  // ── 5. Orphaned accountId references ─────────────────────────────────────
+  const orphaned = (DATA.entries||[]).filter(e => e.accountId && !acctIds.has(e.accountId));
+  if (orphaned.length) issues.push({ icon:'⚠', text:`${orphaned.length} entr${orphaned.length===1?'y':'ies'} linked to a deleted account`, fix:'Use the Account column in Entries to reassign, or leave unlinked.' });
+
+  // ── 6. Recurring entries with missing fields ──────────────────────────────
+  const badRecur = (DATA.recurring||[]).filter(r => !r.desc || !isFinite(r.amount) || r.amount <= 0);
+  if (badRecur.length) issues.push({ icon:'⚠', text:`${badRecur.length} recurring entr${badRecur.length===1?'y':'ies'} with missing description or amount`, fix:'Review recurring entries and correct or delete them.' });
+
+  // ── 7. Fuel records with invalid amounts ──────────────────────────────────
+  const badFuel = (DATA.fuel||[]).filter(f => !isFinite(f.total) || f.total < 0 || !isFinite(f.liters) || f.liters <= 0);
+  if (badFuel.length) issues.push({ icon:'⚠', text:`${badFuel.length} fuel record${badFuel.length===1?'':'s'} with invalid amounts`, fix:'Review fuel history and delete the affected records.' });
+
+  // ── 8. FX accounts with zero or negative balance ─────────────────────────
+  const badFx = (DATA.fxAccounts||[]).filter(a => !isFinite(a.amount) || a.amount <= 0);
+  if (badFx.length) issues.push({ icon:'⚠', text:`${badFx.length} FX account${badFx.length===1?'':'s'} with invalid balance`, fix:'Remove and re-add affected FX accounts.' });
+
+  // ── Info ──────────────────────────────────────────────────────────────────
+  notes.push({ icon:'ℹ', text:`${(DATA.entries||[]).length} entries · ${(DATA.accounts||[]).length} accounts · ${(DATA.fuel||[]).length} fuel records · ${(DATA.fxAccounts||[]).length} FX accounts` });
+  notes.push({ icon:'ℹ', text:`${(DATA.recurring||[]).length} recurring · ${(DATA.savingsGoals||[]).length} savings goals · ${(DATA.stocks||[]).length} stock positions` });
+
+  if (!issues.length) {
+    wrap.innerHTML = `<div style="color:var(--Gm);font-size:13px;font-weight:500;margin-bottom:8px">✓ No issues found — vault data looks healthy.</div>` +
+      notes.map(n => `<div class="vh-item"><span class="vh-icon" style="color:var(--ink3)">${n.icon}</span><div class="vh-body">${n.text}</div></div>`).join('');
+    return;
+  }
+
+  wrap.innerHTML = issues.map(iss =>
+    `<div class="vh-item">
+      <span class="vh-icon" style="color:var(--Am)">${esc(iss.icon)}</span>
+      <div class="vh-body">
+        <div>${esc(iss.text)}</div>
+        ${iss.fix ? `<div class="vh-fix">${esc(iss.fix)}</div>` : ''}
+      </div>
+    </div>`
+  ).join('') +
+  notes.map(n => `<div class="vh-item"><span class="vh-icon" style="color:var(--ink3)">${n.icon}</span><div class="vh-body">${n.text}</div></div>`).join('');
+}
+
+// ══════════════════════════════════════════
+// CONFLICT MERGE
+// When doPush() fails with a SHA conflict, we fetch the remote,
+// decrypt it, merge the two vaults (union by ID, last-write-wins
+// on edits), seal the merged result, and push again.
+// Called automatically from ghPush() on conflict.
+// ══════════════════════════════════════════
+async function mergeAndPush() {
+  setSyncBadge('merging…');
+  try {
+    // 1. Fetch and decrypt the remote vault
+    const { owner, repo, path } = CFG;
+    const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT);
+    if (!r.ok) throw new Error(`GitHub ${r.status} while fetching remote for merge`);
+    const j = await r.json();
+    const b64str = atob(j.content.replace(/\n/g, ''));
+    let remoteData;
+    try { ({ data: remoteData } = await CX.open(b64str, PASS)); }
+    catch { ({ data: remoteData } = await CX.openLegacy(b64str, PAT)); }
+    remoteData = migrate(remoteData);
+
+    // 2. Merge arrays — union by ID, local wins on conflict
+    const mergeById = (local, remote) => {
+      const map = new Map();
+      remote.forEach(item => map.set(item.id, item));  // remote first (lower priority)
+      local.forEach(item  => map.set(item.id, item));  // local overwrites (higher priority)
+      return [...map.values()];
+    };
+
+    // 3. Merge scalar incomes — local wins per month
+    const mergedIncomes = { ...remoteData.incomes };
+    Object.entries(DATA.incomes || {}).forEach(([m, v]) => { mergedIncomes[m] = v; });
+
+    // 4. Merge notes — local wins per month
+    const mergedNotes = { ...remoteData.notes };
+    Object.entries(DATA.notes || {}).forEach(([m, v]) => { mergedNotes[m] = v; });
+
+    // 5. Merge plannedIncome — local wins
+    const mergedPlanned = { ...remoteData.plannedIncome, ...DATA.plannedIncome };
+
+    // 6. Assemble merged vault — keep local meta (splits, goals, settings)
+    const merged = {
+      ...DATA,
+      entries:      mergeById(DATA.entries     || [], remoteData.entries     || []).sort((a,b) => b.date.localeCompare(a.date)),
+      accounts:     mergeById(DATA.accounts    || [], remoteData.accounts    || []),
+      recurring:    mergeById(DATA.recurring   || [], remoteData.recurring   || []),
+      installments: mergeById(DATA.installments|| [], remoteData.installments|| []),
+      savingsGoals: mergeById(DATA.savingsGoals|| [], remoteData.savingsGoals|| []),
+      stocks:       mergeById(DATA.stocks      || [], remoteData.stocks      || []),
+      fuel:         mergeById(DATA.fuel        || [], remoteData.fuel        || []).sort((a,b) => b.date.localeCompare(a.date)),
+      fxAccounts:   mergeById(DATA.fxAccounts  || [], remoteData.fxAccounts  || []),
+      grocery:      mergeById(DATA.grocery     || [], remoteData.grocery     || []),
+      incomes:      mergedIncomes,
+      notes:        mergedNotes,
+      plannedIncome:mergedPlanned,
+      // Merge audit logs (combined, deduped by ts)
+      auditLog:     [...new Map([...(remoteData.auditLog||[]), ...(DATA.auditLog||[])].map(a=>[a.ts, a])).values()]
+                      .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
+    };
+    merged.meta.sha = j.sha; // use remote SHA for the push
+
+    // 7. Push merged result
+    DATA = merged;
+    const { b64, salt } = await CX.seal(DATA, PASS, null);
+    SALT = salt;
+    DATA.meta.lastSync = new Date().toISOString();
+    const pushBody = { message: `vault merge ${ymd()}`, content: btoa(b64), sha: DATA.meta.sha };
+    const pr = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT, { method:'PUT', body: JSON.stringify(pushBody) });
+    if (!pr.ok) { const e = await pr.json(); throw new Error(e.message || `Merge push failed: ${pr.status}`); }
+    const pj = await pr.json();
+    DATA.meta.sha = pj.content.sha;
+    auditRecord('merge', `merged ${merged.entries.length} entries from 2 devices`);
+    await saveLocalNow();
+    render();
+    markClean();
+    updateLastSync();
+    setSyncBadge('');
+    toast(`Merged — ${merged.entries.length} entries from both devices`);
+  } catch(e) { toast(e.message || 'Merge failed.', 1); setSyncBadge('error'); }
 }
 
 // ══════════════════════════════════════════
