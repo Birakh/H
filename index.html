@@ -1056,8 +1056,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="step-row">
             <div class="step-num" id="step-num-2">2</div>
             <div class="step-body">
-              <div class="step-title">Employer pension match (if available)</div>
+              <div class="step-title">Employer pension match (if available) <span style="font-size:10px;font-weight:400;color:var(--ink3);font-style:italic">verify manually</span></div>
               <div class="step-desc">100% instant return on every matched euro. Always max this before investing elsewhere. If your employer doesn't offer it, skip to step 3.</div>
+              <label style="display:inline-flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:var(--ink2);cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0">
+                <input type="checkbox" id="step-2-done" onchange="markStepManual(2,this.checked)"> I've done this (or it doesn't apply)
+              </label>
             </div>
           </div>
           <div class="step-row">
@@ -1070,8 +1073,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="step-row">
             <div class="step-num" id="step-num-4">4</div>
             <div class="step-body">
-              <div class="step-title">Tax-advantaged accounts (Austria: Zukunftsvorsorge)</div>
+              <div class="step-title">Tax-advantaged accounts (Austria: Zukunftsvorsorge) <span style="font-size:10px;font-weight:400;color:var(--ink3);font-style:italic">verify manually</span></div>
               <div class="step-desc">The government subsidises contributions — it's free money. Max the annual limit before investing in a regular broker account.</div>
+              <label style="display:inline-flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:var(--ink2);cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0">
+                <input type="checkbox" id="step-4-done" onchange="markStepManual(4,this.checked)"> I've done this (or it doesn't apply)
+              </label>
             </div>
           </div>
           <div class="step-row">
@@ -2073,6 +2079,7 @@ const FRESH = () => ({
   fuel:          [],   // { id, date, type, station, liters, ppl, total, odo, note }
   fxAccounts:    [],   // { id, label, currency, amount, note }
   auditLog:      [],   // { ts, action, summary }
+  notifFired:    {},   // { 'YYYY-MM:needs:80': true } — syncs across devices
   meta:          { sha: null, lastSync: null }
 });
 
@@ -2485,6 +2492,7 @@ async function doPull(silent=false) {
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
   auditRecord('pull', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
+  renderDash._cacheKey = null; // force expensive re-renders on next dash visit
   await saveLocalNow();
   if (!silent) toast('Pulled from GitHub');
   return true;
@@ -2687,6 +2695,7 @@ function migrate(d) {
   if (!d.fxAccounts)    d.fxAccounts    = [];
   if (!d.auditLog)      d.auditLog      = [];
   if (!d.plannedIncome) d.plannedIncome = {};
+  if (!d.notifFired)    d.notifFired    = {};
   // normalize recurring freq field
   d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
   return d;
@@ -2901,10 +2910,19 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
-  renderBudgetVsActualHeatmap();
-  renderNetWorthTimeline();
+
+  // Expensive cross-month renders — skip if entry count + account balances haven't changed
+  const _dashKey = `${DATA.entries.length}|${DATA.accounts.map(a=>a.id+a.balance).join(',')}|${DATA.stocks.length}|${DATA.fxAccounts?.length}`;
+  if (_dashKey !== renderDash._cacheKey) {
+    renderDash._cacheKey = _dashKey;
+    renderBudgetVsActualHeatmap();
+    renderNetWorthTimeline();
+  }
+
   renderMonthlyNote(month);
+  updateStepStatus();
 }
+renderDash._cacheKey = null;
 
 // ══════════════════════════════════════════
 // ACCOUNT BALANCE  —  computed live from entries
@@ -4448,7 +4466,6 @@ function closeConfirm() {
 el('confirm-ok').addEventListener('click', () => {
   const cb = _confirmCb; closeConfirm(); cb?.();
 });
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeConfirm(); });
 
 function renderAcctList() {
   const list=DATA.accounts;
@@ -5575,6 +5592,9 @@ async function renderWealth() {
     amCalc();
     renderSubscriptions();
     renderAnnualGrid();
+    // Mortgage checker — fetch if no market rate yet, otherwise just re-render countdown
+    if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb();
+    renderRateResetCalendar();
   } catch(e) { toast(e.message || 'Wealth tab error.', 1); }
 }
 
@@ -6426,8 +6446,7 @@ function rmCalc() {
 }
 
 // Auto-run when Wealth tab opens
-const _rmOrig = RENDERS.wealth;
-RENDERS.wealth = () => { _rmOrig(); if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb(); renderRateResetCalendar(); };
+// renderWealth calls rmFetch/rmRenderEcb/renderRateResetCalendar directly — no override needed
 
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
@@ -7597,7 +7616,10 @@ async function mergeAndPush() {
     // 5. Merge plannedIncome — local wins
     const mergedPlanned = { ...remoteData.plannedIncome, ...DATA.plannedIncome };
 
-    // 6. Assemble merged vault — keep local meta (splits, goals, settings)
+    // 6. Merge notifFired — union both sets (fired on either device = don't re-fire)
+    const mergedNotifFired = { ...(remoteData.notifFired||{}), ...(DATA.notifFired||{}) };
+
+    // 7. Assemble merged vault — keep local meta (splits, goals, settings)
     const merged = {
       ...DATA,
       entries:      mergeById(DATA.entries     || [], remoteData.entries     || []).sort((a,b) => b.date.localeCompare(a.date)),
@@ -7612,6 +7634,7 @@ async function mergeAndPush() {
       incomes:      mergedIncomes,
       notes:        mergedNotes,
       plannedIncome:mergedPlanned,
+      notifFired:   mergedNotifFired,
       // Merge audit logs (combined, deduped by ts)
       auditLog:     [...new Map([...(remoteData.auditLog||[]), ...(DATA.auditLog||[])].map(a=>[a.ts, a])).values()]
                       .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
@@ -7642,10 +7665,11 @@ async function mergeAndPush() {
 // MERCHANT DRILL-DOWN
 // ══════════════════════════════════════════
 function openMerchant(name) {
-  const txs = DATA.entries
-    .filter(e => e.type === 'expense' && (e.desc||'').trim() === name)
-    .sort((a,b) => b.date.localeCompare(a.date));
-  if (!txs.length) return;
+  try {
+    const txs = DATA.entries
+      .filter(e => e.type === 'expense' && (e.desc||'').trim() === name)
+      .sort((a,b) => b.date.localeCompare(a.date));
+    if (!txs.length) return;
 
   const total   = txs.reduce((s,e)=>s+e.amount,0);
   const avg     = total / txs.length;
@@ -7692,7 +7716,8 @@ function openMerchant(name) {
     <button class="btn xs danger" onclick="deleteEntry('${e.id}');closeMerchant();render()">✕</button>
   </div>`).join('');
 
-  el('merchant-overlay').classList.add('open');
+    el('merchant-overlay').classList.add('open');
+  } catch(e) { toast(e.message || 'Failed to open merchant details.', 1); }
 }
 function closeMerchant() { el('merchant-overlay').classList.remove('open'); }
 
@@ -7702,14 +7727,22 @@ function closeMerchant() { el('merchant-overlay').classList.remove('open'); }
 // Thresholds: 80% and 100% per category, once per month per threshold.
 // ══════════════════════════════════════════
 const LS_NOTIF_PREF   = 'vf4_notif';
-const LS_NOTIF_FIRED  = 'vf4_notif_fired'; // JSON: { 'YYYY-MM:needs:80': true, … }
+// notifFired lives in DATA.notifFired (synced with vault) not localStorage
+// so a second device won't re-fire the same month's alert
 
 function getNotifFired() {
-  try { return JSON.parse(localStorage.getItem(LS_NOTIF_FIRED)||'{}'); } catch { return {}; }
+  return DATA?.notifFired || {};
 }
 function markNotifFired(key) {
-  const f = getNotifFired(); f[key] = true;
-  localStorage.setItem(LS_NOTIF_FIRED, JSON.stringify(f));
+  if (!DATA.notifFired) DATA.notifFired = {};
+  DATA.notifFired[key] = true;
+  // Prune entries older than 3 months to keep vault lean
+  const cutoff = offsetMonStr(-3);
+  Object.keys(DATA.notifFired).forEach(k => {
+    const mon = k.slice(0, 7);
+    if (mon < cutoff) delete DATA.notifFired[k];
+  });
+  saveLocal(); // persist to local cache immediately
 }
 
 function updateNotifBadge() {
@@ -7722,11 +7755,13 @@ function updateNotifBadge() {
 }
 
 async function requestNotifPermission() {
-  if (!('Notification' in window)) return toast('Browser notifications not supported.', 1);
-  const result = await Notification.requestPermission();
-  updateNotifBadge();
-  if (result === 'granted') { saveNotifPref(true); toast('Notifications enabled ✓'); }
-  else toast('Notification permission denied — check browser settings.', 1);
+  try {
+    if (!('Notification' in window)) return toast('Browser notifications not supported.', 1);
+    const result = await Notification.requestPermission();
+    updateNotifBadge();
+    if (result === 'granted') { saveNotifPref(true); toast('Notifications enabled ✓'); }
+    else toast('Notification permission denied — check browser settings.', 1);
+  } catch(e) { toast('Could not request notification permission: ' + (e.message||'unknown error'), 1); }
 }
 
 function saveNotifPref(on) {
@@ -7774,6 +7809,11 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
 // ══════════════════════════════════════════
 // STEPS GUIDE
 // ══════════════════════════════════════════
+function markStepManual(n, done) {
+  localStorage.setItem(`vf4_step_${n}`, done ? '1' : '0');
+  setStepDone(n, done);
+}
+
 function toggleStepsCard() {
   const body = el('steps-body');
   const btn  = el('steps-toggle-btn');
@@ -7791,7 +7831,13 @@ function initStepsCard() {
     if (body) body.style.display = 'none';
     if (btn)  btn.textContent    = 'Expand';
   }
-  // Mark steps as done based on vault state
+  // Restore manual step checkboxes
+  [2, 4].forEach(n => {
+    const done = localStorage.getItem(`vf4_step_${n}`) === '1';
+    const chk  = el(`step-${n}-done`);
+    if (chk) chk.checked = done;
+    if (done) setStepDone(n, true);
+  });
   updateStepStatus();
 }
 
@@ -7832,7 +7878,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='r') { if (!el('receipt-overlay').classList.contains('open')) openReceipt(); }
   if (e.key==='?') { el('keys-overlay').classList.contains('open') ? closeKeys() : openKeys(); }
   if (e.key==='w' && VIEW==='dash') openWhatIf();
-  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeReceipt(); closeKeys(); closeTax(); }
+  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeTax(); }
   if (e.key==='d' && e.metaKey) { e.preventDefault(); manualToggleTheme(); }
   if (e.key==='s' && e.metaKey && VIEW==='dash') { e.preventDefault(); saveMonthIncome(); }
 });
