@@ -110,7 +110,7 @@ main{max-width:980px;margin:0 auto;padding:22px 16px;width:100%;flex:1}
 .section{display:none}.section.active{display:block}
 
 /* cards */
-.card{background:var(--s0);border:.5px solid var(--bdr);border-radius:var(--r);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card{background:var(--s0);border:.5px solid var(--bdr);border-radius:var(--r);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow);overflow:visible}
 .card-title{font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 
 /* stats */
@@ -174,7 +174,7 @@ tr:hover td{background:rgba(128,128,0,.03)}
 .sw{position:relative}
 .sw input{padding-right:28px}
 .sw-icon{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none}
-.dd{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--s0);border:.5px solid var(--bdr2);border-radius:var(--rs);z-index:60;max-height:220px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.12);display:none}
+.dd{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--s0);border:.5px solid var(--bdr2);border-radius:var(--rs);z-index:120;max-height:220px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.12);display:none}
 .dd.open{display:block}
 .ddi{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--bdr);font-size:13px}
 .ddi:last-child{border-bottom:none}.ddi:hover{background:var(--s1)}
