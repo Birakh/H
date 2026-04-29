@@ -582,6 +582,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fuel-type-badge.electric{background:var(--Tbg);color:var(--T)}
 .fuel-type-badge.other{background:var(--s2);color:var(--ink2)}
 
+/* ── CASH LOG ── */
+.cash-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
+.cash-row:last-child{border-bottom:none}
+.cash-name{flex:1;font-size:13px;color:var(--ink);min-width:100px}
+.cash-meta{font-size:11px;color:var(--ink3)}
+.cash-amt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--Rm);flex-shrink:0}
+.cash-total-row{display:flex;justify-content:space-between;align-items:center;padding-top:10px;margin-top:6px;border-top:.5px solid var(--bdr);font-size:13px}
+
 /* ── AUDIT LOG ── */
 .audit-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:.5px solid var(--bdr);font-size:12px}
 .audit-row:last-child{border-bottom:none}
@@ -1039,6 +1047,46 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title" id="notes-card-title">Notes</div>
         <textarea class="notes-ta" id="d-notes" placeholder="Add a note for this month — e.g. paid annual insurance, unusual expenses…" oninput="scheduleNoteSave()"></textarea>
         <div class="notes-saved" id="notes-saved">✓ Saved</div>
+      </div>
+
+      <!-- ── Cash purchase log ── -->
+      <div class="card">
+        <div class="card-title">💵 Cash purchases
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="cash-filter-month" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderCashLog()">
+              <option value="">All time</option>
+            </select>
+            <button class="btn xs success" onclick="toggleCashForm()">+ Add</button>
+          </div>
+        </div>
+        <div id="cash-form" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--s1);border-radius:var(--rs)">
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Date</label><input type="date" id="cash-date"></div>
+            <div class="fg" style="margin:0"><label>Item / description</label><input type="text" id="cash-name" placeholder="IKEA shelf, tools…" autocomplete="off"></div>
+            <div class="fg" style="margin:0"><label>Amount (€)</label><input type="number" id="cash-amount" min="0" step="0.01" placeholder="149.90" style="font-family:var(--mono)"></div>
+          </div>
+          <div class="g2" style="margin-bottom:8px">
+            <div class="fg" style="margin:0">
+              <label>Category</label>
+              <select id="cash-cat" style="width:100%">
+                <option value="home">🏠 Home</option>
+                <option value="furniture">🪑 Furniture</option>
+                <option value="appliance">🔌 Appliance</option>
+                <option value="tools">🔧 Tools &amp; DIY</option>
+                <option value="decor">🖼 Décor</option>
+                <option value="garden">🌿 Garden</option>
+                <option value="other">📦 Other</option>
+              </select>
+            </div>
+            <div class="fg" style="margin:0"><label>Note <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label><input type="text" id="cash-note" placeholder="Where bought, receipt #…" autocomplete="off"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" onclick="addCashItem()">Add item</button>
+            <button class="btn sm ghost" onclick="toggleCashForm()">Cancel</button>
+          </div>
+        </div>
+        <div id="cash-stats" style="display:none;margin-bottom:10px"></div>
+        <div id="cash-list"><div style="font-size:13px;color:var(--ink3)">No cash purchases logged yet. Use "+ Add" to track off-ledger home expenses.</div></div>
       </div>
 
       <div class="card" id="steps-card">
@@ -2080,6 +2128,7 @@ const FRESH = () => ({
   fxAccounts:    [],   // { id, label, currency, amount, note }
   auditLog:      [],   // { ts, action, summary }
   notifFired:    {},   // { 'YYYY-MM:needs:80': true } — syncs across devices
+  cashLog:       [],   // { id, date, name, amount, category, note } — off-ledger cash purchases
   meta:          { sha: null, lastSync: null }
 });
 
@@ -2696,6 +2745,7 @@ function migrate(d) {
   if (!d.auditLog)      d.auditLog      = [];
   if (!d.plannedIncome) d.plannedIncome = {};
   if (!d.notifFired)    d.notifFired    = {};
+  if (!d.cashLog)       d.cashLog       = [];
   // normalize recurring freq field
   d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
   return d;
@@ -2920,6 +2970,7 @@ function renderDash() {
   }
 
   renderMonthlyNote(month);
+  renderCashLog();
   updateStepStatus();
 }
 renderDash._cacheKey = null;
@@ -7631,6 +7682,7 @@ async function mergeAndPush() {
       fuel:         mergeById(DATA.fuel        || [], remoteData.fuel        || []).sort((a,b) => b.date.localeCompare(a.date)),
       fxAccounts:   mergeById(DATA.fxAccounts  || [], remoteData.fxAccounts  || []),
       grocery:      mergeById(DATA.grocery     || [], remoteData.grocery     || []),
+      cashLog:      mergeById(DATA.cashLog     || [], remoteData.cashLog     || []).sort((a,b) => b.date.localeCompare(a.date)),
       incomes:      mergedIncomes,
       notes:        mergedNotes,
       plannedIncome:mergedPlanned,
@@ -7861,6 +7913,136 @@ function setStepDone(n, done) {
   const el2 = el(`step-num-${n}`); if (!el2) return;
   el2.className = `step-num${done?' done':''}`;
   el2.textContent = done ? '✓' : String(n);
+}
+
+// ══════════════════════════════════════════
+// CASH PURCHASE LOG
+// Off-ledger tracker for cash home purchases.
+// Does NOT link to any account or affect budget calculations.
+// Stored in DATA.cashLog[] — synced with vault.
+// ══════════════════════════════════════════
+const CASH_CATS = {
+  home:'🏠 Home', furniture:'🪑 Furniture', appliance:'🔌 Appliance',
+  tools:'🔧 Tools & DIY', decor:'🖼 Décor', garden:'🌿 Garden', other:'📦 Other'
+};
+
+function toggleCashForm() {
+  const f = el('cash-form');
+  const open = f.style.display !== 'none';
+  f.style.display = open ? 'none' : 'block';
+  if (!open) {
+    const d = el('cash-date'); if (d && !d.value) d.value = ymd();
+    el('cash-name').focus();
+  }
+}
+
+async function addCashItem() {
+  try {
+    const date   = el('cash-date').value   || ymd();
+    const name   = el('cash-name').value.trim();
+    const amount = parseFloat(el('cash-amount').value);
+    const cat    = el('cash-cat').value;
+    const note   = el('cash-note').value.trim();
+    if (!name)           return toast('Enter a description.', 1);
+    if (!amount || amount <= 0) return toast('Enter a valid amount.', 1);
+    if (!DATA.cashLog) DATA.cashLog = [];
+    DATA.cashLog.push({ id: uid(), date, name, amount: +amount.toFixed(2), cat, note });
+    DATA.cashLog.sort((a,b) => b.date.localeCompare(a.date));
+    el('cash-name').value = ''; el('cash-amount').value = ''; el('cash-note').value = '';
+    el('cash-form').style.display = 'none';
+    saveLocal(); renderCashLog();
+    toast(`${name} — ${fmt(amount)} logged`);
+  } catch(e) { toast(e.message || 'Failed to add.', 1); }
+}
+
+function deleteCashItem(id) {
+  try {
+    const item = (DATA.cashLog||[]).find(c => c.id === id);
+    if (!item) return;
+    const idx = DATA.cashLog.indexOf(item);
+    DATA.cashLog = DATA.cashLog.filter(c => c.id !== id);
+    saveLocal(); renderCashLog();
+    toast('Item removed', 0, () => {
+      DATA.cashLog.splice(idx, 0, item);
+      DATA.cashLog.sort((a,b) => b.date.localeCompare(a.date));
+      saveLocal(); renderCashLog(); toast('Item restored');
+    });
+  } catch(e) { toast(e.message || 'Failed to remove.', 1); }
+}
+
+function renderCashLog() {
+  const list     = el('cash-list');
+  const statsEl  = el('cash-stats');
+  const filterSel = el('cash-filter-month');
+  if (!list) return;
+
+  const all = DATA.cashLog || [];
+
+  // Populate month filter dropdown if needed
+  if (filterSel) {
+    const months = [...new Set(all.map(c => ym(c.date)))].sort().reverse();
+    const cur = filterSel.value;
+    filterSel.innerHTML = '<option value="">All time</option>' +
+      months.map(m => `<option value="${m}"${m===cur?' selected':''}>${m}</option>`).join('');
+  }
+
+  const filterMonth = filterSel?.value || '';
+  const items = filterMonth ? all.filter(c => ym(c.date) === filterMonth) : all;
+
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No cash purchases' +
+      (filterMonth ? ' for this month' : ' logged yet') + '. Use "+ Add" above.</div>';
+    if (statsEl) statsEl.style.display = 'none';
+    return;
+  }
+
+  // Stats
+  const total = items.reduce((s,c) => s+c.amount, 0);
+  const bycat = {};
+  items.forEach(c => { bycat[c.cat] = (bycat[c.cat]||0) + c.amount; });
+  const topCat = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+
+  if (statsEl) {
+    statsEl.style.display = 'block';
+    statsEl.innerHTML = `<div class="stat-grid">
+      <div class="stat"><div class="stat-lbl">Total cash</div><div class="stat-val cr">${fmt(total)}</div></div>
+      <div class="stat"><div class="stat-lbl">Items</div><div class="stat-val">${items.length}</div></div>
+      <div class="stat"><div class="stat-lbl">Biggest category</div><div class="stat-val" style="font-size:14px">${CASH_CATS[topCat[0][0]]||topCat[0][0]}</div></div>
+      <div class="stat"><div class="stat-lbl">Avg item</div><div class="stat-val">${fmt(total/items.length)}</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--ink3)">ℹ This is an off-ledger tracker — cash purchases are not linked to any account and do not affect your budget or net worth calculations.</div>`;
+  }
+
+  // Category breakdown bar
+  const maxCat = topCat[0][1];
+  const catBars = topCat.map(([cat, amt]) => {
+    const w = Math.round(amt/maxCat*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="width:110px;font-size:11px;color:var(--ink2);flex-shrink:0">${esc(CASH_CATS[cat]||cat)}</span>
+      <div style="flex:1;background:var(--s2);border-radius:100px;height:5px">
+        <div style="width:${w}%;height:100%;border-radius:100px;background:var(--Am)"></div>
+      </div>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--ink2);min-width:60px;text-align:right">${fmt(amt)}</span>
+    </div>`;
+  }).join('');
+
+  // Item list
+  const rows = items.map(c => `<div class="cash-row">
+    <div style="min-width:80px;flex-shrink:0">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink3)">${esc(c.date)}</div>
+      <div style="font-size:10px;color:var(--ink3)">${esc(CASH_CATS[c.cat]||c.cat)}</div>
+    </div>
+    <div class="cash-name">${esc(c.name)}${c.note ? `<div class="cash-meta">${esc(c.note)}</div>` : ''}</div>
+    <div class="cash-amt">−${fmt(c.amount)}</div>
+    <button class="btn xs danger" onclick="deleteCashItem('${c.id}')">✕</button>
+  </div>`).join('');
+
+  list.innerHTML = `<div style="margin-bottom:10px">${catBars}</div>
+    ${rows}
+    <div class="cash-total-row">
+      <span style="color:var(--ink2);font-weight:500">Total</span>
+      <span style="font-family:var(--mono);font-weight:700;color:var(--Rm)">${fmt(total)}</span>
+    </div>`;
 }
 
 // ══════════════════════════════════════════
