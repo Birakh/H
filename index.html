@@ -2907,7 +2907,7 @@ function renderDash() {
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
   const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
-  const totalInc = base + addInc || (DATA.plannedIncome?.[month] || 0);
+  const totalInc = base > 0 ? base : (addInc || (DATA.plannedIncome?.[month] || 0));
   const act     = { needs:0, wants:0, savings:0 };
   mes.forEach(e => {
     if (e.type === 'expense' && e.category in act) {
@@ -3189,7 +3189,8 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     const month = curMonth();
     const mes = DATA.entries.filter(e => ym(e.date)===month);
     const { amount } = getMonthIncome(month);
-    totalInc = amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const _addInc = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    totalInc = amount > 0 ? amount : _addInc;
     act = { needs:0, wants:0, savings:0 };
     mes.forEach(e => {
       if (e.type === 'expense' && e.category in act) act[e.category] += e.amount;
