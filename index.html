@@ -270,6 +270,20 @@ input[type=checkbox].row-sel{width:15px;height:15px;cursor:pointer;accent-color:
 .bar-pace{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:.3}
 .bar-forecast{font-size:11px;margin-top:3px;color:var(--ink3);font-family:var(--mono)}
 .bar-forecast.over-pace{color:var(--Rm)}.bar-forecast.ok-pace{color:var(--Gm)}
+.bar-sparkline-row{display:flex;align-items:center;gap:10px;margin-top:5px}
+.bar-sparkline-lbl{font-size:10px;color:var(--ink3);white-space:nowrap}
+.velocity-pill{display:inline-block;font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;margin-left:6px;font-weight:500}
+.velocity-pill.ok{background:var(--Gbg);color:var(--Gm)}
+.velocity-pill.warn{background:var(--Abg);color:var(--Am)}
+.velocity-pill.over{background:var(--Rbg,#fee);color:var(--Rm)}
+.goal-card.urgent{border-color:var(--Rm);border-width:1px}
+.goal-card.warn{border-color:var(--Am);border-width:1px}
+.goal-card.done{border-color:var(--Gm);border-width:1px}
+.goal-projection{font-size:11px;color:var(--ink3);font-family:var(--mono);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}
+.nw-summary-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.nw-summary-table td{padding:4px 8px;border-bottom:.5px solid var(--bdr)}
+.nw-summary-table tr:last-child td{border-bottom:none}
+.nw-summary-table .mono{font-family:var(--mono)}
 
 /* what-if modal */
 .wi-slider-wrap{margin-bottom:14px}
@@ -3200,6 +3214,17 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     dayFrac = 1; daysElapsed = null; daysInMonth = null; isCurrentMonth = false;
   }
   const { splits, goals } = DATA;
+  // ── Sparklines: last 6 months actuals per category ──
+  const _sparkMons = Array.from({length:6}, (_,i) => prevMonStr(curMonth(), 6-i));
+  const _sparkData = {};
+  ["needs","wants","savings"].forEach(k => {
+    _sparkData[k] = _sparkMons.map(m => {
+      const ms = DATA.entries.filter(e => ym(e.date)===m);
+      return k==="savings"
+        ? ms.filter(e=>e.type==="savings").reduce((s,e)=>s+e.amount,0)
+        : ms.filter(e=>e.type==="expense"&&e.category===k).reduce((s,e)=>s+e.amount,0);
+    });
+  });
   const defs = [
     { key:'needs',   label:'Needs',   pct:splits.needs,   color:'var(--Bm)' },
     { key:'wants',   label:'Wants',   pct:splits.wants,   color:'var(--Am)' },
@@ -3240,6 +3265,24 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
       ? `<div style="position:absolute;top:0;left:100%;height:7px;width:${ovPct}%;` +
         `background:var(--Rm);border-radius:0 100px 100px 0;opacity:.8"></div>`
       : '';
+    // ── Spending velocity: day of month budget will be exhausted ──
+    let velocityPill = '';
+    if (isCurrentMonth && daysElapsed > 0 && target > 0 && actual > 0) {
+      const dailyRate = actual / daysElapsed;
+      if (over) {
+        velocityPill = `<span class="velocity-pill over">over budget</span>`;
+      } else {
+        const dayHit = Math.ceil(target / dailyRate);
+        if (dayHit <= daysInMonth) {
+          const [mYr,mMo] = curMonth().split('-').map(Number);
+          const hitDate   = new Date(mYr, mMo-1, dayHit);
+          const hitLabel  = hitDate.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+          const daysLeft2 = dayHit - daysElapsed;
+          const cls2      = daysLeft2 <= 5 ? 'warn' : 'ok';
+          velocityPill = `<span class="velocity-pill ${cls2}" title="At current spending rate">hits ${hitLabel}</span>`;
+        }
+      }
+    }
     // forecast line (current month only)
     let forecast = '';
     if (isCurrentMonth && daysElapsed > 0 && target > 0) {
@@ -3251,9 +3294,28 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
         : `on pace for ${fmt(projected)} — ${fmt(target-projected)} under`;
       forecast = `<div class="bar-forecast ${cls}">${label2}</div>`;
     }
+    // ── Sparkline: last 6 months for this category ──
+    const _sVals  = _sparkData[key] || [];
+    const _sMax   = Math.max(..._sVals, target > 0 ? target : 1, 1);
+    const SW=80, SH=22;
+    const _sPts   = _sVals.map((v,i)=>{
+      const x = _sVals.length > 1 ? (i/(_sVals.length-1))*SW : SW/2;
+      const y = SH - Math.min(1, v/_sMax)*SH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const _sBudgetY = target > 0 ? (SH - Math.min(1, target/_sMax)*SH).toFixed(1) : null;
+    const _sparkSvg = `<svg width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}" style="display:block;flex-shrink:0">
+      ${_sBudgetY !== null ? `<line x1="0" y1="${_sBudgetY}" x2="${SW}" y2="${_sBudgetY}" stroke="${color}" stroke-width=".7" stroke-dasharray="3,2" opacity=".45"/>` : ''}
+      <polyline points="${_sPts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>
+      ${_sVals.map((v,i)=>{
+        const x = _sVals.length > 1 ? (i/(_sVals.length-1))*SW : SW/2;
+        const y = SH - Math.min(1, v/_sMax)*SH;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i===_sVals.length-1?2:1.2}" fill="${color}" opacity="${i===_sVals.length-1?1:.6}"/>`;
+      }).join('')}
+    </svg>`;
     return `<div class="bar-block">
       <div class="bar-meta">
-        <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span>${carryBadge}</span>
+        <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span>${carryBadge}${velocityPill}</span>
         <span class="bar-nums" style="color:${over?'var(--R)':'var(--ink2)'}">${fmt(actual)} / ${fmt(target)}</span>
       </div>
       <div style="position:relative;overflow:visible">
@@ -3262,6 +3324,10 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
       </div>
       <div class="bar-foot ${footClass}">${foot}</div>
       ${forecast}
+      <div class="bar-sparkline-row">
+        <span class="bar-sparkline-lbl">6-mo trend</span>
+        ${_sparkSvg}
+      </div>
     </div>`;
   }).join('');
 }
@@ -5807,23 +5873,72 @@ function renderSavingsGoals() {
     return;
   }
   const now = new Date();
+  // Avg monthly savings from last 3 months (type=savings entries)
+  const _avgSav = [1,2,3].reduce((s,i) => {
+    const m = prevMonStr(curMonth(), i);
+    return s + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='savings').reduce((a,e)=>a+e.amount,0);
+  }, 0) / 3;
+
   container.innerHTML = goals.map(g => {
-    const pct      = Math.min(100, g.target > 0 ? Math.round(g.saved / g.target * 100) : 0);
-    const colorHex = GOAL_COLORS[g.color] || GOAL_COLORS.Gm;
+    const pct       = g.target > 0 ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
+    const colorHex  = GOAL_COLORS[g.color] || GOAL_COLORS.Gm;
     const remaining = Math.max(0, g.target - g.saved);
-    // Months to deadline
-    let deadlineStr = '', eta = '';
+    const done      = remaining === 0;
+
+    // Deadline calculations
+    let deadlineStr = '', eta = '', monthsLeft = null, perMonthNeeded = 0;
     if (g.deadline) {
       const [dy, dm] = g.deadline.split('-').map(Number);
-      const months = (dy - now.getFullYear()) * 12 + dm - (now.getMonth() + 1);
+      monthsLeft  = (dy - now.getFullYear()) * 12 + dm - (now.getMonth() + 1);
       deadlineStr = g.deadline;
-      if (months > 0 && remaining > 0) {
-        const perMonth = remaining / months;
-        eta = `${fmt(perMonth)}/mo needed · ${months}mo left`;
-      } else if (remaining === 0) { eta = '✓ Reached!'; }
-      else { eta = months <= 0 ? 'Deadline passed' : ''; }
+      if (done) { eta = '✓ Reached!'; }
+      else if (monthsLeft <= 0) { eta = 'Deadline passed'; }
+      else {
+        perMonthNeeded = remaining / monthsLeft;
+        eta = `${fmt(perMonthNeeded)}/mo needed · ${monthsLeft}mo left`;
+      }
     }
-    return `<div class="goal-card">
+
+    // Urgency class
+    let urgencyCls = '';
+    if (done) { urgencyCls = 'done'; }
+    else if (monthsLeft !== null && monthsLeft <= 0) { urgencyCls = 'urgent'; }
+    else if (monthsLeft !== null && perMonthNeeded > 0 && _avgSav > 0 && perMonthNeeded > _avgSav * 1.2) { urgencyCls = 'warn'; }
+    else if (monthsLeft !== null && monthsLeft <= 2) { urgencyCls = 'warn'; }
+
+    // Projected completion date from avg monthly savings
+    let projectionHtml = '';
+    if (!done && remaining > 0) {
+      if (_avgSav > 0) {
+        const moToComplete = Math.ceil(remaining / _avgSav);
+        const projDate = new Date(now.getFullYear(), now.getMonth() + moToComplete, 1);
+        const projLabel = projDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'});
+        const behindBy  = perMonthNeeded > 0 && _avgSav < perMonthNeeded
+          ? `<span style="color:var(--Rm)"> — behind by ${fmt(perMonthNeeded-_avgSav)}/mo</span>` : '';
+        projectionHtml = `<div class="goal-projection">
+          <span>avg savings rate ${fmt(_avgSav)}/mo</span>
+          <span>projected completion <strong>${projLabel}</strong>${behindBy}</span>
+        </div>`;
+      } else {
+        projectionHtml = `<div class="goal-projection"><span style="color:var(--ink3)">No recent savings entries to project from</span></div>`;
+      }
+    }
+
+    // Mini sparkline: last 6 months of savings amounts
+    const _sMons  = Array.from({length:6},(_,i)=>prevMonStr(curMonth(),6-i));
+    const _sVals2 = _sMons.map(m=>DATA.entries.filter(e=>ym(e.date)===m&&e.type==='savings').reduce((s,e)=>s+e.amount,0));
+    const _sMax2  = Math.max(..._sVals2, 1);
+    const SW2=100, SH2=22;
+    const _sPts2  = _sVals2.map((v,i)=>{
+      const x = i/5*SW2, y = SH2 - Math.min(1,v/_sMax2)*SH2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const goalSparkline = `<svg width="${SW2}" height="${SH2}" viewBox="0 0 ${SW2} ${SH2}" style="display:block">
+      ${perMonthNeeded > 0 ? `<line x1="0" y1="${(SH2-Math.min(1,perMonthNeeded/_sMax2)*SH2).toFixed(1)}" x2="${SW2}" y2="${(SH2-Math.min(1,perMonthNeeded/_sMax2)*SH2).toFixed(1)}" stroke="${colorHex}" stroke-width=".7" stroke-dasharray="3,2" opacity=".4"/>` : ''}
+      <polyline points="${_sPts2}" fill="none" stroke="${colorHex}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>
+    </svg>`;
+
+    return `<div class="goal-card ${urgencyCls}">
       <div class="goal-header">
         <span class="goal-name">${esc(g.name)}</span>
         <div style="display:flex;align-items:center;gap:8px">
@@ -5836,10 +5951,17 @@ function renderSavingsGoals() {
         <span>${fmt(g.saved)} of ${fmt(g.target)} <span style="color:${colorHex};font-weight:600">(${pct}%)</span></span>
         <span>${eta}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-        <label style="font-size:11px;color:var(--ink3);margin:0;text-transform:none;letter-spacing:0;white-space:nowrap">Saved so far:</label>
-        <input type="number" value="${g.saved}" step="10" style="width:110px;font-family:var(--mono);font-size:12px;padding:3px 8px"
-          onchange="updateGoalSaved('${g.id}',this.value)">
+      ${projectionHtml}
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="font-size:11px;color:var(--ink3);margin:0;text-transform:none;letter-spacing:0;white-space:nowrap">Saved so far:</label>
+          <input type="number" value="${g.saved}" step="10" style="width:110px;font-family:var(--mono);font-size:12px;padding:3px 8px"
+            onchange="updateGoalSaved('${g.id}',this.value)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:10px;color:var(--ink3)">6-mo savings</span>
+          ${goalSparkline}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -6683,23 +6805,97 @@ function renderNetWorthTimeline() {
   if (fxEur > 0)               legendParts.push('FX holdings');
   const legendTxt = legendParts.length ? legendParts.join(' · ') : '';
 
+  // ── Hover strips: one transparent rect per data point ──
+  const hoverStrips = points.map((p,i) => {
+    const cx    = xScale(i);
+    const cy    = yScale(p.v);
+    const sw    = Math.max(xStep, 14);
+    const prev  = i > 0 ? points[i-1].v : null;
+    const delta = prev !== null ? p.v - prev : null;
+    const dStr  = delta !== null ? `${delta>=0?'+':''}${fmtAx(delta)}` : '';
+    const tip   = `${p.m}: ${fmtAx(p.v)}${dStr ? ' ('+dStr+' MoM)' : ''}`;
+    return `<rect x="${(cx-sw/2).toFixed(1)}" y="${padT}" width="${sw.toFixed(1)}" height="${cH}"
+      fill="transparent" rx="2"
+      onmouseover="nwTip(this,'${tip}',${cx.toFixed(1)},${cy.toFixed(1)})"
+      onmouseleave="nwHideTip(this)"/>
+    <circle class="nw-hover-dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="${lineClr}" opacity="0" style="pointer-events:none"/>`;
+  }).join('');
+
   wrap.innerHTML = `
     ${legendTxt ? `<div style="font-size:10px;color:var(--ink3);margin-bottom:4px">${esc(legendTxt)}</div>` : ''}
-    <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${lineClr}" stop-opacity=".18"/>
-          <stop offset="100%" stop-color="${lineClr}" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1" stroke-dasharray="3,3"/>
-      <path d="${areaD}" fill="url(#nwGrad)"/>
-      <polyline points="${polyPts}" fill="none" stroke="${lineClr}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      ${yTicks.join('')}
-      ${xLabels.join('')}
-      <circle cx="${xScale(points.length-1).toFixed(1)}" cy="${yScale(lastPt.v).toFixed(1)}" r="3.5" fill="${lineClr}"/>
-      <text x="${xScale(points.length-1).toFixed(1)}" y="${yScale(lastPt.v).toFixed(1)-8}" text-anchor="end" font-size="9" fill="${lineClr}" font-weight="600">${fmtAx(lastPt.v)}</text>
-    </svg>`;
+    <div style="position:relative">
+      <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" id="nw-svg">
+        <defs>
+          <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${lineClr}" stop-opacity=".18"/>
+            <stop offset="100%" stop-color="${lineClr}" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1" stroke-dasharray="3,3"/>
+        <path d="${areaD}" fill="url(#nwGrad)"/>
+        <polyline points="${polyPts}" fill="none" stroke="${lineClr}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${yTicks.join('')}
+        ${xLabels.join('')}
+        <circle cx="${xScale(points.length-1).toFixed(1)}" cy="${yScale(lastPt.v).toFixed(1)}" r="3.5" fill="${lineClr}"/>
+        <text x="${xScale(points.length-1).toFixed(1)}" y="${yScale(lastPt.v).toFixed(1)-8}" text-anchor="end" font-size="9" fill="${lineClr}" font-weight="600">${fmtAx(lastPt.v)}</text>
+        ${hoverStrips}
+        <line id="nw-xhair" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="${lineClr}" stroke-width="1" stroke-dasharray="3,2" opacity=".4" style="display:none"/>
+        <circle id="nw-dot" cx="0" cy="0" r="4" fill="${lineClr}" stroke="var(--s0)" stroke-width="1.5" style="display:none"/>
+        <rect id="nw-tipbg" x="0" y="0" width="0" height="18" rx="3" fill="var(--s1)" stroke="var(--bdr)" stroke-width=".5" style="display:none"/>
+        <text id="nw-tiptxt" x="0" y="0" font-size="9" fill="var(--ink)" style="display:none"></text>
+      </svg>
+    </div>`;
+
+  // ── MoM summary table: last 6 months ──
+  const recent6 = points.slice(-6);
+  const summaryRows = recent6.map((p,i) => {
+    const prev  = i > 0 ? recent6[i-1].v : null;
+    const delta = prev !== null ? p.v - prev : null;
+    const dCls  = delta === null ? '' : delta >= 0 ? 'cg' : 'cr';
+    const dStr  = delta === null ? '—' : `${delta>=0?'+':''}${fmtAx(delta)}`;
+    return `<tr>
+      <td style="color:var(--ink2);font-size:12px">${p.m}</td>
+      <td class="mono" style="text-align:right;font-size:12px">${fmtAx(p.v)}</td>
+      <td class="mono ${dCls}" style="text-align:right;font-size:12px">${dStr}</td>
+    </tr>`;
+  }).join('');
+  const summaryEl = document.createElement('div');
+  summaryEl.innerHTML = `<div style="margin-top:10px">
+    <div style="font-size:10px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Recent months</div>
+    <table class="nw-summary-table">
+      <thead><tr>
+        <th style="font-size:10px;padding:3px 8px">Month</th>
+        <th style="font-size:10px;padding:3px 8px;text-align:right">Net worth</th>
+        <th style="font-size:10px;padding:3px 8px;text-align:right">MoM change</th>
+      </tr></thead>
+      <tbody>${summaryRows}</tbody>
+    </table>
+  </div>`;
+  wrap.appendChild(summaryEl);
+}
+
+function nwTip(rect, tipText, cx, cy) {
+  const svg = el('nw-svg'); if (!svg) return;
+  const xhair = el('nw-xhair'), dot = el('nw-dot');
+  const bg = el('nw-tipbg'), txt = el('nw-tiptxt');
+  if (!xhair || !dot || !bg || !txt) return;
+  xhair.setAttribute('x1', cx); xhair.setAttribute('x2', cx); xhair.style.display='';
+  dot.setAttribute('cx', cx);   dot.setAttribute('cy', cy);   dot.style.display='';
+  txt.textContent = tipText;
+  const tW = tipText.length * 5.4 + 10;
+  const tX = cx + tW + 4 > 600 ? cx - tW - 4 : cx + 4;
+  bg.setAttribute('x', tX); bg.setAttribute('y', cy - 14);
+  bg.setAttribute('width', tW); bg.style.display='';
+  txt.setAttribute('x', tX + 5); txt.setAttribute('y', cy - 4); txt.style.display='';
+  // Highlight hovered dots in same SVG
+  svg.querySelectorAll('.nw-hover-dot').forEach(d => d.setAttribute('opacity','0'));
+  const dots = svg.querySelectorAll('.nw-hover-dot');
+  const idx  = Array.from(svg.querySelectorAll('rect')).indexOf(rect.closest ? rect : rect);
+  // just show the dot at cy
+  dot.style.display='';
+}
+function nwHideTip() {
+  ['nw-xhair','nw-dot','nw-tipbg','nw-tiptxt'].forEach(id => { const e=el(id); if(e) e.style.display='none'; });
 }
 
 // ══════════════════════════════════════════
