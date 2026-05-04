@@ -199,7 +199,7 @@ tr:hover td{background:rgba(128,128,0,.03)}
 .ti-chip{display:inline-flex;align-items:center;gap:3px;background:var(--s2);border-radius:3px;padding:2px 6px;font-size:12px;color:var(--ink2)}
 .ti-chip button{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:12px;padding:0;line-height:1}
 .ti-chip button:hover{color:var(--R)}
-.tags-input{border:none;background:transparent;outline:none;font-size:13px;min-width:80px;color:var(--ink);padding:2px 0}
+.tags-input{border:none;background:transparent;outline:none;font-size:13px;min-width:80px;flex:1;width:auto;color:var(--ink);padding:2px 0}
 
 /* settings */
 .split-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}.split-row label{min-width:90px;margin:0;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400}
@@ -1352,7 +1352,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <thead><tr>
           <th style="width:28px"><input type="checkbox" class="row-sel" id="sel-all" onchange="toggleSelectAll(this.checked)"></th>
           <th>Date</th><th>Description</th><th>Amount</th>
-          <th>Category</th><th>Account</th><th>Tags</th><th>Formula</th><th></th>
+          <th>Category</th><th style="width:130px">Account</th><th style="width:140px">Tags</th><th>Formula</th><th></th>
         </tr></thead>
         <tbody id="ent-body"></tbody>
       </table></div>
@@ -2837,7 +2837,12 @@ function nav(sec) {
   document.querySelector(`.tab[data-s="${sec}"]`).classList.add('active');
   VIEW = sec;
   // Reset tag input when entering entries to prevent stale tags from previous session
-  if (sec === 'entries') resetTagInput();
+  if (sec === 'entries') {
+    resetTagInput();
+    // Ensure the date field always has a value when the tab is opened
+    const df = el('ef-date');
+    if (df && !df.value) df.value = defaultEntryDate();
+  }
   RENDERS[sec]?.();
 }
 function render() { RENDERS[VIEW]?.(); }
@@ -3207,11 +3212,17 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     const carryBadge = carry > 0
       ? `<span class="carry-badge" style="background:var(--Gbg);color:var(--Gm)" title="Unspent surplus carried from last month">+${fmt(carry)} carried</span>`
       : '';
-    const goal   = goals[key];
-    const actual = act[key] || 0;
-    const fill   = target > 0 ? Math.min(100, Math.round(actual/target*100)) : 0;
-    const over   = actual > target && target > 0;
-    const barC   = over ? 'var(--Rm)' : color;
+    const goal    = goals[key];
+    const actual  = act[key] || 0;
+    // rawPct: how much of the budget target has been used, uncapped
+    const rawPct  = target > 0 ? Math.round(actual / target * 100) : 0;
+    // fill: the in-track bar width, capped at 100% (track has overflow:hidden)
+    const fill    = Math.min(100, rawPct);
+    // ovPct: extra red segment drawn *outside* the track when over budget
+    // capped at 60% so it never takes over the layout on extreme overspend
+    const ovPct   = target > 0 ? Math.min(60, Math.max(0, rawPct - 100)) : 0;
+    const over    = actual > target && target > 0;
+    const barC    = over ? 'var(--Rm)' : color;
     const goalMark = goal && target > 0 ? `<div class="bar-goal" style="left:${Math.min(100,Math.round(goal/target*100))}%"></div>` : '';
     // pace marker — where you "should" be at today's date
     const paceMark = (dayFrac && dayFrac < 1 && target > 0)
@@ -3222,6 +3233,11 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
       foot = over ? `over by ${fmt(actual-target)}` : `remaining ${fmt(target-actual)}`;
       if (goal) foot += ` · goal ${fmt(goal)}${actual>=goal?' ⚠':''}`;
     } else { foot = 'set income to see targets'; }
+    // overflow segment: small red bar appended to the right of the track
+    const overflowSeg = ovPct > 0
+      ? `<div style="position:absolute;top:0;left:100%;height:7px;width:${ovPct}%;` +
+        `background:var(--Rm);border-radius:0 100px 100px 0;opacity:.8"></div>`
+      : '';
     // forecast line (current month only)
     let forecast = '';
     if (isCurrentMonth && daysElapsed > 0 && target > 0) {
@@ -3238,7 +3254,10 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
         <span class="bar-lbl">${label} <span class="muted" style="font-weight:400;font-size:12px">(${pct}%)</span>${carryBadge}</span>
         <span class="bar-nums" style="color:${over?'var(--R)':'var(--ink2)'}">${fmt(actual)} / ${fmt(target)}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${barC}"></div>${goalMark}${paceMark}</div>
+      <div style="position:relative;overflow:visible">
+        <div class="bar-track"><div class="bar-fill" style="width:${fill}%;background:${barC}"></div>${goalMark}${paceMark}</div>
+        ${overflowSeg}
+      </div>
       <div class="bar-foot ${footClass}">${foot}</div>
       ${forecast}
     </div>`;
@@ -3816,10 +3835,12 @@ async function addEntry() {
   } // end split else
 
   saveLocal();
+  const _savedDate = el('ef-date').value;   // keep user's chosen date
   el('ef-amt').value=''; el('ef-desc').value='';
   _curTags=[]; renderTagChips();
   el('acct-balance-preview').style.display = 'none';
   render();
+  el('ef-date').value = _savedDate;          // restore after render resets it
   } catch(e) { toast(e.message || 'Failed to save entry.', 1); }
 }
 
@@ -3874,6 +3895,10 @@ function makeAcctEditable(td, entryId) {
   // Guard: only commit once — prevents onblur double-fire after render() tears down the DOM
   let committed = false;
 
+  // Stop click from bubbling to the <td> and re-triggering makeAcctEditable
+  sel.addEventListener('click', ev => ev.stopPropagation());
+  sel.addEventListener('mousedown', ev => ev.stopPropagation());
+
   sel.addEventListener('change', () => {
     if (committed) return;
     committed = true;
@@ -3891,6 +3916,7 @@ function makeAcctEditable(td, entryId) {
   });
 
   td.textContent = '';
+  td.onclick = null;   // disable td's click handler while select is active
   td.appendChild(sel);
   sel.focus();
 }
