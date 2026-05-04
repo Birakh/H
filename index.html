@@ -1345,6 +1345,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <option value="income">Income</option><option value="transfer">Transfer</option>
         </select>
         <select id="ef-ftag" style="width:auto" onchange="renderEntries()"><option value="">All tags</option></select>
+        <select id="ef-sort" style="width:auto" onchange="renderEntries()"><option value="date-desc">Date &#x2193; newest</option><option value="date-asc">Date &#x2191; oldest</option><option value="amt-desc">Amount &#x2193; high</option><option value="amt-asc">Amount &#x2191; low</option><option value="desc-asc">Description A&#x2192;Z</option><option value="desc-desc">Description Z&#x2192;A</option></select>
         <input type="text" id="ef-fs" placeholder="Search…" oninput="renderEntries()">
       </div>
 
@@ -3962,6 +3963,18 @@ function renderEntries() {
   if (fC) list=list.filter(e=>e.category===fC);
   if (fT) list=list.filter(e=>(e.tags||[]).includes(fT));
   if (fS) list=list.filter(e=>(e.desc||'').toLowerCase().includes(fS)||e.category.includes(fS));
+
+  const sortKey = (el("ef-sort")||{}).value || "date-desc";
+  list.sort((a,b) => {
+    switch(sortKey) {
+      case "date-asc":  return a.date.localeCompare(b.date);
+      case "amt-desc":  return b.amount - a.amount;
+      case "amt-asc":   return a.amount - b.amount;
+      case "desc-asc":  return (a.desc||"").localeCompare(b.desc||"");
+      case "desc-desc": return (b.desc||"").localeCompare(a.desc||"");
+      default:          return b.date.localeCompare(a.date);
+    }
+  });
 
   if (!list.length) {
     el('ent-body').innerHTML=`<tr class="quick-add-row"><td></td>
