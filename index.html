@@ -6758,32 +6758,40 @@ let   _rmEcbRate = null;
 // ECB Stats API (data-api.ecb.europa.eu) can return SDMX-JSON 1.0 or 2.0.
 // We explicitly request 1.0 via Accept, but parse both in case the server ignores it.
 async function ecbSdwFetch(series) {
-  // Race both endpoints with a 5 s timeout — fastest valid response wins
+  // Use startPeriod 4 months back — avoids lastNObservations quirks with HSTA lag.
+  // Returns a small slice; we take the numerically highest obs key = most recent.
+  const startPeriod = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 4);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  })();
+
   const tryEndpoint = async (base) => {
     const ctrl = new AbortController();
     const tid  = setTimeout(() => ctrl.abort(), 5000);
     try {
-      // lastNObservations=1 — we only need the single most recent value
-      const url = `${base}/${series}?lastNObservations=1&format=jsondata`;
+      const url = `${base}/${series}?startPeriod=${startPeriod}&format=jsondata`;
       const r   = await fetch(url, { signal: ctrl.signal });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j   = await r.json();
       const root      = j?.data ?? j;
       const seriesMap = root?.dataSets?.[0]?.series;
       if (!seriesMap) throw new Error('SDMX: no dataSets.series');
-      const firstSeries = Object.values(seriesMap)[0];
-      const obs = firstSeries?.observations;
+      const obs = Object.values(seriesMap)[0]?.observations;
       if (!obs || !Object.keys(obs).length) throw new Error('SDMX: empty observations');
-      // Sort keys numerically descending — highest index = most recent period
+      // Highest integer key = most recent period index in the full unfiltered series
       const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
       const val = obs[latestKey]?.[0];
       if (val == null || isNaN(+val)) throw new Error('SDMX: null/NaN value');
-      // Also extract the period label for display (e.g. "2026-04")
-      const periods = (root?.structure ?? j?.structure)?.dimensions?.observation?.[0]?.values ?? [];
-      const period  = periods[+latestKey]?.id ?? null;
+      // Period labels: the periods array is filtered to match returned obs keys,
+      // so we must find the entry whose position matches latestKey
+      const allPeriods = (root?.structure ?? j?.structure)?.dimensions?.observation?.[0]?.values ?? [];
+      // allPeriods may be full or sliced; take the last one (matches highest obs key)
+      const period = allPeriods.length ? allPeriods[allPeriods.length - 1]?.id : null;
       return { value: +val, period };
     } finally { clearTimeout(tid); }
   };
+
   return Promise.any([
     tryEndpoint(ECB_BASE_NEW),
     tryEndpoint(ECB_BASE_OLD),
