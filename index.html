@@ -1923,14 +1923,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="stat-val" id="rm-ecb-days">—</div>
           </div>
           <div class="stat" style="flex:2;min-width:180px">
-            <div class="stat-lbl">ECB deposit rate (current) <span style="font-size:10px;font-weight:400;color:var(--ink3);text-transform:none;letter-spacing:0">% — auto-fetched, editable</span></div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="number" id="rm-ecb-rate-input" step="0.01" min="0" max="20"
-                style="width:90px;font-family:var(--mono);font-size:18px;font-weight:700;padding:2px 6px;color:var(--B)"
-                oninput="onDfrOverride()" placeholder="—">
-              <span style="font-size:11px;color:var(--ink3)">%</span>
-              <span id="rm-ecb-rate-src" style="font-size:10px;color:var(--ink3)"></span>
-            </div>
+            <div class="stat-lbl">ECB deposit rate (current)</div>
+            <div class="stat-val" id="rm-ecb-rate">—</div>
           </div>
           <div id="rm-ecb-soon" class="banner warn" style="display:none;flex:100%;margin:0">
             <span id="rm-ecb-soon-msg"></span>
@@ -6745,17 +6739,16 @@ const ECB_MEETINGS = [
 // ECB Statistical Data Warehouse — SDMX series keys for EURIBOR fixing rates.
 // Dataset: FM (Financial Markets), frequency: M (monthly), area: U2 (Euro area)
 // Using the standard EURIBOR series identifiers published by the ECB.
-// Daily Euribor fixing series (D = daily, not M = monthly — monthly was discontinued)
+// Monthly Euribor series — key dimension is RT (not RT0), frequency M
 const RM_SERIES = {
-  '3M':  'FM/D.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA',
-  '6M':  'FM/D.U2.EUR.RT0.MM.EURIBOR6MD_.HSTA',
-  '12M': 'FM/D.U2.EUR.RT0.MM.EURIBOR1YD_.HSTA',
+  '3M':  'FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA',
+  '6M':  'FM/M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA',
+  '12M': 'FM/M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA',
 };
-// ECB deposit facility rate (business-day frequency, B)
 const ECB_DFR_SERIES = 'FM/B.U2.EUR.4F.KR.DFR.LEV';
-// Fallback endpoint (legacy, may still serve some series)
-const ECB_BASE_NEW = 'https://data-api.ecb.europa.eu/service/data';
-const ECB_BASE_OLD = 'https://sdw-wsrest.ecb.europa.eu/service/data';
+// sdw-wsrest is the stable legacy endpoint; data-api is the newer one
+const ECB_BASE_NEW = 'https://sdw-wsrest.ecb.europa.eu/service/data';
+const ECB_BASE_OLD = 'https://data-api.ecb.europa.eu/service/data';
 
 const _rmCache   = {};   // { '3M': { rate, source, ts } }
 let   _rmEcbRate = null;
@@ -6765,27 +6758,30 @@ let   _rmEcbRate = null;
 // ECB Stats API (data-api.ecb.europa.eu) can return SDMX-JSON 1.0 or 2.0.
 // We explicitly request 1.0 via Accept, but parse both in case the server ignores it.
 async function ecbSdwFetch(series) {
-  // Race both endpoints in parallel — fastest valid response wins
+  // Race both endpoints with a 5 s timeout each — fastest valid response wins
   const tryEndpoint = async (base) => {
-    const url = `${base}/${series}?lastNObservations=5&format=jsondata`;
-    const r   = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j   = await r.json();
-    const root      = j?.data ?? j;
-    const seriesMap = root?.dataSets?.[0]?.series;
-    if (!seriesMap) throw new Error('SDMX: no dataSets.series');
-    const obs = Object.values(seriesMap)[0]?.observations;
-    if (!obs || !Object.keys(obs).length) throw new Error('SDMX: empty observations');
-    const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
-    const val = obs[latestKey]?.[0];
-    if (val == null || isNaN(+val)) throw new Error('SDMX: null/NaN value');
-    return +val;
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const url = `${base}/${series}?lastNObservations=5&format=jsondata`;
+      const r   = await fetch(url, { signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j   = await r.json();
+      const root      = j?.data ?? j;
+      const seriesMap = root?.dataSets?.[0]?.series;
+      if (!seriesMap) throw new Error('SDMX: no dataSets.series');
+      const obs = Object.values(seriesMap)[0]?.observations;
+      if (!obs || !Object.keys(obs).length) throw new Error('SDMX: empty observations');
+      const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
+      const val = obs[latestKey]?.[0];
+      if (val == null || isNaN(+val)) throw new Error('SDMX: null/NaN value');
+      return +val;
+    } finally { clearTimeout(tid); }
   };
-  // Promise.any resolves with the first to succeed; rejects only if both fail
   return Promise.any([
     tryEndpoint(ECB_BASE_NEW),
     tryEndpoint(ECB_BASE_OLD),
-  ]).catch(() => { throw new Error('All ECB endpoints failed — check network or enter manually'); });
+  ]).catch(() => { throw new Error('ECB fetch timed out — enter rate manually'); });
 }
 
 // ── ECB meeting countdown renderer ───────────────────────────────────────────
@@ -6834,20 +6830,11 @@ function rmRenderEcb() {
     }
   }
 
-  // ECB deposit facility rate — populate input only if user hasn't manually overridden
-  const rateInput = el('rm-ecb-rate-input');
-  const rateSrc   = el('rm-ecb-rate-src');
-  if (rateInput && _rmEcbRate != null && !rateInput.dataset.manualOverride) {
-    rateInput.value = _rmEcbRate.toFixed(2);
-    if (rateSrc) rateSrc.textContent = 'ECB SDW';
-    rmCalc(); // re-run calc now DFR is populated
+  // ECB deposit facility rate display
+  if (rateEl) {
+    rateEl.textContent = _rmEcbRate != null ? `${_rmEcbRate.toFixed(2)}%` : '—';
+    rateEl.className   = 'stat-val' + (_rmEcbRate != null ? ' cb' : '');
   }
-}
-
-function onDfrOverride() {
-  const input = el('rm-ecb-rate-input');
-  if (input) input.dataset.manualOverride = '1'; // prevent auto-fetch from overwriting
-  rmCalc();
 }
 
 // ── Euribor + DFR fetch ──────────────────────────────────────────────────────
@@ -7400,16 +7387,20 @@ async function fetchEuriborHistory() {
 
   try {
     const series = RM_SERIES[term];
-    // Race both endpoints — first valid response wins
+    // Race both endpoints with 5 s timeout — first valid response wins
     const tryHist = async (base) => {
-      const r = await fetch(`${base}/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r;
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 5000);
+      try {
+        const r = await fetch(`${base}/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`, { signal: ctrl.signal });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r;
+      } finally { clearTimeout(tid); }
     };
     const r = await Promise.any([
       tryHist(ECB_BASE_NEW),
       tryHist(ECB_BASE_OLD),
-    ]).catch(() => { throw new Error('All ECB endpoints failed'); });
+    ]).catch(() => { throw new Error('All ECB history endpoints failed'); });
     if (!r.ok) throw new Error('ECB SDW HTTP ' + r.status);
     const j = await r.json();
     // Support SDMX-JSON 1.0 (root) and 2.0 (wrapped in data{})
