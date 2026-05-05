@@ -6765,31 +6765,27 @@ let   _rmEcbRate = null;
 // ECB Stats API (data-api.ecb.europa.eu) can return SDMX-JSON 1.0 or 2.0.
 // We explicitly request 1.0 via Accept, but parse both in case the server ignores it.
 async function ecbSdwFetch(series) {
-  // Try new ECB Stats API first, fall back to legacy sdw-wsrest on failure
-  const endpoints = [
-    `${ECB_BASE_NEW}/${series}?lastNObservations=5&format=jsondata`,
-    `${ECB_BASE_OLD}/${series}?lastNObservations=5&format=jsondata`,
-  ];
-  let lastErr = null;
-  for (const url of endpoints) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) { lastErr = new Error(`HTTP ${r.status} from ${url}`); continue; }
-      const j = await r.json();
-      // Support both SDMX-JSON 1.0 (dataSets at root) and 2.0 (wrapped in data{})
-      const root      = j?.data ?? j;
-      const seriesMap = root?.dataSets?.[0]?.series;
-      if (!seriesMap) { lastErr = new Error('SDMX: no dataSets.series'); continue; }
-      const obs = Object.values(seriesMap)[0]?.observations;
-      if (!obs || !Object.keys(obs).length) { lastErr = new Error('SDMX: empty observations'); continue; }
-      // Highest integer key = most recent period
-      const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
-      const val = obs[latestKey]?.[0];
-      if (val == null || isNaN(+val)) { lastErr = new Error('SDMX: null/NaN value'); continue; }
-      return +val; // success
-    } catch(e) { lastErr = e; }
-  }
-  throw lastErr || new Error('All ECB endpoints failed');
+  // Race both endpoints in parallel — fastest valid response wins
+  const tryEndpoint = async (base) => {
+    const url = `${base}/${series}?lastNObservations=5&format=jsondata`;
+    const r   = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j   = await r.json();
+    const root      = j?.data ?? j;
+    const seriesMap = root?.dataSets?.[0]?.series;
+    if (!seriesMap) throw new Error('SDMX: no dataSets.series');
+    const obs = Object.values(seriesMap)[0]?.observations;
+    if (!obs || !Object.keys(obs).length) throw new Error('SDMX: empty observations');
+    const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
+    const val = obs[latestKey]?.[0];
+    if (val == null || isNaN(+val)) throw new Error('SDMX: null/NaN value');
+    return +val;
+  };
+  // Promise.any resolves with the first to succeed; rejects only if both fail
+  return Promise.any([
+    tryEndpoint(ECB_BASE_NEW),
+    tryEndpoint(ECB_BASE_OLD),
+  ]).catch(() => { throw new Error('All ECB endpoints failed — check network or enter manually'); });
 }
 
 // ── ECB meeting countdown renderer ───────────────────────────────────────────
@@ -7404,16 +7400,16 @@ async function fetchEuriborHistory() {
 
   try {
     const series = RM_SERIES[term];
-    // Try new endpoint first, fall back to legacy
-    let r = null;
-    const urls = [
-      `${ECB_BASE_NEW}/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`,
-      `${ECB_BASE_OLD}/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`,
-    ];
-    for (const u of urls) {
-      try { r = await fetch(u); if (r.ok) break; } catch { r = null; }
-    }
-    if (!r || !r.ok) throw new Error(`HTTP ${r?.status ?? 'network error'} on all endpoints`);
+    // Race both endpoints — first valid response wins
+    const tryHist = async (base) => {
+      const r = await fetch(`${base}/${series}?startPeriod=${offsetMonStr(-24)}&format=jsondata`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r;
+    };
+    const r = await Promise.any([
+      tryHist(ECB_BASE_NEW),
+      tryHist(ECB_BASE_OLD),
+    ]).catch(() => { throw new Error('All ECB endpoints failed'); });
     if (!r.ok) throw new Error('ECB SDW HTTP ' + r.status);
     const j = await r.json();
     // Support SDMX-JSON 1.0 (root) and 2.0 (wrapped in data{})
