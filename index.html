@@ -6755,13 +6755,9 @@ let   _rmEcbRate = null;
 // ECB Stats API (data-api.ecb.europa.eu) can return SDMX-JSON 1.0 or 2.0.
 // We explicitly request 1.0 via Accept, but parse both in case the server ignores it.
 async function ecbSdwFetch(series) {
-  const url = `https://data-api.ecb.europa.eu/service/data/${series}?lastNObservations=12&detail=dataonly`;
-  const r   = await fetch(url, {
-    headers: {
-      // Pin SDMX-JSON 1.0 — ECB Stats API defaults to 2.0 which has a different envelope
-      Accept: 'application/vnd.sdmx.data+json;version=1.0.0'
-    }
-  });
+  // format=jsondata forces SDMX-JSON output; no Accept header needed (406 otherwise)
+  const url = `https://data-api.ecb.europa.eu/service/data/${series}?lastNObservations=12&detail=dataonly&format=jsondata`;
+  const r   = await fetch(url);
   if (!r.ok) throw new Error(`ECB SDW HTTP ${r.status}`);
   const j = await r.json();
 
@@ -7382,10 +7378,8 @@ async function fetchEuriborHistory() {
 
   try {
     const series = RM_SERIES[term];
-    const url = `https://data-api.ecb.europa.eu/service/data/${series}?startPeriod=${offsetMonStr(-24)}&detail=dataonly`;
-    const r = await fetch(url, {
-      headers: { Accept: 'application/vnd.sdmx.data+json;version=1.0.0' }
-    });
+    const url = `https://data-api.ecb.europa.eu/service/data/${series}?startPeriod=${offsetMonStr(-24)}&detail=dataonly&format=jsondata`;
+    const r = await fetch(url);
     if (!r.ok) throw new Error('ECB SDW HTTP ' + r.status);
     const j = await r.json();
     // Support SDMX-JSON 1.0 (root) and 2.0 (wrapped in data{})
