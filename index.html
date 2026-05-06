@@ -6759,6 +6759,32 @@ let   _rmEcbRate = null;
 // Fetches an ECB Statistical Data Warehouse series and returns the latest value.
 // ECB Stats API (data-api.ecb.europa.eu) can return SDMX-JSON 1.0 or 2.0.
 // We explicitly request 1.0 via Accept, but parse both in case the server ignores it.
+// Simple fetch for the ECB Deposit Facility Rate — uses lastNObservations=1
+// (business-day series doesn't work well with startPeriod filtering)
+async function ecbDfrFetch() {
+  const tryEndpoint = async (base) => {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const url = `${base}/${ECB_DFR_SERIES}?lastNObservations=1&format=jsondata`;
+      const r   = await fetch(url, { signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j   = await r.json();
+      const root = j?.data ?? j;
+      const obs  = Object.values(root?.dataSets?.[0]?.series ?? {})[0]?.observations;
+      if (!obs || !Object.keys(obs).length) throw new Error('no observations');
+      const latestKey = Object.keys(obs).sort((a, b) => +b - +a)[0];
+      const val = obs[latestKey]?.[0];
+      if (val == null || isNaN(+val)) throw new Error('null value');
+      return +val;
+    } finally { clearTimeout(tid); }
+  };
+  return Promise.any([
+    tryEndpoint(ECB_BASE_NEW),
+    tryEndpoint(ECB_BASE_OLD),
+  ]);
+}
+
 async function ecbSdwFetch(series) {
   // Use startPeriod 4 months back — avoids lastNObservations quirks with HSTA lag.
   // Returns a small slice; we take the numerically highest obs key = most recent.
@@ -6903,12 +6929,9 @@ async function rmFetch(force = false) {
       (async () => {
         const rateEl = el('rm-ecb-rate');
         try {
-          const { value: v, period } = await ecbSdwFetch(ECB_DFR_SERIES).catch(() =>
-            ecbSdwFetch(ECB_DFR_SERIES_ALT)
-          );
+          const v = await ecbDfrFetch();
           _rmEcbRate = v;
           rmRenderEcb();
-          if (rateEl && period) rateEl.title = `Source: ECB SDW (${period})`;
         } catch(e) {
           console.warn('[DFR fetch]', e);
           if (rateEl) { rateEl.textContent = '—'; rateEl.title = e.message; }
