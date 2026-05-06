@@ -6745,7 +6745,9 @@ const RM_SERIES = {
   '6M':  'FM/M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA',
   '12M': 'FM/M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA',
 };
-const ECB_DFR_SERIES = 'FM/B.U2.EUR.4F.KR.DFR.LEV';
+// DFR: business-day series; also try the monthly aggregate as fallback
+const ECB_DFR_SERIES     = 'FM/B.U2.EUR.4F.KR.DFR.LEV';
+const ECB_DFR_SERIES_ALT = 'FM/M.U2.EUR.4F.KR.DFR.LEV';
 // sdw-wsrest is the stable legacy endpoint; data-api is the newer one
 const ECB_BASE_NEW = 'https://sdw-wsrest.ecb.europa.eu/service/data';
 const ECB_BASE_OLD = 'https://data-api.ecb.europa.eu/service/data';
@@ -6861,6 +6863,9 @@ async function rmFetch(force = false) {
   try {
     rmRenderEcb(); // countdown never needs a fetch
 
+    // Force-refresh: clear all caches so fresh data is fetched
+    if (force) { Object.keys(_rmCache).forEach(k => delete _rmCache[k]); _rmEcbRate = null; }
+
     // Cache hit — valid for 1 hour
     const cached = _rmCache[term];
     if (!force && cached && Date.now() - cached.ts < 3600000) {
@@ -6893,11 +6898,22 @@ async function rmFetch(force = false) {
     rmCalc();
     fetchEuriborHistory(); // non-blocking sparkline
 
-    // Background: fetch ECB deposit facility rate (informational — non-blocking)
+    // Background: fetch ECB deposit facility rate — try primary series, then alt
     if (_rmEcbRate == null || force) {
-      ecbSdwFetch(ECB_DFR_SERIES)
-        .then(({ value: v }) => { _rmEcbRate = v; rmRenderEcb(); })
-        .catch(() => {});
+      (async () => {
+        const rateEl = el('rm-ecb-rate');
+        try {
+          const { value: v, period } = await ecbSdwFetch(ECB_DFR_SERIES).catch(() =>
+            ecbSdwFetch(ECB_DFR_SERIES_ALT)
+          );
+          _rmEcbRate = v;
+          rmRenderEcb();
+          if (rateEl && period) rateEl.title = `Source: ECB SDW (${period})`;
+        } catch(e) {
+          console.warn('[DFR fetch]', e);
+          if (rateEl) { rateEl.textContent = '—'; rateEl.title = e.message; }
+        }
+      })();
     }
   } catch(e) { toast(e.message || 'Mortgage rate fetch failed.', 1); if (btnEl) btnEl.disabled = false; }
 }
