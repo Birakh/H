@@ -210,6 +210,34 @@ tr:hover td{background:rgba(128,128,0,.03)}
 .acct-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--bdr)}
 .acct-row:last-child{border-bottom:none}
 
+/* rate alert banner */
+#rate-alert-bar{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--Gbg);
+  color:var(--Gm);font-size:13px;font-weight:500;padding:7px 16px;display:none;
+  align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.15);
+  border-bottom:1.5px solid var(--Gm);animation:slideDown .25s ease}
+#rate-alert-bar button{background:none;border:none;color:var(--Gm);cursor:pointer;
+  font-size:16px;opacity:.7;padding:0 4px}
+#rate-alert-bar button:hover{opacity:1}
+/* vault health score ring */
+.vh-score-ring{display:inline-flex;align-items:center;justify-content:center;
+  width:52px;height:52px;border-radius:50%;font-size:17px;font-weight:700;
+  border:3px solid;flex-shrink:0}
+/* duplicate warning in entry form */
+#ef-dup-warn{display:none;background:var(--Abg);color:var(--Am);border:.5px solid rgba(176,110,20,.3);
+  border-radius:var(--rs);padding:7px 11px;font-size:12px;margin-top:6px;line-height:1.5}
+/* mortgage sub-cards */
+.mort-sub{background:var(--s1);border-radius:var(--rs);padding:14px;
+  border:.5px solid var(--bdr);margin-top:14px}
+.mort-sub-title{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;
+  letter-spacing:.07em;margin-bottom:10px}
+/* offline badge upgrade */
+#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:500;
+  background:var(--Abg);color:var(--Am);font-size:12px;font-weight:500;
+  text-align:center;padding:5px 12px;border-bottom:.5px solid rgba(176,110,20,.25)}
+#offline-bar.show{display:flex;align-items:center;justify-content:center;gap:8px}
+#offline-bar .ob-dot{width:7px;height:7px;border-radius:50%;background:var(--Am);
+  animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 /* over-budget banner */
 #budget-alert{position:fixed;top:0;left:0;right:0;z-index:998;background:var(--Rm);color:#fff;
   font-size:13px;font-weight:500;padding:7px 16px;display:none;align-items:center;gap:10px;
@@ -788,7 +816,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 <!-- ══════ APP ══════ -->
 <div id="screen-app">
-  <div id="offline-bar">⚡ You're offline — changes are saved locally and will sync when reconnected.</div>
+  <div id="offline-bar">
+    <div class="ob-dot"></div>
+    <span>Offline — changes saved locally, will sync on reconnect</span>
+  </div>
   <header>
     <span class="h-brand">vault<span>.</span>fin</span>
     <div class="tabs">
@@ -815,6 +846,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </header>
   <div id="toast"></div>
+  <div id="rate-alert-bar">
+    <span>📉</span>
+    <span id="rate-alert-msg" style="flex:1"></span>
+    <button onclick="dismissRateAlert()" title="Dismiss">✕</button>
+  </div>
   <div id="budget-alert">
     <span style="font-size:15px;margin-right:2px">⚠</span>
     <span style="font-weight:700;margin-right:6px">Over budget:</span>
@@ -1199,15 +1235,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <label>Description</label>
             <div class="sw">
               <input type="text" id="ef-desc" placeholder="Start typing to search catalog…"
-                oninput="descSearch()" onblur="setTimeout(closeDescDD,200)" autocomplete="off">
+                oninput="checkDuplicate();descSearch()" onblur="setTimeout(closeDescDD,200)" autocomplete="off">
               <span class="sw-icon">⌕</span>
               <div class="dd" id="desc-dd"></div>
             </div>
           </div>
           <div class="fg" style="margin:0">
             <label>Amount (or =formula)</label>
-            <input type="text" id="ef-amt" placeholder="87.50  or  =salary*0.05" style="font-family:var(--mono)" oninput="updateBalancePreview();updateAmtHelper()">
+            <input type="text" id="ef-amt" placeholder="87.50  or  =salary*0.05" style="font-family:var(--mono)" oninput="updateBalancePreview();updateAmtHelper();checkDuplicate()">
             <div id="ef-amt-helper" style="font-size:11px;color:var(--ink3);font-family:var(--mono);margin-top:3px;min-height:15px"></div>
+            <div id="ef-dup-warn"></div>
           </div>
         </div>
         <div class="g2" style="margin-bottom:10px">
@@ -1585,6 +1622,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Vault health
+          <span id="vh-score-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
           <button class="btn xs ghost" onclick="runVaultHealth()">Run check</button>
         </div>
         <div id="vh-list"><div style="font-size:13px;color:var(--ink3)">Click "Run check" to scan your vault for data issues.</div></div>
@@ -2014,6 +2052,49 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates are the published Governing Council monetary policy schedule. Rate decisions are announced at 13:45 CET — check <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener">ecb.europa.eu</a> for the latest.</div>
 
+        <!-- Rate Alert -->
+        <div class="mort-sub">
+          <div class="mort-sub-title">Rate alert</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="margin:0;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap">Alert me when Euribor drops below</label>
+            <input type="number" id="ra-threshold" placeholder="2.50" step="0.05" min="0" max="20"
+              style="width:90px;font-family:var(--mono);font-size:13px" oninput="saveRateAlert()">
+            <span style="font-size:12px;color:var(--ink3)">%</span>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:12px">
+              <input type="checkbox" id="ra-enabled" onchange="saveRateAlert()" style="width:auto"> Enabled
+            </label>
+          </div>
+          <div id="ra-status" style="font-size:11px;color:var(--ink3);margin-top:6px"></div>
+        </div>
+
+        <!-- Overpayment Simulator -->
+        <div class="mort-sub">
+          <div class="mort-sub-title">Overpayment simulator</div>
+          <div class="g3" style="margin-bottom:10px">
+            <div class="fg" style="margin:0"><label>Outstanding balance (€)</label>
+              <input type="number" id="op-balance" placeholder="200000" step="1000" style="font-family:var(--mono)" oninput="calcOverpayment()"></div>
+            <div class="fg" style="margin:0"><label>Remaining years</label>
+              <input type="number" id="op-years" placeholder="25" step="1" min="1" max="50" style="font-family:var(--mono)" oninput="calcOverpayment()"></div>
+            <div class="fg" style="margin:0"><label>Extra payment / month (€)</label>
+              <input type="number" id="op-extra" placeholder="200" step="50" style="font-family:var(--mono)" oninput="calcOverpayment()"></div>
+          </div>
+          <div id="op-result"></div>
+        </div>
+
+        <!-- Refinancing Calculator -->
+        <div class="mort-sub">
+          <div class="mort-sub-title">Refinancing calculator</div>
+          <div class="g3" style="margin-bottom:10px">
+            <div class="fg" style="margin:0"><label>Outstanding balance (€)</label>
+              <input type="number" id="rf-balance" placeholder="200000" step="1000" style="font-family:var(--mono)" oninput="calcRefi()"></div>
+            <div class="fg" style="margin:0"><label>New rate (% p.a.)</label>
+              <input type="number" id="rf-newrate" placeholder="2.50" step="0.01" min="0" style="font-family:var(--mono)" oninput="calcRefi()"></div>
+            <div class="fg" style="margin:0"><label>Remaining years</label>
+              <input type="number" id="rf-years" placeholder="25" step="1" min="1" max="50" style="font-family:var(--mono)" oninput="calcRefi()"></div>
+          </div>
+          <div id="rf-result"></div>
+        </div>
+
         <!-- ── Rate Reset Calendar ── -->
         <div style="margin-top:18px;border-top:.5px solid var(--bdr);padding-top:14px">
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Rate reset calendar
@@ -2179,7 +2260,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 8,
+  v: 9,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2201,7 +2282,9 @@ const FRESH = () => ({
   cashLog:       [],   // { id, date, name, amount, category, note } — off-ledger cash purchases
   meta:          { sha: null, lastSync: null },
   vars:          {},         // { name: { value, desc, type } } — named variables for formulas
-  housing:       { type: 'rent', amount: 0 }  // 'rent' | 'mortgage'
+  housing:       { type: 'rent', amount: 0 },  // 'rent' | 'mortgage'
+  rateAlert:     { threshold: null, enabled: false },
+  _migrationLog: []  // audit trail of schema upgrades
 });
 
 const GR_CATS = {
@@ -2835,39 +2918,111 @@ function saveLocal() {
 // ══════════════════════════════════════════
 // MIGRATIONS  —  safe to call on any schema version
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// SCHEMA VERSIONING — migration registry
+// ══════════════════════════════════════════
+// Each step is a pure function (d) => d that upgrades one version.
+// To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
+// NEVER edit existing steps — they must remain idempotent and stable.
+// ══════════════════════════════════════════
+const SCHEMA_VERSION = 9; // current target version
+
+const MIGRATIONS = [
+  // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
+  d => {
+    if (!d.splits)   d.splits   = { needs:50, wants:30, savings:20 };
+    if (!d.goals)    d.goals    = { needs:null, wants:null, savings:null };
+    if (!d.accounts) d.accounts = [];
+    if (!d.notes)    d.notes    = {};
+    if (!d.meta)     d.meta     = { sha:null, lastSync:null };
+    return d;
+  },
+  // v1 → v2 : per-month incomes, grocery, catalog, recurring
+  d => {
+    if (!d.incomes)      d.incomes      = {};
+    if (!d.income)       d.income       = { amount:0, formula:null };
+    if (!d.grocery)      d.grocery      = [];
+    if (!d.catalog)      d.catalog      = [];
+    if (!d.recurring)    d.recurring    = [];
+    if (!d.installments) d.installments = [];
+    if (!d.meta.lastSync) d.meta.lastSync = null;
+    return d;
+  },
+  // v2 → v3 : formula normalisation + tag backfill
+  d => {
+    const norm = f => (f === '' ? null : f);
+    if (d.income) d.income.formula = norm(d.income.formula);
+    Object.values(d.incomes || {}).forEach(inc => { inc.formula = norm(inc.formula); });
+    (d.entries || []).forEach(e => {
+      e.formula = norm(e.formula);
+      if (!e.tags) e.tags = [];
+    });
+    (d.recurring || []).forEach(r => { r.formula = norm(r.formula); });
+    return d;
+  },
+  // v3 → v4 : grocery categories + catalog priceHistory
+  d => {
+    (d.grocery  || []).forEach(g => { if (!g.category) g.category = 'other'; });
+    (d.catalog  || []).forEach(c => { if (!c.priceHistory) c.priceHistory = []; });
+    return d;
+  },
+  // v4 → v5 : stocks, savingsGoals, fuel, fxAccounts
+  d => {
+    if (!d.stocks)       d.stocks       = [];
+    if (!d.savingsGoals) d.savingsGoals = [];
+    if (!d.fuel)         d.fuel         = [];
+    if (!d.fxAccounts)   d.fxAccounts   = [];
+    return d;
+  },
+  // v5 → v6 : audit log, plannedIncome, notifFired, cashLog
+  d => {
+    if (!d.auditLog)      d.auditLog      = [];
+    if (!d.plannedIncome) d.plannedIncome = {};
+    if (!d.notifFired)    d.notifFired    = {};
+    if (!d.cashLog)       d.cashLog       = [];
+    return d;
+  },
+  // v6 → v7 : recurring freq field backfill
+  d => {
+    (d.recurring || []).forEach(r => { if (!r.freq) r.freq = 'monthly'; });
+    return d;
+  },
+  // v7 → v8 : formula variables + housing type
+  d => {
+    if (!d.vars)    d.vars    = {};
+    if (!d.housing) d.housing = { type:'rent', amount:0 };
+    return d;
+  },
+  // v8 → v9 : rate alert + rateAlert config
+  d => {
+    if (!d.rateAlert) d.rateAlert = { threshold:null, enabled:false };
+    return d;
+  },
+  // ── Add future steps here — bump SCHEMA_VERSION above ──
+];
+
 function migrate(d) {
-  if (!d.splits)    d.splits    = { needs:50, wants:30, savings:20 };
-  if (!d.goals)     d.goals     = { needs:null, wants:null, savings:null };
-  if (!d.accounts)  d.accounts  = [];
-  if (!d.notes)     d.notes     = {};
-  if (!d.incomes)   d.incomes   = {};
-  if (!d.grocery)   d.grocery   = [];
-  if (!d.catalog)   d.catalog   = [];
-  if (!d.meta)      d.meta      = { sha:null, lastSync:null };
-  if (!d.meta.lastSync) d.meta.lastSync = null;
-  if (!d.income)    d.income    = { amount:0, formula:null };
-  if (!d.recurring)     d.recurring     = [];
-  if (!d.installments)  d.installments  = [];
-  // normalize formula '' → null
-  if (d.income.formula === '') d.income.formula = null;
-  Object.values(d.incomes).forEach(inc => { if (inc.formula === '') inc.formula = null; });
-  d.entries?.forEach(e => {
-    if (e.formula === '') e.formula = null;
-    if (!e.tags) e.tags = [];
+  const from = typeof d.v === 'number' ? d.v : 0;
+  if (from > SCHEMA_VERSION) {
+    // Vault from a newer app version — warn but don't corrupt
+    console.warn(`[migrate] Vault v${from} is newer than app v${SCHEMA_VERSION}. Running safe defaults only.`);
+  }
+  // Run only the steps the vault hasn't seen yet
+  const steps = MIGRATIONS.slice(from);
+  steps.forEach((step, i) => {
+    try {
+      d = step(d) || d;
+    } catch(e) {
+      console.error(`[migrate] Step v${from+i} → v${from+i+1} failed:`, e);
+    }
   });
-  d.recurring?.forEach(r => { if (r.formula === '') r.formula = null; });
-  d.grocery?.forEach(g => { if (!g.category) g.category = 'other'; });
-  d.catalog?.forEach(c => { if (!c.priceHistory) c.priceHistory = []; });
-  if (!d.stocks)        d.stocks        = [];
-  if (!d.savingsGoals)  d.savingsGoals  = [];
-  if (!d.fuel)          d.fuel          = [];
-  if (!d.fxAccounts)    d.fxAccounts    = [];
-  if (!d.auditLog)      d.auditLog      = [];
-  if (!d.plannedIncome) d.plannedIncome = {};
-  if (!d.notifFired)    d.notifFired    = {};
-  if (!d.cashLog)       d.cashLog       = [];
-  // normalize recurring freq field
-  d.recurring?.forEach(r => { if (!r.freq) r.freq = 'monthly'; });
+  d.v = SCHEMA_VERSION;
+  if (!d._migrationLog) d._migrationLog = [];
+  if (from < SCHEMA_VERSION) {
+    d._migrationLog.push({ from, to: SCHEMA_VERSION, ts: new Date().toISOString() });
+    // Keep last 20 migration records
+    if (d._migrationLog.length > 20) d._migrationLog = d._migrationLog.slice(-20);
+  }
   return d;
 }
 
@@ -2950,6 +3105,8 @@ function nav(sec) {
   el('sec-'+sec).classList.add('active');
   document.querySelector(`.tab[data-s="${sec}"]`).classList.add('active');
   VIEW = sec;
+  // Reset budget alert dismiss state on tab change so it can re-appear if still over
+  _budgetAlertDismissed = false;
   // Reset tag input when entering entries to prevent stale tags from previous session
   if (sec === 'entries') {
     resetTagInput();
@@ -4142,10 +4299,10 @@ function renderEntries() {
 
   if (!list.length) {
     el('ent-body').innerHTML=`<tr class="quick-add-row"><td></td>
-      <td><input id="qa-date" type="date" value="${ymd()}"></td>
-      <td><input id="qa-desc" type="text" placeholder="Description…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
-      <td><input id="qa-amt" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
-      <td><select id="qa-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
+      <td><input id="qa-date-empty" type="date" value="${defaultEntryDate()}"></td>
+      <td><input id="qa-desc-empty" type="text" placeholder="Description…" style="font-family:var(--ff)" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+      <td><input id="qa-amt-empty" type="text" placeholder="Amount" onkeydown="if(event.key==='Enter')quickAdd()"></td>
+      <td><select id="qa-cat-empty"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></td>
       <td colspan="3"></td>
       <td><button class="btn xs success" onclick="quickAdd()" title="Add (Enter)">+</button></td>
     </tr><tr><td colspan="9" class="empty">No entries.</td></tr>`;
@@ -4273,13 +4430,14 @@ function onSplitInput(changed) {
 
 // ── INLINE QUICK-ADD ────────────────────────────────────────────────────────
 function quickAdd() {
-  const date   = el('qa-date')?.value || ymd();
-  const desc   = el('qa-desc')?.value.trim() || '';
-  const amtRaw = el('qa-amt')?.value.trim() || '';
-  if (!amtRaw) { el('qa-amt')?.focus(); return; }
+  // Read from whichever quick-add row is in the DOM (empty-list row or pinned row)
+  const date   = (el('qa-date') || el('qa-date-empty'))?.value || defaultEntryDate();
+  const desc   = (el('qa-desc') || el('qa-desc-empty'))?.value?.trim() || '';
+  const amtRaw = (el('qa-amt')  || el('qa-amt-empty'))?.value?.trim() || '';
+  if (!amtRaw) { (el('qa-amt') || el('qa-amt-empty'))?.focus(); return; }
   const { amount, formula } = parseAmt(amtRaw);
   if (!amount || amount <= 0) return toast('Invalid amount', 1);
-  const cat  = el('qa-cat')?.value || 'needs';
+  const cat  = (el('qa-cat') || el('qa-cat-empty'))?.value || 'needs';
   const type = cat === 'income' ? 'income' : 'expense';
   DATA.entries.unshift({ id:uid(), date, desc, amount, formula, type,
     category: type === 'expense' ? cat : 'income', tags:[], recurId:null });
@@ -6074,6 +6232,7 @@ async function renderWealth() {
 function renderSettings() {
   renderVarsUI();
   renderHousingUI();
+  renderRateAlertUI();
   renderSplitsUI();
   renderAcctList();
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
@@ -6957,6 +7116,7 @@ async function rmFetch(force = false) {
       _rmCache[term] = { ...result, ts: Date.now() };
       if (mktEl) mktEl.value = result.rate.toFixed(3);
       if (srcEl) srcEl.textContent = result.source;
+      calcOverpayment(); calcRefi(); checkRateAlert();
     }
 
     rmCalc();
@@ -7025,6 +7185,7 @@ function rmCalc() {
   const warnEl   = el('rm-warning'), okEl   = el('rm-ok');
   const msgEl    = el('rm-warning-msg'), okMsg = el('rm-ok-msg');
 
+  checkRateAlert();
   if (warnSpread) {
     if (msgEl) msgEl.textContent =
       `⚠ Bank spread of +${spread.toFixed(3)} pp exceeds your limit of ${myLimit.toFixed(2)} pp — ` +
@@ -7046,6 +7207,201 @@ function rmCalc() {
 
 // Auto-run when Wealth tab opens
 // renderWealth calls rmFetch/rmRenderEcb/renderRateResetCalendar directly — no override needed
+
+
+// ══════════════════════════════════════════
+// RATE ALERT
+// ══════════════════════════════════════════
+let _rateAlertDismissed = false;
+
+function saveRateAlert() {
+  DATA.rateAlert = {
+    threshold: parseFloat(el('ra-threshold')?.value) || null,
+    enabled:   el('ra-enabled')?.checked || false,
+  };
+  saveLocal();
+  checkRateAlert();
+}
+
+function renderRateAlertUI() {
+  if (!DATA.rateAlert) DATA.rateAlert = { threshold: null, enabled: false };
+  const { threshold, enabled } = DATA.rateAlert;
+  const inp = el('ra-threshold'), chk = el('ra-enabled');
+  if (inp && threshold != null) inp.value = threshold;
+  if (chk) chk.checked = !!enabled;
+  checkRateAlert();
+}
+
+function checkRateAlert() {
+  const cfg     = DATA.rateAlert;
+  const bar     = el('rate-alert-bar');
+  const msg     = el('rate-alert-msg');
+  const statusEl= el('ra-status');
+  if (!bar || !msg) return;
+
+  const euribor = parseFloat(el('rm-market')?.value);
+  if (!cfg?.enabled || cfg.threshold == null || isNaN(euribor)) {
+    bar.style.display = 'none';
+    if (statusEl) statusEl.textContent = cfg?.enabled && cfg.threshold != null
+      ? 'Waiting for Euribor data — click ↻ Fetch Euribor first.'
+      : cfg?.enabled ? 'Enter a threshold % above.' : 'Alert disabled.';
+    return;
+  }
+
+  const triggered = euribor < cfg.threshold;
+  if (statusEl) {
+    const diff = (cfg.threshold - euribor).toFixed(3);
+    statusEl.textContent = triggered
+      ? `⚡ Currently triggered — Euribor ${euribor.toFixed(3)}% is below your threshold of ${cfg.threshold}%.`
+      : `Euribor ${euribor.toFixed(3)}% · ${diff} pp above your threshold of ${cfg.threshold}%.`;
+  }
+
+  if (triggered && !_rateAlertDismissed) {
+    msg.textContent = `Euribor ${euribor.toFixed(3)}% is below your alert threshold of ${cfg.threshold}% — now may be a good time to review your rate.`;
+    bar.style.display = 'flex';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function dismissRateAlert() {
+  _rateAlertDismissed = true;
+  const bar = el('rate-alert-bar');
+  if (bar) bar.style.display = 'none';
+}
+
+// ══════════════════════════════════════════
+// OVERPAYMENT SIMULATOR
+// ══════════════════════════════════════════
+function calcOverpayment() {
+  const balance = parseFloat(el('op-balance')?.value);
+  const years   = parseFloat(el('op-years')?.value);
+  const extra   = parseFloat(el('op-extra')?.value);
+  const rate    = parseFloat(el('rm-bank')?.value) || 0;
+  const res     = el('op-result');
+  if (!res) return;
+
+  if ([balance, years, extra, rate].some(v => isNaN(v) || v <= 0)) {
+    res.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Fill in all fields and ensure your bank rate is set above.</div>';
+    return;
+  }
+
+  const r  = rate / 100 / 12;
+  const n  = years * 12;
+  // Standard monthly payment
+  const pmt = balance * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+  // Total interest without overpayment
+  const totalNormal = pmt * n - balance;
+
+  // Simulate with extra payment
+  let bal = balance, mo = 0, totalInt = 0;
+  while (bal > 0.01 && mo < n * 2) {
+    const intCharge = bal * r;
+    const principal = Math.min(bal, pmt + extra - intCharge);
+    totalInt += intCharge;
+    bal -= principal;
+    mo++;
+    if (principal <= 0) break;
+  }
+
+  const saved    = totalNormal - totalInt;
+  const moSaved  = n - mo;
+  const yrSaved  = Math.floor(moSaved / 12);
+  const mRemain  = moSaved % 12;
+  const timeStr  = yrSaved > 0 ? `${yrSaved}y ${mRemain}m` : `${mRemain} months`;
+
+  res.innerHTML = `<div class="stat-grid">
+    <div class="stat highlight"><div class="stat-lbl">Interest saved</div>
+      <div class="stat-val cg">€${saved.toLocaleString('de-AT',{minimumFractionDigits:0,maximumFractionDigits:0})}</div></div>
+    <div class="stat highlight"><div class="stat-lbl">Time saved</div>
+      <div class="stat-val cg">${timeStr}</div></div>
+    <div class="stat"><div class="stat-lbl">Pay off in</div>
+      <div class="stat-val">${Math.floor(mo/12)}y ${mo%12}m</div></div>
+    <div class="stat"><div class="stat-lbl">Normal payoff</div>
+      <div class="stat-val">${years}y 0m</div></div>
+  </div>
+  <div style="font-size:11px;color:var(--ink3);margin-top:8px">Extra €${extra}/mo at ${rate}% saves €${saved.toLocaleString('de-AT',{maximumFractionDigits:0})} in interest and clears the mortgage ${timeStr} earlier.</div>`;
+}
+
+// ══════════════════════════════════════════
+// REFINANCING CALCULATOR
+// ══════════════════════════════════════════
+function calcRefi() {
+  const balance = parseFloat(el('rf-balance')?.value);
+  const newRate = parseFloat(el('rf-newrate')?.value);
+  const years   = parseFloat(el('rf-years')?.value);
+  const oldRate = parseFloat(el('rm-bank')?.value) || 0;
+  const res     = el('rf-result');
+  if (!res) return;
+
+  if ([balance, newRate, years, oldRate].some(v => isNaN(v) || v <= 0)) {
+    res.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Fill in all fields and ensure your bank rate is set above.</div>';
+    return;
+  }
+
+  const n = years * 12;
+  const monthlyCost = (r) => balance * (r/12) * Math.pow(1+r/12,n) / (Math.pow(1+r/12,n)-1);
+  const pmtOld = monthlyCost(oldRate/100);
+  const pmtNew = monthlyCost(newRate/100);
+  const totalOld = pmtOld * n;
+  const totalNew = pmtNew * n;
+  const saving   = totalOld - totalNew;
+  const mSaving  = pmtOld - pmtNew;
+  const better   = saving > 0;
+
+  res.innerHTML = `<div class="stat-grid">
+    <div class="stat ${better?'highlight':''}">
+      <div class="stat-lbl">Monthly at ${oldRate}%</div>
+      <div class="stat-val">€${pmtOld.toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="stat ${better?'highlight':''}">
+      <div class="stat-lbl">Monthly at ${newRate}%</div>
+      <div class="stat-val ${better?'cg':'cr'}">€${pmtNew.toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="stat ${better?'highlight':''}">
+      <div class="stat-lbl">Monthly saving</div>
+      <div class="stat-val ${better?'cg':'cr'}">${better?'+':''}€${Math.abs(mSaving).toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="stat ${better?'highlight':''}">
+      <div class="stat-lbl">Total saving over ${years}y</div>
+      <div class="stat-val ${better?'cg':'cr'}">${better?'+':''}€${Math.abs(saving).toLocaleString('de-AT',{minimumFractionDigits:0,maximumFractionDigits:0})}</div></div>
+  </div>
+  <div style="font-size:11px;color:var(--ink3);margin-top:8px">${better
+    ? `Refinancing from ${oldRate}% → ${newRate}% saves €${Math.abs(mSaving).toFixed(2)}/mo and €${Math.abs(saving).toLocaleString('de-AT',{maximumFractionDigits:0})} over ${years} years.`
+    : `New rate ${newRate}% is higher than current ${oldRate}% — refinancing would cost more.`
+  } Note: excludes switching fees.</div>`;
+}
+
+// ══════════════════════════════════════════
+// DUPLICATE DETECTION
+// ══════════════════════════════════════════
+function checkDuplicate() {
+  const warn   = el('ef-dup-warn'); if (!warn) return;
+  const amt    = parseFloat(el('ef-amt')?.value) || evalExpr(el('ef-amt')?.value || '');
+  const desc   = (el('ef-desc')?.value || '').trim().toLowerCase();
+  const dateV  = el('ef-date')?.value;
+  if (!amt || !dateV) { warn.style.display = 'none'; return; }
+
+  const d      = new Date(dateV + 'T00:00:00');
+  const window3= 3 * 24 * 60 * 60 * 1000; // 3 days in ms
+
+  const matches = DATA.entries.filter(e => {
+    if (Math.abs(e.amount - amt) > 0.01) return false; // different amount
+    const ed = new Date(e.date + 'T00:00:00');
+    if (Math.abs(ed - d) > window3) return false;       // outside 3-day window
+    // Optional: also flag if description is similar (>60% words match)
+    if (desc && e.desc) {
+      const aWords = new Set(desc.split(/\s+/));
+      const bWords = (e.desc||'').toLowerCase().split(/\s+/);
+      const overlap = bWords.filter(w => aWords.has(w)).length;
+      if (overlap === 0 && aWords.size > 0) return false; // no word overlap
+    }
+    return true;
+  });
+
+  if (!matches.length) { warn.style.display = 'none'; return; }
+
+  const m = matches[0];
+  warn.style.display = 'block';
+  warn.innerHTML = `⚠ Possible duplicate — a similar entry exists: <strong>${esc(m.desc||'—')}</strong> €${m.amount.toFixed(2)} on ${m.date}. Double-check before saving.`;
+}
 
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
@@ -7841,9 +8197,7 @@ function exportFuelCSV() {
 function onPlannedIncomeInput() {
   const month = curMonth();
   const val   = parseFloat(el('d-planned-income').value) || 0;
-  if (!DATA.plannedIncome) DATA.plannedIncome = {};
-  if (!DATA.vars)    DATA.vars    = {};
-  if (!DATA.housing) DATA.housing = { type: 'rent', amount: 0 };
+  // Schema fields guaranteed by migrate() — no inline guards needed
   if (val > 0) DATA.plannedIncome[month] = val;
   else delete DATA.plannedIncome[month];
   saveLocal();
@@ -8249,6 +8603,32 @@ function runVaultHealth() {
   notes.push({ icon:'ℹ', text:`${(DATA.entries||[]).length} entries · ${(DATA.accounts||[]).length} accounts · ${(DATA.fuel||[]).length} fuel records · ${(DATA.fxAccounts||[]).length} FX accounts` });
   notes.push({ icon:'ℹ', text:`${(DATA.recurring||[]).length} recurring · ${(DATA.savingsGoals||[]).length} savings goals · ${(DATA.stocks||[]).length} stock positions` });
 
+  // ── Schema version info ─────────────────────────────────────────────────
+  const vaultV   = DATA.v ?? 0;
+  const isCurrent = vaultV === SCHEMA_VERSION;
+  const lastMig  = DATA._migrationLog?.slice(-1)[0];
+  notes.push({
+    icon: isCurrent ? '✓' : '⬆',
+    text: `Schema v${vaultV}${isCurrent ? ' (current)' : ` — upgradeable to v${SCHEMA_VERSION}`}` +
+          (lastMig ? ` · last migrated from v${lastMig.from} on ${lastMig.ts.slice(0,10)}` : '')
+  });
+
+  // ── Completeness score ──────────────────────────────────────────────────
+  const entries = DATA.entries || [];
+  const scored  = entries.filter(e => e.desc && e.desc.trim() && e.accountId && e.category).length;
+  const score   = entries.length > 0 ? Math.round(scored / entries.length * 100) : 100;
+  const scoreColor = score >= 90 ? 'var(--Gm)' : score >= 70 ? 'var(--Am)' : 'var(--Rm)';
+  const badgeEl = el('vh-score-badge');
+  if (badgeEl) badgeEl.innerHTML =
+    `<span style="color:${scoreColor};font-weight:600">${score}%</span> complete`;
+
+  // Also surface sparse entries as an issue
+  const sparse = entries.length - scored;
+  if (sparse > 0) {
+    const pct = Math.round(sparse/entries.length*100);
+    issues.push({ icon:'ℹ', text:`${sparse} entr${sparse===1?'y':'ies'} (${pct}%) missing description, account, or category`, fix:'Complete these for better tracking and AI analysis.' });
+  }
+
   if (!issues.length) {
     wrap.innerHTML = `<div style="color:var(--Gm);font-size:13px;font-weight:500;margin-bottom:8px">✓ No issues found — vault data looks healthy.</div>` +
       notes.map(n => `<div class="vh-item"><span class="vh-icon" style="color:var(--ink3)">${n.icon}</span><div class="vh-body">${n.text}</div></div>`).join('');
@@ -8257,7 +8637,7 @@ function runVaultHealth() {
 
   wrap.innerHTML = issues.map(iss =>
     `<div class="vh-item">
-      <span class="vh-icon" style="color:var(--Am)">${esc(iss.icon)}</span>
+      <span class="vh-icon" style="color:${iss.icon==='ℹ'?'var(--ink3)':'var(--Am)'}">${esc(iss.icon)}</span>
       <div class="vh-body">
         <div>${esc(iss.text)}</div>
         ${iss.fix ? `<div class="vh-fix">${esc(iss.fix)}</div>` : ''}
