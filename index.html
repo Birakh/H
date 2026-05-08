@@ -1506,6 +1506,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
           <div class="fg" style="margin:0;display:flex;align-items:flex-end"><button class="btn primary full" onclick="addShopItem()">Add</button></div>
         </div>
+        <!-- Joker / promo discount selector -->
+        <div class="gr-discount-row" id="gr-discount-row">
+          <span style="font-size:12px;font-weight:600;color:var(--Gm)">🃏 Promo discount</span>
+          <button class="gr-discount-btn" id="gd-0"   onclick="setGrDiscount(0)"    title="No discount">None</button>
+          <button class="gr-discount-btn" id="gd-25"  onclick="setGrDiscount(25)"   title="Joker 25%">−25%</button>
+          <button class="gr-discount-btn" id="gd-30"  onclick="setGrDiscount(30)"   title="Joker 30%">−30%</button>
+          <button class="gr-discount-btn" id="gd-50"  onclick="setGrDiscount(50)"   title="50% off">−50%</button>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:11px;color:var(--ink3)">custom</span>
+            <input type="number" id="gd-custom" min="1" max="99" step="1" placeholder="%" 
+              style="width:58px;font-family:var(--mono);font-size:12px;padding:2px 6px"
+              oninput="setGrDiscount(parseFloat(this.value)||0,'custom')">
+            <span style="font-size:11px;color:var(--ink3)">%</span>
+          </div>
+          <span id="gd-preview" style="font-size:11px;color:var(--Gm);font-family:var(--mono);margin-left:4px"></span>
+        </div>
         <div id="gr-price-warn" style="display:none;font-size:12px;padding:6px 10px;background:var(--Rbg);color:var(--R);border-radius:var(--rs);margin-top:-4px"></div>
       </div>
 
@@ -1519,7 +1535,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="tbl-wrap"><table>
         <thead><tr>
           <th style="width:28px"></th><th>Item</th><th class="gr-hide-mob">Category</th>
-          <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob">Bought</th><th></th>
+          <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Disc.</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob">Bought</th><th></th>
         </tr></thead>
         <tbody id="gr-body"></tbody>
       </table></div>
@@ -2260,7 +2276,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 9,
+  v: 10,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2925,7 +2941,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 9; // current target version
+const SCHEMA_VERSION = 10; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -2996,6 +3012,11 @@ const MIGRATIONS = [
   // v8 → v9 : rate alert + rateAlert config
   d => {
     if (!d.rateAlert) d.rateAlert = { threshold:null, enabled:false };
+    return d;
+  },
+  // v9 → v10 : grocery item discount field
+  d => {
+    (d.grocery||[]).forEach(g => { if (g.discount == null) g.discount = 0; });
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -4679,23 +4700,57 @@ function checkPriceDelta(name, currentPrice) {
   }
 }
 // also check when price is typed manually
+// ── Grocery discount state ─────────────────────────────────────────────────
+let _grDiscount = 0; // active session discount %
+
+function setGrDiscount(pct, source) {
+  _grDiscount = pct;
+  // Highlight active button
+  [0, 25, 30, 50].forEach(v => {
+    const btn = el(`gd-${v}`);
+    if (btn) btn.classList.toggle('active', pct === v && source !== 'custom');
+  });
+  if (source !== 'custom') {
+    const cust = el('gd-custom');
+    if (cust) cust.value = pct > 0 && ![25,30,50].includes(pct) ? pct : '';
+  } else {
+    [0,25,30,50].forEach(v => el(`gd-${v}`)?.classList.remove('active'));
+  }
+  updateGrDiscountPreview();
+}
+
+function updateGrDiscountPreview() {
+  const preview = el('gd-preview'); if (!preview) return;
+  const price   = parseFloat(el('gr-price')?.value) || 0;
+  if (!_grDiscount) { preview.textContent = ''; return; }
+  if (price) {
+    const saved = price * _grDiscount / 100;
+    const final = price - saved;
+    preview.textContent = `€${price.toFixed(2)} → €${final.toFixed(2)} (save €${saved.toFixed(2)})`;
+  } else {
+    preview.textContent = `−${_grDiscount}% applied to next item`;
+  }
+}
+
 el('gr-price')?.addEventListener('input', () => {
   const name=el('gr-search').value.trim();
   const price=parseFloat(el('gr-price').value)||0;
   if (name&&price) checkPriceDelta(name,price);
+  updateGrDiscountPreview();
 });
 
 async function addShopItem() {
   try {
     const name=el('gr-search').value.trim(); if(!name) return toast('Enter an item.',1);
     const price=parseFloat(el('gr-price').value)||0;
+    const discount=_grDiscount||0; // store the active session discount with the item
     DATA.grocery.push({
       id:uid(), name, store:el('gr-store').value.trim(),
       category:el('gr-cat').value,
       qty:parseInt(el('gr-qty').value)||1,
-      price, bought:false, boughtDate:null
+      price, discount, bought:false, boughtDate:null
     });
-    // update catalog lastPrice and price history
+    // update catalog lastPrice using the undiscounted price
     if (price) {
       const cat=DATA.catalog.find(c=>c.name.toLowerCase()===name.toLowerCase());
       if (cat) {
@@ -4708,6 +4763,7 @@ async function addShopItem() {
     saveLocal();
     el('gr-search').value=''; el('gr-price').value=''; el('gr-qty').value='1';
     el('gr-price-warn').style.display='none'; el('gr-price-delta').textContent='';
+    el('gd-preview').textContent='';
     renderGrocery();
   } catch(e) { toast(e.message || 'Failed to add item.', 1); }
 }
@@ -4753,9 +4809,12 @@ async function clearBought() {
 function renderGrocery() {
   updateCatalogInfo(); buildGrCatFilter();
   const all=DATA.grocery;
-  const pending=all.filter(g=>!g.bought).reduce((s,g)=>s+g.qty*(g.price||0),0);
-  const done   =all.filter(g=> g.bought).reduce((s,g)=>s+g.qty*(g.price||0),0);
-  el('gr-totals').textContent=`pending ${fmt(pending)} · bought ${fmt(done)}`;
+  const effPrice = g => (g.price||0) * (1 - (g.discount||0)/100);
+  const pending   = all.filter(g=>!g.bought).reduce((s,g)=>s+g.qty*effPrice(g),0);
+  const done      = all.filter(g=> g.bought).reduce((s,g)=>s+g.qty*effPrice(g),0);
+  const savedAmt  = all.reduce((s,g)=>s+g.qty*(g.price||0)*(g.discount||0)/100,0);
+  el('gr-totals').textContent=`pending ${fmt(pending)} · bought ${fmt(done)}`
+    + (savedAmt>0.001 ? ` · saving ${fmt(savedAmt)}` : '');
 
   let show=[...all];
   if (_grCatFilter!=='all') show=show.filter(g=>g.category===_grCatFilter);
@@ -4814,7 +4873,26 @@ function renderGrocery() {
         onchange="updateGroceryField('${g.id}','qty',Math.max(1,+this.value||1))"></td>
       <td><input class="gr-edit-input" type="text" value="${g.price||''}" placeholder="—"
         style="width:65px" onchange="updateGroceryField('${g.id}','price',parseFloat(this.value.replace(',','.'))||0)"></td>
-      <td class="num ${g.bought?'muted':''}">${g.price?fmt(g.qty*g.price):'—'}</td>
+      <td>
+        ${(g.discount||0)>0
+          ? `<select class="gr-edit-input" style="font-size:11px;padding:1px 3px"
+               onchange="updateGroceryField('${g.id}','discount',parseFloat(this.value)||0)">
+               ${[0,25,30,50].map(v=>`<option value="${v}" ${g.discount==v?'selected':''}>${v===0?'—':'-'+v+'%'}</option>`).join('')}
+               ${![0,25,30,50].includes(g.discount)?`<option value="${g.discount}" selected>-${g.discount}%</option>`:''}
+             </select>
+             <span class="discount-badge">-${g.discount}%</span>`
+          : `<select class="gr-edit-input" style="font-size:11px;padding:1px 3px"
+               onchange="updateGroceryField('${g.id}','discount',parseFloat(this.value)||0)">
+               ${[0,25,30,50].map(v=>`<option value="${v}" ${(g.discount||0)==v?'selected':''}>${v===0?'—':'-'+v+'%'}</option>`).join('')}
+             </select>`}
+      </td>
+      <td class="num ${g.bought?'muted':''}">
+        ${g.price
+          ? ((g.discount||0)>0
+            ? `<span class="price-strike">${fmt(g.qty*g.price)}</span><span class="price-discounted">${fmt(g.qty*g.price*(1-(g.discount||0)/100))}</span>`
+            : fmt(g.qty*g.price))
+          : '—'}
+      </td>
       <td>${trendCell}</td>
       <td class="num muted">${g.boughtDate||'—'}</td>
       <td><button class="btn xs danger" onclick="deleteGrocery('${g.id}')">✕</button></td>
@@ -4823,11 +4901,13 @@ function renderGrocery() {
 }
 
 function exportGroceryCSV() {
-  const lines=['Item,Category,Store,Qty,Unit Price,Total,Bought,Date Bought'];
-  DATA.grocery.forEach(g=>lines.push(
-    [`"${g.name}"`,GR_CATS[g.category]||g.category,`"${g.store||''}"`,
-     g.qty,g.price||0,(g.qty*(g.price||0)).toFixed(2),g.bought?'Yes':'No',g.boughtDate||''].join(',')
-  ));
+  const lines=['Item,Category,Store,Qty,Unit Price,Discount %,Discounted Total,Bought,Date Bought'];
+  DATA.grocery.forEach(g => {
+    const eff = (g.price||0) * (1 - (g.discount||0)/100);
+    lines.push([`"${g.name}"`,GR_CATS[g.category]||g.category,`"${g.store||''}"`,
+      g.qty, g.price||0, g.discount||0, (g.qty*eff).toFixed(2),
+      g.bought?'Yes':'No', g.boughtDate||''].join(','));
+  });
   dl(lines.join('\n'),`grocery_${ymd()}.csv`,'text/csv');
 }
 
