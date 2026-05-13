@@ -2181,6 +2181,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div style="overflow-x:auto"><div id="fuel-chart"></div></div>
       </div>
 
+      <!-- ── Refuel history chart ── -->
+      <div class="card">
+        <div class="card-title">Refuel history
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn xs ghost" id="fh-btn-km"    onclick="setFuelHistoryMode('km')"    style="border-radius:20px">km / fill</button>
+            <button class="btn xs ghost" id="fh-btn-cost"  onclick="setFuelHistoryMode('cost')"  style="border-radius:20px">cost / fill</button>
+            <button class="btn xs ghost" id="fh-btn-eff"   onclick="setFuelHistoryMode('eff')"   style="border-radius:20px">L/100 km</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto"><div id="fuel-history-chart"></div></div>
+      </div>
+
       <!-- ── Log refuel form ── -->
       <div class="card">
         <div class="card-title">Log refuel</div>
@@ -2221,8 +2233,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
             <label>Odometer (km) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
-            <input type="number" id="fuel-odo" min="0" step="1" placeholder="87 420" style="font-family:var(--mono)" oninput="updateOdoHelper()">
+            <input type="number" id="fuel-odo" min="0" step="1" placeholder="87 420" style="font-family:var(--mono)" oninput="onFuelOdoInput()">
             <div id="fuel-odo-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:15px;color:var(--ink3)"></div>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Trip km <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">since last fill</span></label>
+            <input type="number" id="fuel-trip-km" min="0" step="1" placeholder="450" style="font-family:var(--mono)" oninput="onFuelTripKmInput()">
+            <div id="fuel-trip-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:15px;color:var(--ink3)"></div>
           </div>
           <div class="fg" style="margin:0">
             <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
@@ -7727,6 +7744,162 @@ function dismissServiceAlert() {
   if (b) b.style.display = 'none';
 }
 
+
+// ══════════════════════════════════════════
+// FUEL HISTORY CHART + TRIP KM
+// ══════════════════════════════════════════
+let _fuelHistoryMode = 'km'; // 'km' | 'cost' | 'eff'
+
+function setFuelHistoryMode(mode) {
+  _fuelHistoryMode = mode;
+  ['km','cost','eff'].forEach(m => {
+    const btn = el(`fh-btn-${m}`);
+    if (btn) btn.style.fontWeight = m === mode ? '700' : '400';
+  });
+  renderFuelHistory((DATA.fuel||[]).sort((a,b)=>a.date.localeCompare(b.date)));
+}
+
+function renderFuelHistory(records) {
+  const wrap = el('fuel-history-chart'); if (!wrap) return;
+  // Highlight active button
+  setFuelHistoryMode(_fuelHistoryMode);
+
+  const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
+  // Build points with deltas
+  const pts = sorted.map((f,i) => {
+    const prev = sorted[i-1];
+    const km   = (f.odo && prev?.odo && f.odo > prev.odo) ? f.odo - prev.odo : null;
+    const eff  = (km && km > 0) ? +(f.liters / km * 100).toFixed(2) : null;
+    return { date:f.date, km, cost:f.total, eff };
+  }).filter(p => {
+    if (_fuelHistoryMode === 'km')   return p.km   != null;
+    if (_fuelHistoryMode === 'eff')  return p.eff  != null;
+    return true; // cost always available
+  });
+
+  if (pts.length < 2) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:12px 0">Need at least 2 refuels with odometer readings.</div>';
+    return;
+  }
+
+  const W=600, H=130, padL=48, padR=16, padT=14, padB=24;
+  const cW=W-padL-padR, cH=H-padT-padB;
+  const vals    = pts.map(p => _fuelHistoryMode==='km' ? p.km : _fuelHistoryMode==='cost' ? p.cost : p.eff);
+  const minV    = Math.min(...vals)*0.95, maxV = Math.max(...vals)*1.05;
+  const range   = maxV - minV || 1;
+  const xS      = i => padL + i*(cW/Math.max(pts.length-1,1));
+  const yS      = v  => padT + cH - ((v-minV)/range)*cH;
+  const color   = _fuelHistoryMode==='km' ? 'var(--Bm)' : _fuelHistoryMode==='cost' ? 'var(--Rm)' : 'var(--Gm)';
+  const label   = _fuelHistoryMode==='km' ? 'km' : _fuelHistoryMode==='cost' ? '€' : 'L/100km';
+  const fmt2    = v => _fuelHistoryMode==='cost' ? '€'+v.toFixed(2) : _fuelHistoryMode==='km' ? v.toLocaleString('de-AT')+' km' : v.toFixed(1)+' L/100';
+
+  // Bar chart (for km and cost) or line (for efficiency)
+  let body = '';
+  if (_fuelHistoryMode === 'eff') {
+    // Line chart for efficiency — easier to read trends
+    const pts2   = pts.map((p,i) => `${xS(i).toFixed(1)},${yS(p.eff).toFixed(1)}`).join(' ');
+    const areaD  = `M${xS(0).toFixed(1)},${(padT+cH).toFixed(1)} `
+      + pts.map((p,i) => `L${xS(i).toFixed(1)},${yS(p.eff).toFixed(1)}`).join(' ')
+      + ` L${xS(pts.length-1).toFixed(1)},${(padT+cH).toFixed(1)} Z`;
+    const dots   = pts.map((p,i) => {
+      const c = p.eff > 8 ? 'var(--Rm)' : p.eff < 6 ? 'var(--Gm)' : 'var(--Am)';
+      return `<circle cx="${xS(i).toFixed(1)}" cy="${yS(p.eff).toFixed(1)}" r="3.5" fill="${c}"><title>${p.date}: ${p.eff.toFixed(1)} L/100km</title></circle>`;
+    }).join('');
+    // Average line
+    const avg  = vals.reduce((a,b)=>a+b,0)/vals.length;
+    const avgY = yS(avg).toFixed(1);
+    body = `<path d="${areaD}" fill="${color}" opacity=".07"/>
+      <polyline points="${pts2}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <line x1="${padL}" y1="${avgY}" x2="${W-padR}" y2="${avgY}" stroke="${color}" stroke-width=".8" stroke-dasharray="3,3" opacity=".5"/>
+      <text x="${W-padR-2}" y="${+avgY-3}" font-size="8" fill="${color}" text-anchor="end" opacity=".7">avg ${avg.toFixed(1)}</text>
+      ${dots}`;
+  } else {
+    // Bar chart for km and cost
+    const barW = Math.max(4, Math.min(24, cW/pts.length - 3));
+    const bars = pts.map((p,i) => {
+      const v   = _fuelHistoryMode==='km' ? p.km : p.cost;
+      const by  = padT+cH;
+      const bh  = Math.max(2, by - yS(v));
+      const bx  = xS(i) - barW/2;
+      return `<rect x="${bx.toFixed(1)}" y="${yS(v).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${color}" opacity=".75" rx="2"><title>${p.date}: ${fmt2(v)}</title></rect>`;
+    }).join('');
+    // Average line
+    const avg  = vals.reduce((a,b)=>a+b,0)/vals.length;
+    const avgY = yS(avg).toFixed(1);
+    body = `${bars}
+      <line x1="${padL}" y1="${avgY}" x2="${W-padR}" y2="${avgY}" stroke="${color}" stroke-width="1" stroke-dasharray="4,3" opacity=".5"/>
+      <text x="${W-padR-2}" y="${+avgY-3}" font-size="8" fill="${color}" text-anchor="end" opacity=".8">avg ${fmt2(avg)}</text>`;
+  }
+
+  // Y axis ticks
+  const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${_fuelHistoryMode==='km'?Math.round(v).toLocaleString('de-AT'):_fuelHistoryMode==='cost'?v.toFixed(0):v.toFixed(1)}</text>`
+  ).join('');
+
+  // X axis labels
+  const every = Math.max(1, Math.ceil(pts.length/7));
+  const xLabels = pts.map((p,i) => i%every!==0 ? '' :
+    `<text x="${xS(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${p.date.slice(5)}</text>`
+  ).join('');
+
+  // Latest value callout
+  const last = pts[pts.length-1];
+  const lastV = vals[vals.length-1];
+  const prev2 = vals.length > 1 ? vals[vals.length-2] : null;
+  const trend = prev2 != null ? (lastV > prev2 ? '▲' : lastV < prev2 ? '▼' : '—') : '';
+  const trendC = _fuelHistoryMode==='eff'
+    ? (lastV > 8 ? 'var(--Rm)' : 'var(--Gm)')
+    : (lastV > (prev2||lastV) ? 'var(--Rm)' : 'var(--Gm)');
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    <line x1="${padL}" y1="${padT+cH}" x2="${W-padR}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    ${body}
+    ${yTicks}${xLabels}
+    <text x="${xS(pts.length-1).toFixed(1)}" y="${yS(lastV).toFixed(1)-8}" font-size="9" fill="${trendC}" font-weight="600" text-anchor="middle">${trend} ${fmt2(lastV)}</text>
+  </svg>`;
+}
+
+// ── Two-way sync: odo ↔ trip km ─────────────────────────────────────────────
+function _lastRecordedOdo() {
+  return [...(DATA.fuel||[])].sort((a,b)=>a.date.localeCompare(b.date))
+    .filter(f=>f.odo).slice(-1)[0]?.odo ?? null;
+}
+
+function onFuelOdoInput() {
+  const odo  = parseFloat(el('fuel-odo')?.value);
+  const last = _lastRecordedOdo();
+  // Auto-fill trip km if we have a previous reading
+  if (odo > 0 && last != null) {
+    const trip = odo - last;
+    const tripEl = el('fuel-trip-km');
+    if (tripEl && !tripEl.dataset.userEdited) tripEl.value = trip > 0 ? trip : '';
+    const th = el('fuel-trip-helper');
+    if (th) th.textContent = trip > 0 ? '' : '';
+  }
+  updateOdoHelper();
+}
+
+function onFuelTripKmInput() {
+  const trip = parseFloat(el('fuel-trip-km')?.value);
+  const last = _lastRecordedOdo();
+  const tripEl = el('fuel-trip-km');
+  if (tripEl) tripEl.dataset.userEdited = '1';
+
+  const th = el('fuel-trip-helper');
+  if (!trip || trip <= 0) { if (th) th.textContent = ''; return; }
+
+  if (last != null) {
+    const newOdo = last + trip;
+    const odoEl  = el('fuel-odo');
+    if (odoEl) odoEl.value = newOdo;
+    if (th) th.innerHTML = `Odometer → <strong>${newOdo.toLocaleString('de-AT')} km</strong> <span style="color:var(--ink3)">(${last.toLocaleString('de-AT')} + ${trip.toLocaleString('de-AT')})</span>`;
+    updateOdoHelper();
+  } else {
+    if (th) th.textContent = 'No previous odometer — fill full odometer instead';
+  }
+}
+
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
 // ══════════════════════════════════════════
@@ -8347,6 +8520,8 @@ async function addFuel() {
     el('fuel-liters').value = ''; el('fuel-ppl').value = '';
     el('fuel-total').value  = ''; el('fuel-odo').value = '';
     const _oh = el('fuel-odo-helper'); if (_oh) _oh.textContent = '';
+    const _tk = el('fuel-trip-km'); if (_tk) { _tk.value=''; delete _tk.dataset.userEdited; }
+    const _th = el('fuel-trip-helper'); if (_th) _th.textContent = '';
     el('fuel-note').value   = ''; el('fuel-station').value = '';
     el('fuel-preview').textContent = '';
     renderFuel();
