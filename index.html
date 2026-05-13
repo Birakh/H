@@ -673,6 +673,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 /* ── FUEL PRICE MAP ── */
 .fuel-station-card{background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px}
+/* service banner */
+#service-alert-bar{position:fixed;top:0;left:0;right:0;z-index:997;display:none;
+  align-items:center;gap:10px;padding:7px 16px;font-size:13px;font-weight:500;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);animation:slideDown .25s ease}
+#service-alert-bar.warn{background:var(--Abg);color:var(--Am);border-bottom:1.5px solid var(--Am)}
+#service-alert-bar.urgent{background:var(--Rbg,#fee);color:var(--Rm);border-bottom:1.5px solid var(--Rm)}
+#service-alert-bar button{background:none;border:none;cursor:pointer;font-size:16px;opacity:.7;padding:0 4px;color:inherit}
+#service-alert-bar button:hover{opacity:1}
+/* service progress bar */
+.svc-bar-track{background:var(--s2);border-radius:100px;height:6px;margin:5px 0 2px;overflow:hidden}
+.svc-bar-fill{height:100%;border-radius:100px;transition:width .4s}
 .fuel-station-name{font-size:13px;font-weight:500;margin-bottom:6px}
 .fuel-station-meta{font-size:11px;color:var(--ink3);font-family:var(--mono)}
 
@@ -846,6 +857,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </header>
   <div id="toast"></div>
+  <div id="service-alert-bar">
+    <span id="svc-alert-icon">🔧</span>
+    <span id="svc-alert-msg" style="flex:1"></span>
+    <button onclick="dismissServiceAlert()" title="Dismiss">✕</button>
+  </div>
   <div id="rate-alert-bar">
     <span>📉</span>
     <span id="rate-alert-msg" style="flex:1"></span>
@@ -2256,6 +2272,49 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="fuel-monthly"></div>
       </div>
 
+      <!-- ── Car service tracker ── -->
+      <div class="card" id="svc-card">
+        <div class="card-title">Car maintenance
+          <button class="btn xs ghost" onclick="saveCarService()">Save</button>
+        </div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">
+          Track your last service and tyre change. The app calculates when the next is due
+          and shows a banner one month before.
+        </div>
+
+        <!-- Oil / full service -->
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🔧 Oil &amp; full service</div>
+        <div class="g3" style="margin-bottom:8px">
+          <div class="fg" style="margin:0"><label>Last service date</label>
+            <input type="date" id="svc-date" oninput="updateServicePreview()"></div>
+          <div class="fg" style="margin:0"><label>Odometer at service (km)</label>
+            <input type="number" id="svc-km" placeholder="87 500" step="100" style="font-family:var(--mono)" oninput="updateServicePreview()"></div>
+          <div class="fg" style="margin:0"><label>Interval</label>
+            <div style="display:flex;gap:6px">
+              <input type="number" id="svc-int-km" placeholder="15 000 km" step="1000" style="font-family:var(--mono);flex:1" oninput="updateServicePreview()">
+              <input type="number" id="svc-int-mo" placeholder="12 mo" step="1" min="1" max="36" style="font-family:var(--mono);width:70px" oninput="updateServicePreview()">
+            </div>
+          </div>
+        </div>
+        <div id="svc-preview" style="font-size:12px;color:var(--ink2);margin-bottom:12px"></div>
+
+        <!-- Tyre change -->
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:4px">🛞 Tyre change</div>
+        <div class="g3" style="margin-bottom:8px">
+          <div class="fg" style="margin:0"><label>Last tyre change date</label>
+            <input type="date" id="tire-date" oninput="updateServicePreview()"></div>
+          <div class="fg" style="margin:0"><label>Odometer at change (km)</label>
+            <input type="number" id="tire-km" placeholder="72 000" step="100" style="font-family:var(--mono)" oninput="updateServicePreview()"></div>
+          <div class="fg" style="margin:0"><label>Interval</label>
+            <div style="display:flex;gap:6px">
+              <input type="number" id="tire-int-km" placeholder="40 000 km" step="1000" style="font-family:var(--mono);flex:1" oninput="updateServicePreview()">
+              <input type="number" id="tire-int-mo" placeholder="60 mo" step="1" min="1" max="120" style="font-family:var(--mono);width:70px" oninput="updateServicePreview()">
+            </div>
+          </div>
+        </div>
+        <div id="tire-preview" style="font-size:12px;color:var(--ink2);margin-bottom:4px"></div>
+      </div>
+
       <!-- ── Station price map ── -->
       <div class="card">
         <div class="card-title">Station price map
@@ -2276,7 +2335,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 10,
+  v: 11,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2300,7 +2359,8 @@ const FRESH = () => ({
   vars:          {},         // { name: { value, desc, type } } — named variables for formulas
   housing:       { type: 'rent', amount: 0 },  // 'rent' | 'mortgage'
   rateAlert:     { threshold: null, enabled: false },
-  _migrationLog: []  // audit trail of schema upgrades
+  _migrationLog: [],  // audit trail of schema upgrades
+  carService: { serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12, tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60 }
 });
 
 const GR_CATS = {
@@ -2941,7 +3001,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 10; // current target version
+const SCHEMA_VERSION = 11; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3017,6 +3077,14 @@ const MIGRATIONS = [
   // v9 → v10 : grocery item discount field
   d => {
     (d.grocery||[]).forEach(g => { if (g.discount == null) g.discount = 0; });
+    return d;
+  },
+  // v10 → v11 : car service tracker
+  d => {
+    if (!d.carService) d.carService = {
+      serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12,
+      tireDate:null,    tireKm:null,    tireIntKm:40000,    tireIntMo:60,
+    };
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -3126,7 +3194,8 @@ function nav(sec) {
   el('sec-'+sec).classList.add('active');
   document.querySelector(`.tab[data-s="${sec}"]`).classList.add('active');
   VIEW = sec;
-  // Reset budget alert dismiss state on tab change so it can re-appear if still over
+  // Reset service + budget alert dismiss state on tab change
+  _svcAlertDismissed = false; // re-appear if still over budget
   _budgetAlertDismissed = false;
   // Reset tag input when entering entries to prevent stale tags from previous session
   if (sec === 'entries') {
@@ -7483,6 +7552,180 @@ function checkDuplicate() {
   warn.innerHTML = `⚠ Possible duplicate — a similar entry exists: <strong>${esc(m.desc||'—')}</strong> €${m.amount.toFixed(2)} on ${m.date}. Double-check before saving.`;
 }
 
+
+// ══════════════════════════════════════════
+// CAR SERVICE TRACKER
+// ══════════════════════════════════════════
+let _svcAlertDismissed = false;
+
+function saveCarService() {
+  if (!DATA.carService) DATA.carService = {};
+  Object.assign(DATA.carService, {
+    serviceDate:  el('svc-date')?.value  || null,
+    serviceKm:    parseFloat(el('svc-km')?.value)     || null,
+    serviceIntKm: parseFloat(el('svc-int-km')?.value) || 15000,
+    serviceIntMo: parseFloat(el('svc-int-mo')?.value) || 12,
+    tireDate:     el('tire-date')?.value || null,
+    tireKm:       parseFloat(el('tire-km')?.value)     || null,
+    tireIntKm:    parseFloat(el('tire-int-km')?.value) || 40000,
+    tireIntMo:    parseFloat(el('tire-int-mo')?.value) || 60,
+  });
+  saveLocal();
+  updateServicePreview();
+  checkServiceAlert();
+  toast('Service dates saved');
+}
+
+function renderCarServiceUI() {
+  const s = DATA.carService;
+  if (!s) return;
+  const set = (id, val) => { const e = el(id); if (e && val != null) e.value = val; };
+  set('svc-date',    s.serviceDate);
+  set('svc-km',      s.serviceKm);
+  set('svc-int-km',  s.serviceIntKm || 15000);
+  set('svc-int-mo',  s.serviceIntMo || 12);
+  set('tire-date',   s.tireDate);
+  set('tire-km',     s.tireKm);
+  set('tire-int-km', s.tireIntKm || 40000);
+  set('tire-int-mo', s.tireIntMo || 60);
+  updateServicePreview();
+  checkServiceAlert();
+}
+
+function _nextDue(lastDateStr, lastKm, intKm, intMo, currentKm) {
+  // Returns { byDate, byKm, kmLeft, daysLeft, dueSoon, overdue }
+  const result = {};
+  if (lastDateStr) {
+    const last = new Date(lastDateStr + 'T00:00:00');
+    const next = new Date(last);
+    next.setMonth(next.getMonth() + (intMo || 12));
+    result.byDate  = next;
+    result.daysLeft = Math.ceil((next - new Date()) / 86400000);
+  }
+  if (lastKm != null && currentKm != null) {
+    result.byKm   = lastKm + (intKm || 15000);
+    result.kmLeft = result.byKm - currentKm;
+  }
+  // Due soon = within 30 days OR within 1000 km
+  result.dueSoon = (result.daysLeft != null && result.daysLeft <= 30 && result.daysLeft > 0)
+                || (result.kmLeft  != null && result.kmLeft  <= 1000 && result.kmLeft > 0);
+  result.overdue = (result.daysLeft != null && result.daysLeft <= 0)
+                || (result.kmLeft  != null && result.kmLeft  <= 0);
+  return result;
+}
+
+function _currentOdo() {
+  const odos = (DATA.fuel||[]).map(f=>f.odo).filter(Boolean);
+  return odos.length ? Math.max(...odos) : null;
+}
+
+function _svcProgressBar(used, total, color) {
+  const pct = Math.min(100, Math.max(0, Math.round(used/total*100)));
+  const c   = used >= total ? 'var(--Rm)' : used/total > 0.85 ? 'var(--Am)' : color;
+  return `<div class="svc-bar-track"><div class="svc-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3)">
+            <span>${Math.round(used).toLocaleString('de-AT')} used</span>
+            <span>${Math.round(total).toLocaleString('de-AT')} interval</span>
+          </div>`;
+}
+
+function updateServicePreview() {
+  const s = DATA.carService || {};
+  const currentOdo = _currentOdo();
+
+  // ── Service preview ──
+  const svcPrev = el('svc-preview');
+  if (svcPrev) {
+    const sd = el('svc-date')?.value, sk = parseFloat(el('svc-km')?.value)||null;
+    const ik = parseFloat(el('svc-int-km')?.value)||s.serviceIntKm||15000;
+    const im = parseFloat(el('svc-int-mo')?.value)||s.serviceIntMo||12;
+    if (sd || sk) {
+      const due = _nextDue(sd, sk, ik, im, currentOdo);
+      const parts = [];
+      if (due.byDate) parts.push(`Next service date: <strong>${due.byDate.toLocaleDateString('de-AT')}</strong>`
+        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
+        + `(${due.daysLeft > 0 ? due.daysLeft+' days' : 'overdue by '+Math.abs(due.daysLeft)+' days'})</span>`);
+      if (due.byKm != null) parts.push(`Next service km: <strong>${due.byKm.toLocaleString('de-AT')}</strong>`
+        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
+        + `(${due.kmLeft > 0 ? due.kmLeft.toLocaleString('de-AT')+' km left' : Math.abs(due.kmLeft).toLocaleString('de-AT')+' km overdue'})</span>`);
+      svcPrev.innerHTML = parts.join('<br>')
+        + (sk && currentOdo ? _svcProgressBar(currentOdo-sk, ik, 'var(--Bm)') : '');
+    } else {
+      svcPrev.textContent = '';
+    }
+  }
+
+  // ── Tyre preview ──
+  const tirePrev = el('tire-preview');
+  if (tirePrev) {
+    const td = el('tire-date')?.value, tk = parseFloat(el('tire-km')?.value)||null;
+    const ik = parseFloat(el('tire-int-km')?.value)||s.tireIntKm||40000;
+    const im = parseFloat(el('tire-int-mo')?.value)||s.tireIntMo||60;
+    if (td || tk) {
+      const due = _nextDue(td, tk, ik, im, currentOdo);
+      const parts = [];
+      if (due.byDate) parts.push(`Next tyre change: <strong>${due.byDate.toLocaleDateString('de-AT')}</strong>`
+        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
+        + `(${due.daysLeft > 0 ? due.daysLeft+' days' : 'overdue by '+Math.abs(due.daysLeft)+' days'})</span>`);
+      if (due.byKm != null) parts.push(`Next tyre km: <strong>${due.byKm.toLocaleString('de-AT')}</strong>`
+        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
+        + `(${due.kmLeft > 0 ? due.kmLeft.toLocaleString('de-AT')+' km left' : Math.abs(due.kmLeft).toLocaleString('de-AT')+' km overdue'})</span>`);
+      tirePrev.innerHTML = parts.join('<br>')
+        + (tk && currentOdo ? _svcProgressBar(currentOdo-tk, ik, 'var(--Am)') : '');
+    } else {
+      tirePrev.textContent = '';
+    }
+  }
+}
+
+function checkServiceAlert() {
+  const bar = el('service-alert-bar');
+  const msg = el('svc-alert-msg');
+  if (!bar || !msg) return;
+  const s = DATA.carService;
+  if (!s) { bar.style.display = 'none'; return; }
+
+  const currentOdo = _currentOdo();
+  const alerts = [];
+
+  // Check service
+  if (s.serviceDate || s.serviceKm) {
+    const due = _nextDue(s.serviceDate, s.serviceKm, s.serviceIntKm||15000, s.serviceIntMo||12, currentOdo);
+    if (due.overdue) alerts.push({ text: `🔧 Service overdue${due.kmLeft!=null?' by '+Math.abs(due.kmLeft).toLocaleString('de-AT')+' km':''}`, urgent:true });
+    else if (due.dueSoon) {
+      const parts = [];
+      if (due.daysLeft != null && due.daysLeft <= 30) parts.push(`${due.daysLeft} days`);
+      if (due.kmLeft  != null && due.kmLeft  <= 1000) parts.push(`${due.kmLeft.toLocaleString('de-AT')} km`);
+      alerts.push({ text:`🔧 Service due in ${parts.join(' / ')}`, urgent:false });
+    }
+  }
+
+  // Check tyres
+  if (s.tireDate || s.tireKm) {
+    const due = _nextDue(s.tireDate, s.tireKm, s.tireIntKm||40000, s.tireIntMo||60, currentOdo);
+    if (due.overdue) alerts.push({ text:`🛞 Tyre change overdue${due.kmLeft!=null?' by '+Math.abs(due.kmLeft).toLocaleString('de-AT')+' km':''}`, urgent:true });
+    else if (due.dueSoon) {
+      const parts = [];
+      if (due.daysLeft != null && due.daysLeft <= 30) parts.push(`${due.daysLeft} days`);
+      if (due.kmLeft  != null && due.kmLeft  <= 1000) parts.push(`${due.kmLeft.toLocaleString('de-AT')} km`);
+      alerts.push({ text:`🛞 Tyre change due in ${parts.join(' / ')}`, urgent:false });
+    }
+  }
+
+  if (!alerts.length || _svcAlertDismissed) { bar.style.display = 'none'; return; }
+  const urgent = alerts.some(a => a.urgent);
+  bar.className = urgent ? 'urgent' : 'warn';
+  msg.innerHTML = alerts.map(a => `<span>${a.text}</span>`).join(' &nbsp;·&nbsp; ')
+    + ` &nbsp;<a href="#" onclick="nav('fuel');event.preventDefault()" style="color:inherit;text-decoration:underline;font-size:11px">View</a>`;
+  bar.style.display = 'flex';
+}
+
+function dismissServiceAlert() {
+  _svcAlertDismissed = true;
+  const b = el('service-alert-bar');
+  if (b) b.style.display = 'none';
+}
+
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
 // ══════════════════════════════════════════
@@ -8066,6 +8309,7 @@ async function addFuel() {
     if (!DATA.fuel) DATA.fuel = [];
     DATA.fuel.push(record);
     DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
+    checkServiceAlert(); // odometer updated — re-evaluate service due dates
 
     // Optionally log as budget entry
     if (el('fuel-add-entry')?.checked) {
@@ -8097,6 +8341,8 @@ function deleteFuel(id) {
 function renderFuel() {
   fuelFormInit();
   if (!DATA.fuel) DATA.fuel = [];
+  renderCarServiceUI();
+  checkServiceAlert();
 
   const typeFilter = el('fuel-filter-type')?.value || '';
   const all = [...DATA.fuel].sort((a,b) => b.date.localeCompare(a.date));
