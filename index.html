@@ -2207,7 +2207,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="g3" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
             <label>Litres (or kWh)</label>
-            <input type="number" id="fuel-liters" min="0" step="0.01" placeholder="45.00" style="font-family:var(--mono)" oninput="fuelPreview()">
+            <input type="number" id="fuel-liters" min="0" step="0.01" placeholder="45.00" style="font-family:var(--mono)" oninput="fuelPreview();updateOdoHelper()">
           </div>
           <div class="fg" style="margin:0">
             <label>Price per litre (€)</label>
@@ -2221,7 +2221,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
             <label>Odometer (km) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
-            <input type="number" id="fuel-odo" min="0" step="1" placeholder="87 420" style="font-family:var(--mono)">
+            <input type="number" id="fuel-odo" min="0" step="1" placeholder="87 420" style="font-family:var(--mono)" oninput="updateOdoHelper()">
+            <div id="fuel-odo-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:15px;color:var(--ink3)"></div>
           </div>
           <div class="fg" style="margin:0">
             <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
@@ -8256,6 +8257,29 @@ function setSubView(v) {
 const FUEL_LABELS = { petrol:'Petrol', diesel:'Diesel', lpg:'LPG', electric:'Electric', other:'Other' };
 
 // ── Initialise form defaults ──────────────────────────────────────────────────
+function updateOdoHelper() {
+  const h = el('fuel-odo-helper'); if (!h) return;
+  const odo = parseFloat(el('fuel-odo')?.value);
+  if (!odo) { h.textContent = ''; return; }
+
+  // Last recorded odometer from sorted fuel log
+  const sorted = [...(DATA.fuel||[])].sort((a,b) => a.date.localeCompare(b.date));
+  const lastOdo = sorted.filter(f => f.odo).slice(-1)[0]?.odo;
+
+  if (!lastOdo) { h.innerHTML = `<span style="color:var(--ink3)">No previous odometer on record</span>`; return; }
+  if (odo <= lastOdo) { h.innerHTML = `<span style="color:var(--Rm)">⚠ Lower than last recorded ${lastOdo.toLocaleString('de-AT')} km</span>`; return; }
+
+  const km = odo - lastOdo;
+  // Estimate L/100km if liters already filled in
+  const liters = parseFloat(el('fuel-liters')?.value);
+  const cons   = (liters && km > 0) ? (liters / km * 100).toFixed(1) : null;
+  const consCls = cons ? (cons > 8 ? 'color:var(--Rm)' : cons < 6 ? 'color:var(--Gm)' : 'color:var(--ink2)') : '';
+
+  h.innerHTML = `+${km.toLocaleString('de-AT')} km since last fill`
+    + (cons ? ` &nbsp;·&nbsp; <span style="${consCls}">${cons} L/100km</span>` : '')
+    + ` &nbsp;<span style="color:var(--ink3)">(prev: ${lastOdo.toLocaleString('de-AT')} km)</span>`;
+}
+
 function fuelFormInit() {
   const d = el('fuel-date'); if (d && !d.value) d.value = ymd();
 }
@@ -8322,6 +8346,7 @@ async function addFuel() {
     // Clear form
     el('fuel-liters').value = ''; el('fuel-ppl').value = '';
     el('fuel-total').value  = ''; el('fuel-odo').value = '';
+    const _oh = el('fuel-odo-helper'); if (_oh) _oh.textContent = '';
     el('fuel-note').value   = ''; el('fuel-station').value = '';
     el('fuel-preview').textContent = '';
     renderFuel();
