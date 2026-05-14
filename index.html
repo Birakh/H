@@ -2180,6 +2180,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Price per litre — trend
           <span id="fuel-trend-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
+        <div id="fuel-smart-stats" style="margin-bottom:12px"></div>
         <div style="overflow-x:auto"><div id="fuel-chart"></div></div>
       </div>
 
@@ -2252,6 +2253,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="btn primary" onclick="addFuel()">Log refuel</button>
           <span id="fuel-preview" style="font-size:13px;color:var(--ink2);font-family:var(--mono)"></span>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+            <input type="checkbox" id="fuel-full-tank" checked> Full tank
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
             <input type="checkbox" id="fuel-add-entry"> Also add as expense entry
           </label>
         </div>
@@ -2278,7 +2282,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <th>Date</th><th>Type</th><th>Station</th>
               <th class="num">Litres</th><th class="num">€/L</th>
               <th class="num">Total</th><th class="num">Odometer</th>
-              <th class="num">km since</th><th class="num">L/100km</th>
+              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th>
               <th></th>
             </tr></thead>
             <tbody id="fuel-body"></tbody>
@@ -2332,7 +2336,46 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </div>
           </div>
         </div>
-        <div id="tire-preview" style="font-size:12px;color:var(--ink2);margin-bottom:4px"></div>
+        <div id="tire-preview" style="font-size:12px;color:var(--ink2);margin-bottom:10px"></div>
+
+        <!-- Tyre tread log -->
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:4px">📏 Tyre tread depth log</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+          <div class="fg" style="margin:0;flex:1;min-width:100px"><label>Date</label><input type="date" id="tread-date"></div>
+          <div class="fg" style="margin:0;width:90px"><label>Depth (mm)</label><input type="number" id="tread-mm" min="0" max="20" step="0.1" placeholder="5.5" style="font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0;flex:2;min-width:120px"><label>Note (position, brand…)</label><input type="text" id="tread-note" placeholder="Front left, Michelin…"></div>
+          <button class="btn xs success" onclick="addTreadLog()">+ Log</button>
+        </div>
+        <div id="tread-log-list" style="font-size:12px;color:var(--ink2)"></div>
+
+        <!-- Service cost log -->
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:12px">🧾 Service cost log</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+          <div class="fg" style="margin:0;flex:1;min-width:100px"><label>Date</label><input type="date" id="svclog-date"></div>
+          <div class="fg" style="margin:0;width:100px"><label>Cost (€)</label><input type="number" id="svclog-cost" min="0" step="0.01" placeholder="285.00" style="font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0;width:100px"><label>Odometer</label><input type="number" id="svclog-km" min="0" step="100" placeholder="87 500" style="font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0;flex:2;min-width:120px"><label>Note</label><input type="text" id="svclog-note" placeholder="Oil change, filter, brakes…"></div>
+          <button class="btn xs success" onclick="addServiceCostLog()">+ Log</button>
+        </div>
+        <div id="svclog-list" style="font-size:12px;color:var(--ink2)"></div>
+      </div>
+
+      <!-- ── Insurance renewal helper ── -->
+      <div class="card">
+        <div class="card-title">Insurance renewal
+          <button class="btn xs ghost" onclick="saveInsurance()">Save</button>
+        </div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Track your annual km allowance and renewal date. The app warns when you are approaching your insured km band.</div>
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Renewal date</label>
+            <input type="date" id="ins-renewal" oninput="updateInsurancePreview()"></div>
+          <div class="fg" style="margin:0"><label>Annual km band</label>
+            <input type="number" id="ins-km-band" placeholder="15 000" step="1000" style="font-family:var(--mono)" oninput="updateInsurancePreview()"></div>
+          <div class="fg" style="margin:0"><label>Odometer at last renewal</label>
+            <input type="number" id="ins-odo-renewal" placeholder="72 000" step="100" style="font-family:var(--mono)" oninput="updateInsurancePreview()"></div>
+        </div>
+        <div class="fg" style="margin-bottom:10px"><label>Note</label><input type="text" id="ins-note" placeholder="Provider, policy #…"></div>
+        <div id="ins-preview"></div>
       </div>
 
       <!-- ── Fuel price heatmap ── -->
@@ -2342,6 +2385,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div id="fuel-heatmap"></div>
         <div id="fuel-heatmap-tip" class="heatmap-tip"></div>
+      </div>
+
+      <!-- ── Price vs ECB rate overlay ── -->
+      <div class="card">
+        <div class="card-title">Fuel price vs Euribor
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">your €/L vs 3M Euribor over time</span>
+        </div>
+        <div id="fuel-ecb-chart"></div>
       </div>
 
       <!-- ── Station price map ── -->
@@ -2364,7 +2415,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 11,
+  v: 12,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2379,7 +2430,7 @@ const FRESH = () => ({
   catalog:       [],
   notes:         {},
   stocks:        [],
-  fuel:          [],   // { id, date, type, station, liters, ppl, total, odo, note }
+  fuel:          [],   // { id, date, type, station, liters, ppl, total, odo, note, fullTank }
   fxAccounts:    [],   // { id, label, currency, amount, note }
   auditLog:      [],   // { ts, action, summary }
   notifFired:    {},   // { 'YYYY-MM:needs:80': true } — syncs across devices
@@ -2389,7 +2440,10 @@ const FRESH = () => ({
   housing:       { type: 'rent', amount: 0 },  // 'rent' | 'mortgage'
   rateAlert:     { threshold: null, enabled: false },
   _migrationLog: [],  // audit trail of schema upgrades
-  carService: { serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12, tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60 }
+  carService: { serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12,
+               tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60,
+               treadLog:[], serviceCostLog:[] },
+  insurance:  { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' }
 });
 
 const GR_CATS = {
@@ -3030,7 +3084,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 11; // current target version
+const SCHEMA_VERSION = 12; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3114,6 +3168,16 @@ const MIGRATIONS = [
       serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12,
       tireDate:null,    tireKm:null,    tireIntKm:40000,    tireIntMo:60,
     };
+    return d;
+  },
+  // v11 → v12 : fuel fullTank flag, tread/service cost logs, insurance
+  d => {
+    (d.fuel||[]).forEach(f => { if (f.fullTank == null) f.fullTank = true; });
+    if (d.carService) {
+      if (!d.carService.treadLog)      d.carService.treadLog      = [];
+      if (!d.carService.serviceCostLog)d.carService.serviceCostLog= [];
+    }
+    if (!d.insurance) d.insurance = { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' };
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -6450,6 +6514,7 @@ function renderSettings() {
   renderVarsUI();
   renderHousingUI();
   renderRateAlertUI();
+  renderInsuranceUI();
   renderSplitsUI();
   renderAcctList();
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
@@ -7647,6 +7712,9 @@ function saveCarService() {
 function renderCarServiceUI() {
   const s = DATA.carService;
   if (!s) return;
+  renderTreadLog();
+  renderServiceCostLog();
+  renderInsuranceUI();
   const set = (id, val) => { const e = el(id); if (e && val != null) e.value = val; };
   set('svc-date',    s.serviceDate);
   set('svc-km',      s.serviceKm);
@@ -8065,6 +8133,278 @@ function fuelHmTip(e, txt) {
 }
 function fuelHmHide() {
   const tip = el('fuel-heatmap-tip'); if (tip) tip.style.display = 'none';
+}
+
+
+// ══════════════════════════════════════════
+// SMARTER COST TRACKING — full tank, cost/km, projection, longest stretch
+// ══════════════════════════════════════════
+function _fullTankPairs(records) {
+  // Return pairs of consecutive full-tank fills for accurate L/100km
+  const sorted = [...records].filter(f=>f.odo).sort((a,b)=>a.date.localeCompare(b.date));
+  const pairs = [];
+  for (let i=1; i<sorted.length; i++) {
+    const prev = sorted[i-1], curr = sorted[i];
+    if (prev.fullTank !== false && curr.fullTank !== false) {
+      const km = curr.odo - prev.odo;
+      if (km > 0) pairs.push({ from:prev, to:curr, km, liters:curr.liters, eff:+(curr.liters/km*100).toFixed(2), costPerKm:+(curr.total/km).toFixed(4) });
+    }
+  }
+  return pairs;
+}
+
+function renderFuelSmartStats(records) {
+  const wrap = el('fuel-smart-stats'); if (!wrap) return;
+  const sorted = [...records].filter(f=>f.odo).sort((a,b)=>a.date.localeCompare(b.date));
+  if (sorted.length < 2) { wrap.innerHTML=''; return; }
+
+  const pairs = _fullTankPairs(records);
+
+  // Longest stretch (full tank pairs only for accuracy)
+  let longestStretch = null;
+  pairs.forEach(p => { if (!longestStretch || p.km > longestStretch.km) longestStretch = p; });
+
+  // Cost per km (last 3 full-tank pairs average)
+  const recentPairs = pairs.slice(-3);
+  const avgCostPerKm = recentPairs.length ? recentPairs.reduce((s,p)=>s+p.costPerKm,0)/recentPairs.length : null;
+
+  // Annual fuel spend projection (last 90 days extrapolated)
+  const now = new Date();
+  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate()-90);
+  const recent = records.filter(f => new Date(f.date+'T12:00:00') >= cutoff);
+  const recentCost = recent.reduce((s,f)=>s+f.total,0);
+  const annualProj = recentCost > 0 ? Math.round(recentCost / 90 * 365) : null;
+
+  // Avg L/100km (full tank pairs only)
+  const avgEff = pairs.length ? pairs.reduce((s,p)=>s+p.eff,0)/pairs.length : null;
+
+  const stat = (lbl,val,sub='',c='') =>
+    `<div class="stat"><div class="stat-lbl">${lbl}</div><div class="stat-val ${c}">${val}</div>${sub?`<div style="font-size:10px;color:var(--ink3)">${sub}</div>`:''}</div>`;
+
+  wrap.innerHTML = `<div class="stat-grid">
+    ${avgEff != null ? stat('Avg L/100 km (full tanks)', avgEff.toFixed(1)+' L', `${pairs.length} full-tank pair${pairs.length!==1?'s':''}`) : ''}
+    ${avgCostPerKm != null ? stat('Avg cost / km', '€'+avgCostPerKm.toFixed(3), 'last 3 fills') : ''}
+    ${annualProj != null ? stat('Annual fuel projection', '€'+annualProj.toLocaleString('de-AT'), 'based on last 90 days') : ''}
+    ${longestStretch ? stat('Longest stretch', longestStretch.km.toLocaleString('de-AT')+' km',
+        longestStretch.from.date+' → '+longestStretch.to.date+' · '+longestStretch.eff.toFixed(1)+' L/100') : ''}
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+// PRICE VS ECB OVERLAY CHART
+// ══════════════════════════════════════════
+function renderFuelEcbChart(records) {
+  const wrap = el('fuel-ecb-chart'); if (!wrap) return;
+  const sorted = [...records].filter(f=>f.ppl>0).sort((a,b)=>a.date.localeCompare(b.date));
+  if (sorted.length < 2) { wrap.innerHTML='<div style="font-size:13px;color:var(--ink3);padding:8px 0">Need at least 2 refuels to show chart.</div>'; return; }
+
+  // Pull Euribor history from in-memory cache built by fetchEuriborHistory
+  const euriborPts = (_rmHistory?.['3M'] || []);
+
+  const W=600, H=150, padL=50, padR=euriborPts.length?50:16, padT=16, padB=24;
+  const cW=W-padL-padR, cH=H-padT-padB;
+
+  // Fuel price scale (left axis)
+  const ppls  = sorted.map(f=>f.ppl);
+  const fMin  = Math.min(...ppls)*0.98, fMax = Math.max(...ppls)*1.02;
+  const fRange= fMax-fMin||0.01;
+  const dates = sorted.map(f=>f.date);
+  const dMin  = dates[0], dMax = dates[dates.length-1];
+  const dSpan = Math.max(1, new Date(dMax+'T12:00:00')-new Date(dMin+'T12:00:00'));
+  const xD    = d => padL + ((new Date(d+'T12:00:00')-new Date(dMin+'T12:00:00'))/dSpan)*cW;
+  const yF    = v => padT + cH - ((v-fMin)/fRange)*cH;
+
+  // Fuel polyline
+  const fPts = sorted.map(f=>`${xD(f.date).toFixed(1)},${yF(f.ppl).toFixed(1)}`).join(' ');
+  const fDots = sorted.map(f=>{
+    const c = f.fullTank===false ? 'var(--ink3)' : 'var(--Rm)';
+    return `<circle cx="${xD(f.date).toFixed(1)}" cy="${yF(f.ppl).toFixed(1)}" r="2.5" fill="${c}"><title>${f.date}: €${f.ppl.toFixed(3)}/L${f.fullTank===false?' (partial)':''}</title></circle>`;
+  }).join('');
+
+  // Euribor line (right axis)
+  let euriborLine = '', euriborYTicks = '';
+  if (euriborPts.length >= 2) {
+    const ePts = euriborPts.filter(p=>p.period>=dMin && p.period<=dMax);
+    if (ePts.length >= 2) {
+      const eVals = ePts.map(p=>p.value);
+      const eMin  = Math.min(...eVals)*0.9, eMax = Math.max(...eVals)*1.1;
+      const eRange= eMax-eMin||0.01;
+      const yE    = v => padT + cH - ((v-eMin)/eRange)*cH;
+      const eLine = ePts.map(p=>`${xD(p.period+'-15').toFixed(1)},${yE(p.value).toFixed(1)}`).join(' ');
+      euriborLine = `<polyline points="${eLine}" fill="none" stroke="var(--Bm)" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/>`;
+      const eTickVals = [eMin+(eMax-eMin)*0.1, eMin+(eMax-eMin)*0.9];
+      euriborYTicks = eTickVals.map(v=>
+        `<text x="${W-padR+4}" y="${yE(v).toFixed(1)}" font-size="8" fill="var(--Bm)" dominant-baseline="middle">${v.toFixed(2)}%</text>`
+      ).join('');
+    }
+  }
+
+  // Y axis ticks (fuel)
+  const yTicks = [fMin, (fMin+fMax)/2, fMax].map(v=>
+    `<text x="${padL-4}" y="${yF(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">€${v.toFixed(3)}</text>`
+  ).join('');
+
+  // X axis labels (every ~3 months)
+  const xLabels = sorted.filter((_,i)=>i===0||i===sorted.length-1||i%Math.max(1,Math.floor(sorted.length/5))===0)
+    .map(f=>`<text x="${xD(f.date).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${f.date.slice(2,7)}</text>`).join('');
+
+  // Legend
+  const legend = `<text x="${padL}" y="${padT-4}" font-size="9" fill="var(--Rm)" font-weight="600">● €/L fuel</text>`
+    + (euriborLine ? `<text x="${padL+70}" y="${padT-4}" font-size="9" fill="var(--Bm)">-- Euribor 3M</text>` : '');
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    <line x1="${padL}" y1="${padT+cH}" x2="${W-padR}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    <polyline points="${fPts}" fill="none" stroke="var(--Rm)" stroke-width="2" stroke-linejoin="round" opacity=".8"/>
+    ${euriborLine}${fDots}${yTicks}${euriborYTicks}${xLabels}${legend}
+  </svg>`;
+}
+
+// ══════════════════════════════════════════
+// TYRE TREAD LOG
+// ══════════════════════════════════════════
+function addTreadLog() {
+  const date = el('tread-date')?.value || ymd();
+  const mm   = parseFloat(el('tread-mm')?.value);
+  const note = el('tread-note')?.value?.trim() || '';
+  if (!mm || mm <= 0) return toast('Enter tread depth in mm.', 1);
+  if (!DATA.carService) DATA.carService = {};
+  if (!DATA.carService.treadLog) DATA.carService.treadLog = [];
+  DATA.carService.treadLog.push({ id:uid(), date, mm, note });
+  DATA.carService.treadLog.sort((a,b)=>b.date.localeCompare(a.date));
+  saveLocal();
+  el('tread-mm').value=''; el('tread-note').value='';
+  renderTreadLog();
+  toast('Tread depth logged');
+}
+
+function deleteTreadLog(id) {
+  if (!DATA.carService?.treadLog) return;
+  DATA.carService.treadLog = DATA.carService.treadLog.filter(t=>t.id!==id);
+  saveLocal(); renderTreadLog();
+}
+
+function renderTreadLog() {
+  const wrap = el('tread-log-list'); if (!wrap) return;
+  const log  = DATA.carService?.treadLog || [];
+  if (!log.length) { wrap.innerHTML='<div style="color:var(--ink3)">No tread measurements yet.</div>'; return; }
+  const LEGAL = 1.6; // EU minimum mm
+  wrap.innerHTML = log.map(t => {
+    const warn = t.mm <= LEGAL + 0.5;
+    const col  = t.mm <= LEGAL ? 'var(--Rm)' : t.mm <= LEGAL+1 ? 'var(--Am)' : 'var(--Gm)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ink3);white-space:nowrap">${t.date}</span>
+      <span style="font-family:var(--mono);font-weight:700;color:${col}">${t.mm.toFixed(1)} mm</span>
+      ${warn?`<span style="font-size:10px;background:var(--Rbg);color:var(--Rm);padding:1px 6px;border-radius:3px">Near legal limit (${LEGAL}mm)</span>`:''}
+      <span style="flex:1;color:var(--ink2);font-size:12px">${esc(t.note||'')}</span>
+      <button class="btn xs ghost" onclick="deleteTreadLog('${t.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// SERVICE COST LOG
+// ══════════════════════════════════════════
+function addServiceCostLog() {
+  const date = el('svclog-date')?.value || ymd();
+  const cost = parseFloat(el('svclog-cost')?.value);
+  const km   = parseFloat(el('svclog-km')?.value) || null;
+  const note = el('svclog-note')?.value?.trim() || '';
+  if (!cost || cost <= 0) return toast('Enter service cost.', 1);
+  if (!DATA.carService) DATA.carService = {};
+  if (!DATA.carService.serviceCostLog) DATA.carService.serviceCostLog = [];
+  DATA.carService.serviceCostLog.push({ id:uid(), date, cost, km, note });
+  DATA.carService.serviceCostLog.sort((a,b)=>b.date.localeCompare(a.date));
+  saveLocal();
+  el('svclog-cost').value=''; el('svclog-km').value=''; el('svclog-note').value='';
+  renderServiceCostLog();
+  toast('Service cost logged');
+}
+
+function deleteServiceCostLog(id) {
+  if (!DATA.carService?.serviceCostLog) return;
+  DATA.carService.serviceCostLog = DATA.carService.serviceCostLog.filter(s=>s.id!==id);
+  saveLocal(); renderServiceCostLog();
+}
+
+function renderServiceCostLog() {
+  const wrap = el('svclog-list'); if (!wrap) return;
+  const log  = DATA.carService?.serviceCostLog || [];
+  if (!log.length) { wrap.innerHTML='<div style="color:var(--ink3)">No service costs logged yet.</div>'; return; }
+  const total = log.reduce((s,l)=>s+l.cost,0);
+  wrap.innerHTML = log.map(l =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ink3);white-space:nowrap">${l.date}</span>
+      <span style="font-family:var(--mono);font-weight:600;color:var(--ink)">€${l.cost.toFixed(2)}</span>
+      ${l.km!=null?`<span style="font-size:11px;color:var(--ink3);font-family:var(--mono)">${l.km.toLocaleString('de-AT')} km</span>`:''}
+      <span style="flex:1;color:var(--ink2);font-size:12px">${esc(l.note||'')}</span>
+      <button class="btn xs ghost" onclick="deleteServiceCostLog('${l.id}')">✕</button>
+    </div>`
+  ).join('')
+  + `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;font-weight:600">
+      <span>Total service costs</span><span style="font-family:var(--mono)">€${total.toFixed(2)}</span>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// INSURANCE RENEWAL HELPER
+// ══════════════════════════════════════════
+function saveInsurance() {
+  DATA.insurance = {
+    renewalDate:      el('ins-renewal')?.value || null,
+    annualKmBand:     parseFloat(el('ins-km-band')?.value) || null,
+    lastOdoAtRenewal: parseFloat(el('ins-odo-renewal')?.value) || null,
+    note:             el('ins-note')?.value?.trim() || '',
+  };
+  saveLocal(); updateInsurancePreview(); toast('Insurance details saved');
+}
+
+function renderInsuranceUI() {
+  const ins = DATA.insurance; if (!ins) return;
+  const set = (id,v) => { const e=el(id); if(e&&v!=null) e.value=v; };
+  set('ins-renewal',    ins.renewalDate);
+  set('ins-km-band',    ins.annualKmBand);
+  set('ins-odo-renewal',ins.lastOdoAtRenewal);
+  set('ins-note',       ins.note);
+  updateInsurancePreview();
+}
+
+function updateInsurancePreview() {
+  const wrap = el('ins-preview'); if (!wrap) return;
+  const ins  = DATA.insurance || {};
+  const renewalDateStr = el('ins-renewal')?.value  || ins.renewalDate;
+  const kmBand         = parseFloat(el('ins-km-band')?.value)      || ins.annualKmBand;
+  const lastOdo        = parseFloat(el('ins-odo-renewal')?.value)  || ins.lastOdoAtRenewal;
+  const currentOdo     = _currentOdo();
+
+  if (!renewalDateStr && !kmBand) { wrap.innerHTML=''; return; }
+
+  const parts = [];
+  const now   = new Date();
+
+  // Days to renewal
+  if (renewalDateStr) {
+    const renewal   = new Date(renewalDateStr+'T00:00:00');
+    const daysLeft  = Math.ceil((renewal-now)/86400000);
+    const urgentCls = daysLeft<=30?'color:var(--Rm)':daysLeft<=60?'color:var(--Am)':'color:var(--Gm)';
+    parts.push(`<span style="${urgentCls};font-weight:600">${daysLeft>0?daysLeft+' days to renewal':'Renewal was '+Math.abs(daysLeft)+' days ago'}</span> · ${renewal.toLocaleDateString('de-AT')}`);
+  }
+
+  // km usage vs band
+  if (kmBand && lastOdo != null && currentOdo != null) {
+    const driven = currentOdo - lastOdo;
+    const pct    = Math.min(100, Math.round(driven/kmBand*100));
+    const left   = kmBand - driven;
+    const col    = pct>=90?'var(--Rm)':pct>=75?'var(--Am)':'var(--Gm)';
+    parts.push(`${driven.toLocaleString('de-AT')} km driven of ${kmBand.toLocaleString('de-AT')} km band (${pct}%)`);
+    if (left < 0) parts.push(`<span style="color:var(--Rm);font-weight:600">⚠ Over insured km by ${Math.abs(left).toLocaleString('de-AT')} km</span>`);
+    else parts.push(`${left.toLocaleString('de-AT')} km remaining in band`);
+    wrap.innerHTML = parts.join('<br>')
+      + `<div class="svc-bar-track" style="margin-top:6px"><div class="svc-bar-fill" style="width:${pct}%;background:${col}"></div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = parts.join('<br>');
 }
 
 // ══════════════════════════════════════════
@@ -8668,8 +9008,9 @@ async function addFuel() {
     const total = totalIn > 0 ? totalIn : +(liters * ppl).toFixed(2);
     const finalPpl = ppl > 0 ? ppl : +(total / liters).toFixed(4);
 
+    const fullTank = el('fuel-full-tank')?.checked ?? true;
     const record = { id: uid(), date, type, station, liters: +liters.toFixed(3),
-                     ppl: +finalPpl.toFixed(4), total, odo, note };
+                     ppl: +finalPpl.toFixed(4), total, odo, note, fullTank };
     if (!DATA.fuel) DATA.fuel = [];
     DATA.fuel.push(record);
     DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
@@ -8687,6 +9028,7 @@ async function addFuel() {
     el('fuel-liters').value = ''; el('fuel-ppl').value = '';
     el('fuel-total').value  = ''; el('fuel-odo').value = '';
     const _oh = el('fuel-odo-helper'); if (_oh) _oh.textContent = '';
+    const _ft = el('fuel-full-tank'); if (_ft) _ft.checked = true;
     const _tk = el('fuel-trip-km'); if (_tk) { _tk.value=''; delete _tk.dataset.userEdited; }
     const _th = el('fuel-trip-helper'); if (_th) _th.textContent = '';
     el('fuel-note').value   = ''; el('fuel-station').value = '';
@@ -8755,19 +9097,21 @@ function renderFuel() {
   // ── Table ──────────────────────────────────────────────────────────────────
   const tbody = el('fuel-body'); if (!tbody) return;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
   } else {
     // Pre-sort ascending to compute consecutive deltas
     const asc = [...filtered].sort((a,b) => a.date.localeCompare(b.date));
     const withDeltas = asc.map((f, i) => {
-      const prev = asc[i-1];
+      const prev    = asc[i-1];
       const kmSince = (f.odo && prev?.odo) ? f.odo - prev.odo : null;
       const lPer100 = (kmSince > 0 && kmSince < 2000) ? +(f.liters / kmSince * 100).toFixed(1) : null;
-      return { ...f, kmSince, lPer100 };
+      const costPerKm = (kmSince > 0) ? +(f.total / kmSince).toFixed(3) : null;
+      return { ...f, kmSince, lPer100, costPerKm };
     });
     // Display newest first
     const rows = [...withDeltas].reverse().map(f => {
       const effCls = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
+      const fullBadge = f.fullTank === false ? '½' : '⛽';
       return `<tr>
         <td class="num">${esc(f.date)}</td>
         <td><span class="fuel-type-badge ${f.type}">${FUEL_LABELS[f.type]||esc(f.type)}</span></td>
@@ -8778,6 +9122,8 @@ function renderFuel() {
         <td class="num">${f.odo ? f.odo.toLocaleString() : '—'}</td>
         <td class="num">${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</td>
         <td class="num ${effCls}">${f.lPer100 != null ? f.lPer100 + ' L' : '—'}</td>
+        <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
+        <td style="text-align:center;font-size:13px" title="${f.fullTank===false?'Partial fill':'Full tank'}">${fullBadge}</td>
         <td><button class="btn xs danger" onclick="deleteFuel('${f.id}')">✕</button></td>
       </tr>`;
     }).join('');
