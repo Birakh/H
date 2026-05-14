@@ -1323,18 +1323,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <!-- Split entry form -->
         <div class="split-entry-form" id="split-form">
-          <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Split into two categories — both parts share the same description, date &amp; account</div>
+          <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Split into two categories — each part can use a different account or cash</div>
           <div class="g2">
-            <div class="fg" style="margin:0"><label>Part 1 — Amount &amp; Category</label>
-              <div style="display:flex;gap:6px">
-                <input type="text" id="sp-amt1" placeholder="Amount" style="flex:1;font-family:var(--mono)" oninput="onSplitInput(1)">
-                <select id="sp-cat1" style="flex:1"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option></select>
+            <div class="fg" style="margin:0"><label>Part 1 — Amount, Category &amp; Payment</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <input type="text" id="sp-amt1" placeholder="Amount" style="flex:1;min-width:80px;font-family:var(--mono)" oninput="onSplitInput(1)">
+                <select id="sp-cat1" style="flex:1;min-width:80px"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option></select>
+                <select id="sp-pay1" style="flex:1;min-width:90px"><option value="_main">Same account</option><option value="cash">💵 Cash</option></select>
               </div>
             </div>
-            <div class="fg" style="margin:0"><label>Part 2 — Amount &amp; Category</label>
-              <div style="display:flex;gap:6px">
-                <input type="text" id="sp-amt2" placeholder="Auto-fill remainder" style="flex:1;font-family:var(--mono)" oninput="onSplitInput(2)">
-                <select id="sp-cat2" style="flex:1"><option value="needs">Needs</option><option value="wants" selected>Wants</option><option value="savings">Savings</option></select>
+            <div class="fg" style="margin:0"><label>Part 2 — Amount, Category &amp; Payment</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <input type="text" id="sp-amt2" placeholder="Auto-fill remainder" style="flex:1;min-width:80px;font-family:var(--mono)" oninput="onSplitInput(2)">
+                <select id="sp-cat2" style="flex:1;min-width:80px"><option value="needs">Needs</option><option value="wants" selected>Wants</option><option value="savings">Savings</option></select>
+                <select id="sp-pay2" style="flex:1;min-width:90px"><option value="_main">Same account</option><option value="cash">💵 Cash</option></select>
               </div>
             </div>
           </div>
@@ -2331,6 +2333,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div id="tire-preview" style="font-size:12px;color:var(--ink2);margin-bottom:4px"></div>
+      </div>
+
+      <!-- ── Fuel price heatmap ── -->
+      <div class="card">
+        <div class="card-title">Fill-up heatmap
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">avg €/L by weekday &amp; month</span>
+        </div>
+        <div id="fuel-heatmap"></div>
+        <div id="fuel-heatmap-tip" class="heatmap-tip"></div>
       </div>
 
       <!-- ── Station price map ── -->
@@ -4215,10 +4226,16 @@ async function addEntry() {
     const p2 = evalExpr(el('sp-amt2').value);
     if (!p1 || !p2) return toast('Enter both split amounts.', 1);
     if (Math.abs(p1 + p2 - amount) > 0.01) return toast('Split amounts must total the entry amount.', 1);
-    const cat1 = el('sp-cat1').value, cat2 = el('sp-cat2').value;
-    DATA.entries.unshift({ id:uid(), date, desc, amount:p1, formula:null, type:'expense', category:cat1, tags:[..._curTags], accountId:acctId, recurId:null });
-    DATA.entries.unshift({ id:uid(), date, desc, amount:p2, formula:null, type:'expense', category:cat2, tags:[..._curTags], accountId:acctId, recurId:null });
-    toast(`Split saved — ${fmt(p1)} ${cat1} + ${fmt(p2)} ${cat2}`);
+    const cat1  = el('sp-cat1').value, cat2 = el('sp-cat2').value;
+    const pay1r = el('sp-pay1')?.value || '_main';
+    const pay2r = el('sp-pay2')?.value || '_main';
+    const acct1 = pay1r === 'cash' ? 'cash' : (pay1r === '_main' ? acctId : pay1r);
+    const acct2 = pay2r === 'cash' ? 'cash' : (pay2r === '_main' ? acctId : pay2r);
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p1, formula:null, type:'expense', category:cat1, tags:[..._curTags], accountId:acct1, recurId:null });
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p2, formula:null, type:'expense', category:cat2, tags:[..._curTags], accountId:acct2, recurId:null });
+    const pay1lbl = pay1r==='cash'?'cash':acct1||'no acct';
+    const pay2lbl = pay2r==='cash'?'cash':acct2||'no acct';
+    toast(`Split saved — ${fmt(p1)} ${cat1} (${pay1lbl}) + ${fmt(p2)} ${cat2} (${pay2lbl})`);
     // reset split form
     el('sp-amt1').value=''; el('sp-amt2').value=''; el('sp-check').textContent='';
     toggleSplitForm();
@@ -4511,11 +4528,20 @@ function duplicateEntry(id) {
 
 // ── SPLIT ENTRY ─────────────────────────────────────────────────────────────
 let _splitActive = false;
+function _populateSplitPaySelects() {
+  const accts = DATA.accounts || [];
+  const opts  = '<option value="_main">Same account</option>'
+    + '<option value="cash">💵 Cash</option>'
+    + accts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  ['sp-pay1','sp-pay2'].forEach(id => { const s=el(id); if(s) s.innerHTML=opts; });
+}
+
 function toggleSplitForm() {
   _splitActive = !_splitActive;
   el('split-form').classList.toggle('open', _splitActive);
   el('split-btn').textContent = _splitActive ? '✕ Cancel split' : '⊕ Split';
   if (_splitActive) {
+    _populateSplitPaySelects();
     // If total is already filled and sp-amt1 has a value, compute remainder immediately
     const total = evalExpr(el('ef-amt')?.value);
     const p1    = evalExpr(el('sp-amt1')?.value);
@@ -7922,6 +7948,123 @@ function onFuelTripKmInput() {
   } else {
     if (th) th.textContent = 'No previous odometer — fill full odometer instead';
   }
+}
+
+
+// ══════════════════════════════════════════
+// FUEL PRICE HEATMAP
+// ══════════════════════════════════════════
+function renderFuelHeatmap() {
+  const wrap = el('fuel-heatmap');
+  const tip  = el('fuel-heatmap-tip');
+  if (!wrap) return;
+
+  const records = (DATA.fuel || []).filter(f => f.ppl > 0);
+  if (records.length < 3) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:8px 0">Need at least 3 refuels to show heatmap.</div>';
+    return;
+  }
+
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build weekday × month grid of avg ppl
+  const grid = {};  // grid[mon][day] = [ppl, ...]
+  records.forEach(f => {
+    const d   = new Date(f.date + 'T12:00:00');
+    const mon = d.getMonth();       // 0–11
+    const day = (d.getDay() + 6) % 7; // 0=Mon … 6=Sun
+    if (!grid[mon]) grid[mon] = {};
+    if (!grid[mon][day]) grid[mon][day] = [];
+    grid[mon][day].push(f.ppl);
+  });
+
+  // Which months actually have data?
+  const activeMons = Object.keys(grid).map(Number).sort((a,b)=>a-b);
+  if (!activeMons.length) { wrap.innerHTML=''; return; }
+
+  // Global min/max for colour scale
+  const allVals = records.map(f=>f.ppl);
+  const gMin = Math.min(...allVals), gMax = Math.max(...allVals);
+  const range = gMax - gMin || 0.01;
+
+  // Colour: green (cheap) → amber → red (expensive)
+  const heatColor = (v) => {
+    const t = (v - gMin) / range; // 0=cheap, 1=expensive
+    if (t < 0.5) {
+      // green → amber
+      const r = Math.round(58  + (176-58)  * (t*2));
+      const g = Math.round(143 + (110-143) * (t*2));
+      const b = Math.round(34  + (20-34)   * (t*2));
+      return `rgb(${r},${g},${b})`;
+    } else {
+      // amber → red
+      const u = (t-0.5)*2;
+      const r = Math.round(176 + (184-176) * u);
+      const g = Math.round(110 + (48-110)  * u);
+      const b = Math.round(20  + (48-20)   * u);
+      return `rgb(${r},${g},${b})`;
+    }
+  };
+
+  const CELL = 32, GAP = 3, LPAD = 36, TPAD = 22;
+  const cols = DAYS.length;
+  const rows = activeMons.length;
+  const W    = LPAD + cols * (CELL + GAP);
+  const H    = TPAD + rows * (CELL + GAP) + 20;
+
+  // Day headers
+  const dayHdrs = DAYS.map((d,i) =>
+    `<text x="${LPAD + i*(CELL+GAP) + CELL/2}" y="${TPAD-6}" text-anchor="middle" font-size="9" fill="var(--chart-txt)">${d}</text>`
+  ).join('');
+
+  // Cells
+  let cells = '';
+  activeMons.forEach((mon, ri) => {
+    const y = TPAD + ri*(CELL+GAP);
+    // Month label
+    cells += `<text x="${LPAD-4}" y="${y+CELL/2+4}" text-anchor="end" font-size="9" fill="var(--chart-txt)">${MONTHS[mon]}</text>`;
+    DAYS.forEach((_, di) => {
+      const vals = grid[mon]?.[di];
+      const x = LPAD + di*(CELL+GAP);
+      if (!vals?.length) {
+        cells += `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="3" fill="var(--s2)" opacity=".4"/>`;
+      } else {
+        const avg  = vals.reduce((a,b)=>a+b,0)/vals.length;
+        const col  = heatColor(avg);
+        const tipTxt = `${MONTHS[mon]} ${DAYS[di]}: avg €${avg.toFixed(3)}/L (${vals.length} fill${vals.length>1?'s':''})`;
+        cells += `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="3" fill="${col}"
+          onmousemove="fuelHmTip(event,'${tipTxt}')" onmouseleave="fuelHmHide()"/>
+          <text x="${x+CELL/2}" y="${y+CELL/2+4}" text-anchor="middle" font-size="8" fill="white" font-weight="600" pointer-events="none">${avg.toFixed(2)}</text>`;
+      }
+    });
+  });
+
+  // Legend bar
+  const LW = Math.min(180, cols*(CELL+GAP));
+  const LX = LPAD, LY = H-14;
+  const legendStops = [0,0.25,0.5,0.75,1].map(t=>{
+    const v=gMin+t*range; return `<stop offset="${t*100}%" stop-color="${heatColor(v)}"/>`;
+  }).join('');
+  const legend = `<defs><linearGradient id="fhmGrad" x1="0" x2="1" y1="0" y2="0">${legendStops}</linearGradient></defs>
+    <rect x="${LX}" y="${LY}" width="${LW}" height="6" rx="3" fill="url(#fhmGrad)"/>
+    <text x="${LX}" y="${LY+14}" font-size="8" fill="var(--chart-txt)">€${gMin.toFixed(3)}</text>
+    <text x="${LX+LW}" y="${LY+14}" font-size="8" fill="var(--chart-txt)" text-anchor="end">€${gMax.toFixed(3)}</text>`;
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${dayHdrs}${cells}${legend}
+  </svg>`;
+}
+
+function fuelHmTip(e, txt) {
+  const tip = el('fuel-heatmap-tip'); if (!tip) return;
+  tip.textContent = txt;
+  tip.style.display = 'block';
+  tip.style.left = (e.clientX + 12) + 'px';
+  tip.style.top  = (e.clientY - 28) + 'px';
+}
+function fuelHmHide() {
+  const tip = el('fuel-heatmap-tip'); if (tip) tip.style.display = 'none';
 }
 
 // ══════════════════════════════════════════
