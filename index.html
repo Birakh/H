@@ -2412,6 +2412,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 'use strict';
 
 // ══════════════════════════════════════════
+// SHARED CONSTANTS
+// ══════════════════════════════════════════
+const MS_PER_DAY  = 86_400_000;   // milliseconds in one day
+const MS_PER_HOUR =  3_600_000;    // milliseconds in one hour
+const LEGAL_TREAD_MM = 1.6;     // EU minimum tyre tread depth
+const NEAR_TREAD_MM  = 2.1;     // warn when within this mm of legal limit
+
+// ══════════════════════════════════════════
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
@@ -5874,7 +5882,7 @@ let   _fxFailed   = false;
 
 async function fetchFxRates(force = false) {
   const now = Date.now();
-  const stale = c => force || !_fxRates[c] || now - _fxFetched[c] > 3600000;
+  const stale = c => force || !_fxRates[c] || now - _fxFetched[c] > MS_PER_HOUR;
   if (!stale('USD') && !stale('ILS')) return;
 
   // API chain — each returns { USD, ILS } rates to EUR
@@ -7326,7 +7334,7 @@ function rmRenderEcb() {
     if (daysEl) daysEl.textContent = '—';
   } else {
     const next = upcoming[0];
-    const days = Math.round((next.getTime() - todayMs) / 86400000);
+    const days = Math.round((next.getTime() - todayMs) / MS_PER_DAY);
     const dateLabel = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
     if (nextEl) nextEl.textContent = dateLabel;
@@ -7373,7 +7381,7 @@ async function rmFetch(force = false) {
 
     // Cache hit — valid for 1 hour
     const cached = _rmCache[term];
-    if (!force && cached && Date.now() - cached.ts < 3600000) {
+    if (!force && cached && Date.now() - cached.ts < MS_PER_HOUR) {
       if (mktEl) mktEl.value = cached.rate.toFixed(3);
       if (srcEl) srcEl.textContent = cached.source + ' (cached)';
       rmCalc();
@@ -7736,7 +7744,7 @@ function _nextDue(lastDateStr, lastKm, intKm, intMo, currentKm) {
     const next = new Date(last);
     next.setMonth(next.getMonth() + (intMo || 12));
     result.byDate  = next;
-    result.daysLeft = Math.ceil((next - new Date()) / 86400000);
+    result.daysLeft = Math.ceil((next - new Date()) / MS_PER_DAY);
   }
   if (lastKm != null && currentKm != null) {
     result.byKm   = lastKm + (intKm || 15000);
@@ -8288,10 +8296,10 @@ function renderTreadLog() {
   const wrap = el('tread-log-list'); if (!wrap) return;
   const log  = DATA.carService?.treadLog || [];
   if (!log.length) { wrap.innerHTML='<div style="color:var(--ink3)">No tread measurements yet.</div>'; return; }
-  const LEGAL = 1.6; // EU minimum mm
+  const LEGAL = LEGAL_TREAD_MM; // EU minimum mm
   wrap.innerHTML = log.map(t => {
-    const warn = t.mm <= LEGAL + 0.5;
-    const col  = t.mm <= LEGAL ? 'var(--Rm)' : t.mm <= LEGAL+1 ? 'var(--Am)' : 'var(--Gm)';
+    const warn = t.mm <= NEAR_TREAD_MM;
+    const col  = t.mm <= LEGAL ? 'var(--Rm)' : t.mm <= NEAR_TREAD_MM ? 'var(--Am)' : 'var(--Gm)';
     return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
       <span style="font-size:11px;color:var(--ink3);white-space:nowrap">${t.date}</span>
       <span style="font-family:var(--mono);font-weight:700;color:${col}">${t.mm.toFixed(1)} mm</span>
@@ -8385,7 +8393,7 @@ function updateInsurancePreview() {
   // Days to renewal
   if (renewalDateStr) {
     const renewal   = new Date(renewalDateStr+'T00:00:00');
-    const daysLeft  = Math.ceil((renewal-now)/86400000);
+    const daysLeft  = Math.ceil((renewal-now)/MS_PER_DAY);
     const urgentCls = daysLeft<=30?'color:var(--Rm)':daysLeft<=60?'color:var(--Am)':'color:var(--Gm)';
     parts.push(`<span style="${urgentCls};font-weight:600">${daysLeft>0?daysLeft+' days to renewal':'Renewal was '+Math.abs(daysLeft)+' days ago'}</span> · ${renewal.toLocaleDateString('de-AT')}`);
   }
@@ -8788,7 +8796,7 @@ function renderDuplicates() {
     for (let j = i+1; j < sorted.length; j++) {
       const f = sorted[j];
       if (used.has(f.id)) continue;
-      const dayDiff = Math.abs(new Date(e.date) - new Date(f.date)) / 86400000;
+      const dayDiff = Math.abs(new Date(e.date) - new Date(f.date)) / MS_PER_DAY;
       if (dayDiff > 3) break; // sorted by date — no further matches possible
       if (Math.abs(e.amount - f.amount) < 0.01 &&
           (e.desc||'').toLowerCase() === (f.desc||'').toLowerCase() &&
@@ -9067,7 +9075,7 @@ function renderFuel() {
     const sorted = [...all].sort((a,b) => a.date.localeCompare(b.date));
     let intervals = [], odoRecords = [];
     for (let i = 1; i < sorted.length; i++) {
-      const days = (new Date(sorted[i].date) - new Date(sorted[i-1].date)) / 86400000;
+      const days = (new Date(sorted[i].date) - new Date(sorted[i-1].date)) / MS_PER_DAY;
       if (days >= 0) intervals.push(days);
       if (sorted[i].odo && sorted[i-1].odo) odoRecords.push({ km: sorted[i].odo - sorted[i-1].odo, liters: sorted[i].liters });
     }
@@ -9558,7 +9566,7 @@ function renderRateResetCalendar() {
     const meetingsInWindow = meetingDates.filter(m => m > prevReset && m <= resetDate);
     const isToday   = resetDate.getTime() === today.getTime();
     const isPast    = resetDate < today;
-    const daysAway  = Math.round((resetDate - today) / 86400000);
+    const daysAway  = Math.round((resetDate - today) / MS_PER_DAY);
     const dateStr   = resetDate.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
     const estimated = meetingsInWindow.some(m => m.getFullYear() >= 2027);
 
