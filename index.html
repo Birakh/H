@@ -673,6 +673,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 /* ── FUEL PRICE MAP ── */
 .fuel-station-card{background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px}
+.fuel-outlier-warn{background:var(--Abg);color:var(--Am);border:.5px solid rgba(176,110,20,.25);border-radius:var(--rs);padding:6px 10px;font-size:12px;margin-top:6px;display:none}
+.odo-nag{background:var(--s1);border-radius:3px;padding:1px 5px;font-size:10px;color:var(--ink3);cursor:pointer;border:.5px solid var(--bdr)}
+.odo-nag:hover{color:var(--Am)}
+.seasonal-bar{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.seasonal-bar-track{flex:1;background:var(--s2);border-radius:100px;height:8px;overflow:hidden}
+.seasonal-bar-fill{height:100%;border-radius:100px}
+.predictor-card{background:var(--s1);border-radius:var(--rs);padding:12px;border:.5px solid var(--bdr)}
 /* service banner */
 #service-alert-bar{position:fixed;top:0;left:0;right:0;z-index:997;display:none;
   align-items:center;gap:10px;padding:7px 16px;font-size:13px;font-weight:500;
@@ -2248,10 +2255,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
             <input type="text" id="fuel-note" placeholder="Full tank, highway fill…">
           </div>
+          <div class="fg" style="margin:0">
+            <label>Tank size (L) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">for range estimate</span></label>
+            <input type="number" id="fuel-tank-size" min="20" max="200" step="1" placeholder="60" style="font-family:var(--mono)"
+              oninput="saveFuelSettings();renderFuelPredictor()">
+          </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" onclick="addFuel()">Log refuel</button>
           <span id="fuel-preview" style="font-size:13px;color:var(--ink2);font-family:var(--mono)"></span>
+          <div id="fuel-outlier-warn" class="fuel-outlier-warn"></div>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
             <input type="checkbox" id="fuel-full-tank" checked> Full tank
           </label>
@@ -2282,7 +2295,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <th>Date</th><th>Type</th><th>Station</th>
               <th class="num">Litres</th><th class="num">€/L</th>
               <th class="num">Total</th><th class="num">Odometer</th>
-              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th>
+              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th><th>Note</th>
               <th></th>
             </tr></thead>
             <tbody id="fuel-body"></tbody>
@@ -2376,6 +2389,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div class="fg" style="margin-bottom:10px"><label>Note</label><input type="text" id="ins-note" placeholder="Provider, policy #…"></div>
         <div id="ins-preview"></div>
+      </div>
+
+      <!-- ── Next fill predictor + monthly forecast + tank range ── -->
+      <div class="card">
+        <div class="card-title">Predictions</div>
+        <div id="fuel-predictor"></div>
+      </div>
+
+      <!-- ── Seasonal efficiency chart ── -->
+      <div class="card">
+        <div class="card-title">Seasonal efficiency
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">avg L/100km by month</span>
+        </div>
+        <div id="fuel-seasonal"></div>
       </div>
 
       <!-- ── Fuel price heatmap ── -->
@@ -8415,6 +8442,306 @@ function updateInsurancePreview() {
   wrap.innerHTML = parts.join('<br>');
 }
 
+
+// ══════════════════════════════════════════
+// FUEL INLINE EDITING
+// ══════════════════════════════════════════
+function updateFuelRecord(id, field, rawVal) {
+  const rec = DATA.fuel.find(f => f.id === id);
+  if (!rec) return;
+
+  switch (field) {
+    case 'date':    rec.date    = rawVal; break;
+    case 'type':    rec.type    = rawVal; break;
+    case 'station': rec.station = rawVal; break;
+    case 'note':    rec.note    = rawVal; break;
+    case 'odo':
+      rec.odo = parseFloat(rawVal) || null;
+      break;
+    case 'fullTank':
+      rec.fullTank = rawVal;
+      break;
+    case 'liters': {
+      const l = parseFloat(rawVal);
+      if (!isNaN(l) && l > 0) {
+        rec.liters = +l.toFixed(3);
+        if (rec.ppl) rec.total = +(l * rec.ppl).toFixed(2);
+      }
+      break;
+    }
+    case 'ppl': {
+      const p = parseFloat(rawVal);
+      if (!isNaN(p) && p > 0) {
+        rec.ppl   = +p.toFixed(4);
+        if (rec.liters) rec.total = +(rec.liters * p).toFixed(2);
+      }
+      break;
+    }
+    case 'total': {
+      const t = parseFloat(rawVal);
+      if (!isNaN(t) && t > 0) {
+        rec.total = +t.toFixed(2);
+        if (rec.liters) rec.ppl = +(t / rec.liters).toFixed(4);
+      }
+      break;
+    }
+  }
+  saveLocal();
+  renderFuel();
+}
+
+function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
+  // opts: { type, step, min, width }
+  let committed = false;
+  const orig = td.innerHTML;
+
+  const inp = document.createElement(opts.isSelect ? 'select' : 'input');
+  inp.className = 'edit-in';
+  inp.style.cssText = `font-size:12px;padding:1px 4px;width:${opts.width||'90px'}`;
+
+  if (opts.isSelect) {
+    inp.innerHTML = Object.entries(opts.options)
+      .map(([v,l]) => `<option value="${v}"${v===currentVal?' selected':''}>${l}</option>`).join('');
+  } else {
+    inp.type  = opts.type || 'text';
+    inp.step  = opts.step || 'any';
+    inp.value = currentVal != null ? currentVal : '';
+    if (opts.min != null) inp.min = opts.min;
+  }
+
+  inp.addEventListener('click', e => e.stopPropagation());
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { committed=true; updateFuelRecord(id, field, inp.value); }
+    if (e.key === 'Escape') { committed=true; renderFuel(); }
+  });
+  inp.addEventListener('change', () => {
+    if (opts.isSelect) { committed=true; updateFuelRecord(id, field, inp.value); }
+  });
+  inp.addEventListener('blur', () => {
+    if (!committed) { committed=true; updateFuelRecord(id, field, inp.value); }
+  });
+
+  td.textContent = '';
+  td.appendChild(inp);
+  inp.focus();
+  if (!opts.isSelect) inp.select();
+}
+
+
+// ══════════════════════════════════════════
+// FUEL SETTINGS (tank size, etc.)
+// ══════════════════════════════════════════
+function saveFuelSettings() {
+  if (!DATA.fuelSettings) DATA.fuelSettings = {};
+  DATA.fuelSettings.tankSize = parseFloat(el('fuel-tank-size')?.value) || null;
+  saveLocal();
+}
+
+function renderFuelSettingsUI() {
+  const ts = DATA.fuelSettings?.tankSize;
+  const inp = el('fuel-tank-size');
+  if (inp && ts) inp.value = ts;
+}
+
+// ══════════════════════════════════════════
+// OUTLIER DETECTION
+// ══════════════════════════════════════════
+function checkFuelOutlier() {
+  const warn   = el('fuel-outlier-warn'); if (!warn) return;
+  const ppl    = parseFloat(el('fuel-ppl')?.value);
+  const station= (el('fuel-station')?.value || '').trim().toLowerCase();
+  if (!ppl) { warn.style.display = 'none'; return; }
+
+  const sorted = [...(DATA.fuel||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  // Prices at same station (if entered), otherwise all prices
+  const comps = sorted.filter(f => f.ppl > 0 &&
+    (!station || (f.station||'').toLowerCase() === station));
+  if (comps.length < 3) { warn.style.display = 'none'; return; }
+
+  const avg    = comps.reduce((s,f)=>s+f.ppl,0)/comps.length;
+  const stdDev = Math.sqrt(comps.reduce((s,f)=>s+(f.ppl-avg)**2,0)/comps.length);
+  const zScore = stdDev > 0 ? Math.abs(ppl - avg) / stdDev : 0;
+  const pctDiff= ((ppl - avg) / avg * 100).toFixed(1);
+
+  if (zScore > 2) {
+    const dir = ppl > avg ? 'more expensive' : 'cheaper';
+    warn.textContent = `⚠ Outlier: €${ppl.toFixed(3)}/L is ${Math.abs(pctDiff)}% ${dir} than your ${station?'station':'overall'} average (€${avg.toFixed(3)}/L). Check before saving.`;
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════
+// ODO NAG — missing odometer badge in table
+// ══════════════════════════════════════════
+// Applied inline in renderFuel table rows
+
+// ══════════════════════════════════════════
+// SEASONAL EFFICIENCY CHART
+// ══════════════════════════════════════════
+function renderFuelSeasonal() {
+  const wrap = el('fuel-seasonal'); if (!wrap) return;
+  const pairs= _fullTankPairs(DATA.fuel||[]);
+  if (pairs.length < 4) {
+    wrap.innerHTML='<div style="font-size:13px;color:var(--ink3);padding:8px 0">Need at least 4 full-tank fill pairs for seasonal analysis.</div>';
+    return;
+  }
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const byMonth = {};
+  pairs.forEach(p => {
+    const mo = new Date(p.to.date+'T12:00:00').getMonth();
+    if (!byMonth[mo]) byMonth[mo] = [];
+    byMonth[mo].push(p.eff);
+  });
+
+  const avgs = MONTHS.map((_,i) => {
+    const vals = byMonth[i];
+    return vals?.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : null;
+  });
+
+  const valid = avgs.filter(v=>v!=null);
+  if (!valid.length) { wrap.innerHTML=''; return; }
+  const maxEff = Math.max(...valid);
+  const minEff = Math.min(...valid);
+  const overall = +(valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(2);
+
+  // Winter months (Nov-Mar) avg vs summer (Apr-Oct) avg
+  const winter = [10,11,0,1,2].map(i=>avgs[i]).filter(v=>v!=null);
+  const summer = [3,4,5,6,7,8,9].map(i=>avgs[i]).filter(v=>v!=null);
+  const wAvg   = winter.length ? (winter.reduce((a,b)=>a+b,0)/winter.length).toFixed(2) : null;
+  const sAvg   = summer.length ? (summer.reduce((a,b)=>a+b,0)/summer.length).toFixed(2) : null;
+
+  const bars = MONTHS.map((m,i) => {
+    const v = avgs[i];
+    if (!v) return `<div class="seasonal-bar"><span style="font-size:11px;color:var(--ink3);width:28px">${m}</span>
+      <div class="seasonal-bar-track"><div class="seasonal-bar-fill" style="width:20%;background:var(--s3)"></div></div>
+      <span style="font-size:11px;color:var(--ink3);width:50px">no data</span></div>`;
+    const pct  = Math.round((v - minEff*0.95) / (maxEff - minEff*0.95) * 100);
+    const isWinter = [10,11,0,1,2].includes(i);
+    const col  = v > overall ? 'var(--Rm)' : 'var(--Gm)';
+    const cols = isWinter ? 'color:var(--Bm)' : 'color:var(--ink2)';
+    return `<div class="seasonal-bar">
+      <span style="font-size:11px;${cols};width:28px">${m}</span>
+      <div class="seasonal-bar-track"><div class="seasonal-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      <span style="font-size:11px;font-family:var(--mono);width:55px;color:${v>overall?'var(--Rm)':'var(--Gm)'}">${v} L</span>
+      ${byMonth[i]?.length?`<span style="font-size:10px;color:var(--ink3)">${byMonth[i].length} fill${byMonth[i].length>1?'s':''}</span>`:''}
+    </div>`;
+  }).join('');
+
+  const summary = [
+    wAvg ? `❄ Winter avg: ${wAvg} L/100km` : '',
+    sAvg ? `☀ Summer avg: ${sAvg} L/100km` : '',
+    wAvg && sAvg ? `Δ ${(wAvg-sAvg).toFixed(2)} L/100km seasonal difference` : ''
+  ].filter(Boolean);
+
+  wrap.innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap">
+    <div style="flex:2;min-width:180px">${bars}</div>
+    <div style="flex:1;min-width:140px;font-size:12px;color:var(--ink2);line-height:2">
+      <div style="font-weight:600;color:var(--ink);margin-bottom:6px">Summary</div>
+      ${summary.map(s=>`<div>${s}</div>`).join('')}
+      <div style="margin-top:6px;color:var(--ink3);font-size:11px">Red bars = above average · Green = below</div>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+// NEXT FILL PREDICTOR + MONTHLY FORECAST + TANK RANGE
+// ══════════════════════════════════════════
+function renderFuelPredictor() {
+  const wrap = el('fuel-predictor'); if (!wrap) return;
+  const sorted  = [...(DATA.fuel||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const pairs   = _fullTankPairs(DATA.fuel||[]);
+  const tankSize= DATA.fuelSettings?.tankSize || null;
+
+  const stats = [];
+
+  // ── Next fill predictor ───────────────────────────────────────────────────
+  if (pairs.length >= 2) {
+    const avgKmPerFill = pairs.reduce((s,p)=>s+p.km,0) / pairs.length;
+    const lastFill     = sorted.filter(f=>f.odo).slice(-1)[0];
+    const lastDate     = lastFill ? new Date(lastFill.date+'T12:00:00') : null;
+    if (lastDate && lastFill.odo) {
+      const daysSinceFill = Math.round((new Date()-lastDate)/MS_PER_DAY);
+      const avgDaysPerFill= pairs.length>=2
+        ? (new Date(pairs.slice(-1)[0].to.date)-new Date(pairs[0].from.date)) / MS_PER_DAY / (pairs.length-1)
+        : 7;
+      const daysUntilFill = Math.max(0, Math.round(avgDaysPerFill - daysSinceFill));
+      const nextDate      = new Date(lastDate.getTime() + avgDaysPerFill*MS_PER_DAY);
+      const nextOdo       = Math.round(lastFill.odo + avgKmPerFill);
+      const urgency       = daysUntilFill <= 2 ? 'color:var(--Rm)' : daysUntilFill <= 5 ? 'color:var(--Am)' : 'color:var(--Gm)';
+      stats.push(`<div class="predictor-card">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⛽ Next fill predictor</div>
+        <div style="font-size:14px;font-weight:700;${urgency}">~${daysUntilFill === 0 ? 'today' : daysUntilFill+' days'}</div>
+        <div style="font-size:12px;color:var(--ink2);margin-top:3px">
+          Around ${nextDate.toLocaleDateString('de-AT',{day:'numeric',month:'short'})} · ~${nextOdo.toLocaleString('de-AT')} km odometer
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px">Based on avg ${Math.round(avgKmPerFill).toLocaleString('de-AT')} km/fill over ${pairs.length} fills · ${Math.round(avgDaysPerFill)} days/fill</div>
+      </div>`);
+    }
+  }
+
+  // ── Monthly cost forecast ─────────────────────────────────────────────────
+  const now      = new Date();
+  const cutoff90 = new Date(now.getTime()-90*MS_PER_DAY);
+  const recent   = sorted.filter(f=>new Date(f.date+'T12:00:00')>=cutoff90);
+  if (recent.length >= 2) {
+    const days90cost = recent.reduce((s,f)=>s+f.total,0);
+    const dailyCost  = days90cost / 90;
+    const monthFcast = +(dailyCost * 30).toFixed(2);
+    // This month so far
+    const thisMonStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const thisMonCost= sorted.filter(f=>f.date.slice(0,7)===thisMonStr).reduce((s,f)=>s+f.total,0);
+    const daysIn     = now.getDate();
+    const daysLeft   = new Date(now.getFullYear(),now.getMonth()+1,0).getDate() - daysIn;
+    const projRest   = +(dailyCost * daysLeft).toFixed(2);
+    const projTotal  = +(thisMonCost + projRest).toFixed(2);
+    const col        = projTotal > monthFcast*1.1 ? 'var(--Rm)' : projTotal < monthFcast*0.9 ? 'var(--Gm)' : 'var(--ink)';
+    stats.push(`<div class="predictor-card">
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📅 Monthly cost forecast</div>
+      <div style="font-size:14px;font-weight:700;color:${col}">€${projTotal.toFixed(2)}</div>
+      <div style="font-size:12px;color:var(--ink2);margin-top:3px">
+        €${thisMonCost.toFixed(2)} so far + ~€${projRest.toFixed(2)} remaining (${daysLeft}d)
+      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:2px">Avg €${dailyCost.toFixed(2)}/day over last 90 days · typical month ~€${monthFcast.toFixed(2)}</div>
+    </div>`);
+  }
+
+  // ── Tank range estimator ──────────────────────────────────────────────────
+  if (tankSize && pairs.length >= 2) {
+    const avgEff   = pairs.reduce((s,p)=>s+p.eff,0)/pairs.length;
+    const range    = Math.round(tankSize / avgEff * 100);
+    const lastFill = sorted.filter(f=>f.odo).slice(-1)[0];
+    const lastOdo  = lastFill?.odo;
+    // Estimate how full the tank is based on km since last full fill
+    const lastFull = sorted.filter(f=>f.odo&&f.fullTank!==false).slice(-1)[0];
+    let remaining  = null;
+    if (lastFull?.odo && lastOdo && lastOdo >= lastFull.odo) {
+      const driven  = lastOdo - lastFull.odo;
+      const usedL   = driven / 100 * avgEff;
+      const leftL   = Math.max(0, tankSize - usedL);
+      const leftKm  = Math.round(leftL / avgEff * 100);
+      remaining = { leftL: +leftL.toFixed(1), leftKm, pct: Math.round(leftL/tankSize*100) };
+    }
+    const col = remaining ? (remaining.pct<20?'var(--Rm)':remaining.pct<40?'var(--Am)':'var(--Gm)') : 'var(--ink)';
+    stats.push(`<div class="predictor-card">
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔋 Tank range</div>
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">~${range.toLocaleString('de-AT')} km full tank</div>
+      ${remaining ? `<div style="font-size:12px;color:${col};margin-top:3px;font-weight:600">
+        ~${remaining.leftL}L left (${remaining.pct}%) · ~${remaining.leftKm.toLocaleString('de-AT')} km range remaining</div>
+        <div style="background:var(--s2);border-radius:100px;height:6px;margin-top:6px;overflow:hidden">
+          <div style="width:${remaining.pct}%;height:100%;border-radius:100px;background:${col}"></div>
+        </div>` : ''}
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px">${tankSize}L tank · avg ${avgEff.toFixed(1)} L/100km</div>
+    </div>`);
+  } else if (!tankSize) {
+    stats.push(`<div class="predictor-card" style="color:var(--ink3);font-size:12px">Enter your tank size in the log form to see range estimates.</div>`);
+  }
+
+  wrap.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">${stats.join('')}</div>`;
+}
+
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
 // ══════════════════════════════════════════
@@ -9105,7 +9432,7 @@ function renderFuel() {
   // ── Table ──────────────────────────────────────────────────────────────────
   const tbody = el('fuel-body'); if (!tbody) return;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="12" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
   } else {
     // Pre-sort ascending to compute consecutive deltas
     const asc = [...filtered].sort((a,b) => a.date.localeCompare(b.date));
@@ -9118,20 +9445,33 @@ function renderFuel() {
     });
     // Display newest first
     const rows = [...withDeltas].reverse().map(f => {
-      const effCls = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
+      const effCls    = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
       const fullBadge = f.fullTank === false ? '½' : '⛽';
+      const fullTitle = f.fullTank === false ? 'Partial — click to mark full' : 'Full tank — click to mark partial';
+      // Editable cells use ondblclick; computed cells and full-tank toggle are special
       return `<tr>
-        <td class="num">${esc(f.date)}</td>
-        <td><span class="fuel-type-badge ${f.type}">${FUEL_LABELS[f.type]||esc(f.type)}</span></td>
-        <td>${esc(f.station||'—')}</td>
-        <td class="num">${f.liters.toFixed(2)} L</td>
-        <td class="num">${f.ppl.toFixed(3)} €</td>
-        <td class="num amt-n">−${fmt(f.total)}</td>
-        <td class="num">${f.odo ? f.odo.toLocaleString() : '—'}</td>
-        <td class="num">${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','date','${f.date}',{type:'date',width:'110px'})"
+          title="Double-click to edit">${esc(f.date)}</td>
+        <td ondblclick="makeFuelCellEditable(this,'${f.id}','type','${f.type}',{isSelect:true,width:'90px',options:{petrol:'Petrol',diesel:'Diesel',lpg:'LPG',electric:'Electric'}})"
+          title="Double-click to edit"><span class="fuel-type-badge ${f.type}">${FUEL_LABELS[f.type]||esc(f.type)}</span></td>
+        <td ondblclick="makeFuelCellEditable(this,'${f.id}','station',${JSON.stringify(f.station||'')},{width:'110px'})"
+          title="Double-click to edit" style="cursor:text">${esc(f.station||'—')}</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','liters',${f.liters},{type:'number',step:'0.001',min:'0',width:'70px'})"
+          title="Double-click to edit · recalculates Total">${f.liters.toFixed(2)} L</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','ppl',${f.ppl},{type:'number',step:'0.001',min:'0',width:'70px'})"
+          title="Double-click to edit · recalculates Total">${f.ppl.toFixed(3)} €</td>
+        <td class="num amt-n" ondblclick="makeFuelCellEditable(this,'${f.id}','total',${f.total},{type:'number',step:'0.01',min:'0',width:'70px'})"
+          title="Double-click to edit · recalculates €/L">−${fmt(f.total)}</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','odo',${f.odo||''},{ type:'number',step:'1',min:'0',width:'80px'})"
+          title="Double-click to edit">${f.odo ? f.odo.toLocaleString() : '<span style="color:var(--ink3);font-size:11px">+ odo</span>'}</td>
+        <td class="num muted">${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</td>
         <td class="num ${effCls}">${f.lPer100 != null ? f.lPer100 + ' L' : '—'}</td>
         <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
-        <td style="text-align:center;font-size:13px" title="${f.fullTank===false?'Partial fill':'Full tank'}">${fullBadge}</td>
+        <td style="text-align:center;font-size:15px;cursor:pointer" title="${fullTitle}"
+          onclick="updateFuelRecord('${f.id}','fullTank',${f.fullTank===false?'true':'false'})">${fullBadge}</td>
+        <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${JSON.stringify(f.note||'')},{width:'120px'})"
+          title="Double-click to add note" style="cursor:text;font-size:11px;color:var(--ink3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          ${f.note ? esc(f.note) : '<span style="color:var(--bdr)">+ note</span>'}</td>
         <td><button class="btn xs danger" onclick="deleteFuel('${f.id}')">✕</button></td>
       </tr>`;
     }).join('');
