@@ -2233,7 +2233,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
           <div class="fg" style="margin:0">
             <label>Price per litre (€)</label>
-            <input type="number" id="fuel-ppl" min="0" step="0.001" placeholder="1.729" style="font-family:var(--mono)" oninput="fuelPreview()">
+            <input type="number" id="fuel-ppl" min="0" step="0.001" placeholder="1.729" style="font-family:var(--mono)" oninput="fuelPreview();checkFuelOutlier()">
           </div>
           <div class="fg" style="margin:0">
             <label>Total cost (€) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">auto-fills</span></label>
@@ -2450,7 +2450,7 @@ const NEAR_TREAD_MM  = 2.1;     // warn when within this mm of legal limit
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 12,
+  v: 13,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2478,7 +2478,8 @@ const FRESH = () => ({
   carService: { serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12,
                tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60,
                treadLog:[], serviceCostLog:[] },
-  insurance:  { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' }
+  insurance:   { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' },
+  fuelSettings: { tankSize: null }
 });
 
 const GR_CATS = {
@@ -3119,7 +3120,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 12; // current target version
+const SCHEMA_VERSION = 13; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3213,6 +3214,11 @@ const MIGRATIONS = [
       if (!d.carService.serviceCostLog)d.carService.serviceCostLog= [];
     }
     if (!d.insurance) d.insurance = { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' };
+    return d;
+  },
+  // v12 → v13 : fuelSettings (tank size)
+  d => {
+    if (!d.fuelSettings) d.fuelSettings = { tankSize: null };
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -8219,6 +8225,7 @@ function renderFuelSmartStats(records) {
   wrap.innerHTML = `<div class="stat-grid">
     ${avgEff != null ? stat('Avg L/100 km (full tanks)', avgEff.toFixed(1)+' L', `${pairs.length} full-tank pair${pairs.length!==1?'s':''}`) : ''}
     ${avgCostPerKm != null ? stat('Avg cost / km', '€'+avgCostPerKm.toFixed(3), 'last 3 fills') : ''}
+    ${(avgEff != null && avgCostPerKm != null) ? stat('Cost / 100 km', '€'+(avgCostPerKm*100).toFixed(2), 'fuel only, no depreciation') : ''}
     ${annualProj != null ? stat('Annual fuel projection', '€'+annualProj.toLocaleString('de-AT'), 'based on last 90 days') : ''}
     ${longestStretch ? stat('Longest stretch', longestStretch.km.toLocaleString('de-AT')+' km',
         longestStretch.from.date+' → '+longestStretch.to.date+' · '+longestStretch.eff.toFixed(1)+' L/100') : ''}
@@ -9350,6 +9357,7 @@ async function addFuel() {
     DATA.fuel.push(record);
     DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
     checkServiceAlert(); // odometer updated — re-evaluate service due dates
+    renderFuelPredictor();  // update next-fill prediction with new data
 
     // Optionally log as budget entry
     if (el('fuel-add-entry')?.checked) {
@@ -9385,6 +9393,8 @@ function deleteFuel(id) {
 function renderFuel() {
   fuelFormInit();
   if (!DATA.fuel) DATA.fuel = [];
+  if (!DATA.fuelSettings) DATA.fuelSettings = {};
+  renderFuelSettingsUI();
   renderCarServiceUI();
   checkServiceAlert();
 
@@ -9426,7 +9436,10 @@ function renderFuel() {
     ['fs-ppl','fs-liters','fs-interval','fs-per100','fs-total','fs-odo'].forEach(id => { if(el(id)) el(id).textContent = '—'; });
   }
 
-  // ── Price trend chart ──────────────────────────────────────────────────────
+  // ── Predictions + seasonal + charts ─────────────────────────────────────────
+  renderFuelSmartStats(all);
+  renderFuelPredictor();
+  renderFuelSeasonal();
   renderFuelChart(all);
 
   // ── Table ──────────────────────────────────────────────────────────────────
@@ -9463,7 +9476,7 @@ function renderFuel() {
         <td class="num amt-n" ondblclick="makeFuelCellEditable(this,'${f.id}','total',${f.total},{type:'number',step:'0.01',min:'0',width:'70px'})"
           title="Double-click to edit · recalculates €/L">−${fmt(f.total)}</td>
         <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','odo',${f.odo||''},{ type:'number',step:'1',min:'0',width:'80px'})"
-          title="Double-click to edit">${f.odo ? f.odo.toLocaleString() : '<span style="color:var(--ink3);font-size:11px">+ odo</span>'}</td>
+          title="Double-click to edit">${f.odo ? f.odo.toLocaleString() : '<span class="odo-nag" onclick="makeFuelCellEditable(this.closest(\'td\'),\''+f.id+'\',\'odo\',\'\',{type:\'number\',step:\'1\',min:\'0\',width:\'80px\'})" title="Missing odometer — click to add">+ odo</span>'}</td>
         <td class="num muted">${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</td>
         <td class="num ${effCls}">${f.lPer100 != null ? f.lPer100 + ' L' : '—'}</td>
         <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
@@ -9478,7 +9491,11 @@ function renderFuel() {
     tbody.innerHTML = rows;
   }
 
-  // ── Monthly cost bar chart ─────────────────────────────────────────────────
+  // ── Charts & analysis ─────────────────────────────────────────────────────
+  setFuelHistoryMode(_fuelHistoryMode);
+  renderFuelHistory(all);
+  renderFuelHeatmap();
+  renderFuelEcbChart(all);
   renderFuelMonthly(all);
   renderFuelMap();
 }
