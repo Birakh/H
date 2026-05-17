@@ -7909,19 +7909,22 @@ function dismissServiceAlert() {
 // ══════════════════════════════════════════
 let _fuelHistoryMode = 'km'; // 'km' | 'cost' | 'eff'
 
-function setFuelHistoryMode(mode) {
-  _fuelHistoryMode = mode;
+function _highlightFuelModeBtn(mode) {
   ['km','cost','eff'].forEach(m => {
     const btn = el(`fh-btn-${m}`);
     if (btn) btn.style.fontWeight = m === mode ? '700' : '400';
   });
+}
+
+function setFuelHistoryMode(mode) {
+  _fuelHistoryMode = mode;
+  _highlightFuelModeBtn(mode);
   renderFuelHistory((DATA.fuel||[]).sort((a,b)=>a.date.localeCompare(b.date)));
 }
 
 function renderFuelHistory(records) {
   const wrap = el('fuel-history-chart'); if (!wrap) return;
-  // Highlight active button
-  setFuelHistoryMode(_fuelHistoryMode);
+  _highlightFuelModeBtn(_fuelHistoryMode); // highlight without re-calling setFuelHistoryMode
 
   const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
   // Build points with deltas
