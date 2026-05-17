@@ -680,6 +680,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .seasonal-bar-track{flex:1;background:var(--s2);border-radius:100px;height:8px;overflow:hidden}
 .seasonal-bar-fill{height:100%;border-radius:100px}
 .predictor-card{background:var(--s1);border-radius:var(--rs);padding:12px;border:.5px solid var(--bdr)}
+.oil-price-badge{display:inline-flex;flex-direction:column;align-items:flex-start;background:var(--s1);border-radius:var(--rs);padding:10px 14px;border:.5px solid var(--bdr);min-width:130px}
+.oil-price-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--ink)}
+.oil-price-chg{font-size:11px;font-family:var(--mono);margin-top:2px}
+.oil-range-btn{padding:3px 11px;border-radius:20px;border:1px solid var(--bdr);background:transparent;color:var(--ink2);font-size:12px;cursor:pointer;transition:all .1s}
+.oil-range-btn.active{background:var(--ink);color:var(--s0);border-color:var(--ink)}
+.oil-calc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-top:10px;border:.5px solid var(--bdr)}
+.oil-legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
 /* service banner */
 #service-alert-bar{position:fixed;top:0;left:0;right:0;z-index:997;display:none;
   align-items:center;gap:10px;padding:7px 16px;font-size:13px;font-weight:500;
@@ -1607,6 +1614,29 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Regional preferences</div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">
+          These settings adapt the app to your region — they don't affect your data.
+        </div>
+
+        <!-- Oil benchmark -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Oil price benchmark</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
+              <input type="radio" name="oil-benchmark" id="ob-brent" value="brent" onchange="saveRegionalSettings()" style="width:auto"> 
+              <span><strong>Brent</strong> <span style="color:var(--ink3);font-size:11px">— Europe, Middle East, Africa (default)</span></span>
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
+              <input type="radio" name="oil-benchmark" id="ob-wti" value="wti" onchange="saveRegionalSettings()" style="width:auto">
+              <span><strong>WTI</strong> <span style="color:var(--ink3);font-size:11px">— North America</span></span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Sets which benchmark is shown first and used in the litre calculator.</div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Budget splits &amp; goals</div>
         <div id="splits-ui"></div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
@@ -2391,6 +2421,66 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="ins-preview"></div>
       </div>
 
+      <!-- ── Live crude oil prices ── -->
+      <div class="card">
+        <div class="card-title">Crude oil prices
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">WTI &amp; Brent · USD/barrel</span>
+          <button class="btn xs ghost" onclick="fetchOilPrices(true)" id="oil-refresh-btn">↻ Refresh</button>
+        </div>
+
+        <!-- Price badges + range selector -->
+        <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <div class="oil-price-badge" id="oil-brent-badge">
+            <span style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">Brent Crude <span id="oil-primary-lbl" style="color:var(--Bm)">★</span></span>
+            <span class="oil-price-val" id="oil-brent-val">—</span>
+            <span class="oil-price-chg" id="oil-brent-chg"></span>
+          </div>
+          <div class="oil-price-badge" id="oil-wti-badge">
+            <span style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">WTI Crude</span>
+            <span class="oil-price-val" id="oil-wti-val">—</span>
+            <span class="oil-price-chg" id="oil-wti-chg"></span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-left:auto">
+            <div style="display:flex;gap:6px">
+              <button class="oil-range-btn active" id="oil-rng-1d"  onclick="setOilRange('1d')">24h</button>
+              <button class="oil-range-btn"        id="oil-rng-14d" onclick="setOilRange('14d')">14d</button>
+              <button class="oil-range-btn"        id="oil-rng-1mo" onclick="setOilRange('1mo')">1mo</button>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;margin:0;font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink2)">
+              <input type="checkbox" id="oil-compare" onchange="renderOilChart()" style="width:auto" checked>
+              Compare WTI &amp; Brent
+            </label>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div id="oil-chart-wrap" style="overflow-x:auto">
+          <div id="oil-chart" style="min-height:120px;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:13px;color:var(--ink3)">Loading oil prices…</span>
+          </div>
+        </div>
+        <div id="oil-chart-tip" class="heatmap-tip"></div>
+
+        <!-- Litre calculator -->
+        <div class="oil-calc-row">
+          <span style="font-size:12px;font-weight:600;color:var(--ink2)">🧮 Per-litre calculator</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--ink3)">Barrel price</span>
+            <input type="number" id="oil-calc-barrel" step="0.01" placeholder="75.00"
+              style="width:90px;font-family:var(--mono);font-size:13px" oninput="this.dataset.userSet='1';updateOilCalc()">
+            <span style="font-size:12px;color:var(--ink3)">USD</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--ink3)">Refinery margin</span>
+            <input type="number" id="oil-calc-margin" step="1" value="40" min="0" max="200"
+              style="width:65px;font-family:var(--mono);font-size:13px" oninput="updateOilCalc()">
+            <span style="font-size:12px;color:var(--ink3)">%</span>
+          </div>
+          <div id="oil-calc-result" style="font-size:13px;font-family:var(--mono);color:var(--ink);font-weight:600"></div>
+        </div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:6px">Data via Yahoo Finance · 15-min delay · 1 barrel = 158.987 L · margin covers refining, tax &amp; distribution</div>
+      </div>
+
       <!-- ── Next fill predictor + monthly forecast + tank range ── -->
       <div class="card">
         <div class="card-title">Predictions</div>
@@ -2450,7 +2540,7 @@ const NEAR_TREAD_MM  = 2.1;     // warn when within this mm of legal limit
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 13,
+  v: 14,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -2479,7 +2569,8 @@ const FRESH = () => ({
                tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60,
                treadLog:[], serviceCostLog:[] },
   insurance:   { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' },
-  fuelSettings: { tankSize: null }
+  fuelSettings: { tankSize: null },
+  settings:     { oilBenchmark: 'brent' }
 });
 
 const GR_CATS = {
@@ -3120,7 +3211,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 13; // current target version
+const SCHEMA_VERSION = 14; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3219,6 +3310,12 @@ const MIGRATIONS = [
   // v12 → v13 : fuelSettings (tank size)
   d => {
     if (!d.fuelSettings) d.fuelSettings = { tankSize: null };
+    return d;
+  },
+  // v13 → v14 : regional settings (oil benchmark)
+  d => {
+    if (!d.settings) d.settings = { oilBenchmark: 'brent' };
+    if (!d.settings.oilBenchmark) d.settings.oilBenchmark = 'brent';
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -6556,6 +6653,7 @@ function renderSettings() {
   renderHousingUI();
   renderRateAlertUI();
   renderInsuranceUI();
+  renderRegionalSettings();
   renderSplitsUI();
   renderAcctList();
   el('cfg-label').textContent = `${CFG.owner}/${CFG.repo}`;
@@ -8750,6 +8848,250 @@ function renderFuelPredictor() {
   }
 
   wrap.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">${stats.join('')}</div>`;
+}
+
+
+// ══════════════════════════════════════════
+// LIVE CRUDE OIL PRICES
+// WTI (CL=F) and Brent (BZ=F) via Yahoo Finance
+// ══════════════════════════════════════════
+const BARRELS_PER_LITRE = 1 / 158.987;
+let _oilRange   = '1d';
+let _oilCache   = { wti: null, brent: null }; // { ts, timestamps[], prices[], meta }
+let _oilFetched = { wti: 0, brent: 0 };
+
+const OIL_SYMBOLS = { wti: 'CL=F', brent: 'BZ=F' };
+const OIL_INTERVALS = { '1d': '5m', '14d': '1h', '1mo': '1d' };
+const OIL_COLOURS   = { wti: 'var(--Am)', brent: 'var(--Bm)' };
+
+async function _fetchOilSeries(type, range) {
+  const symbol   = OIL_SYMBOLS[type];
+  const interval = OIL_INTERVALS[range] || '1d';
+  // Yahoo Finance v8 — public, CORS-enabled, 15-min delay
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
+  const ctrl= new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(`Yahoo Finance HTTP ${r.status}`);
+    const j = await r.json();
+    const result = j?.chart?.result?.[0];
+    if (!result) throw new Error('No data in response');
+    const meta       = result.meta;
+    const timestamps = result.timestamp || [];
+    const closes     = result.indicators?.quote?.[0]?.close || [];
+    // Filter out nulls (pre/post market gaps)
+    const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
+                          .filter(p => p.p != null);
+    if (!pts.length) throw new Error('Empty price series');
+    return {
+      pts,
+      current: meta.regularMarketPrice,
+      prev:    meta.chartPreviousClose || meta.previousClose,
+      currency: meta.currency || 'USD',
+      ts: Date.now(),
+    };
+  } finally { clearTimeout(tid); }
+}
+
+async function fetchOilPrices(force=false) {
+  const btn = el('oil-refresh-btn');
+  if (btn) btn.textContent = '⏳';
+  const TTL = _oilRange === '1d' ? MS_PER_HOUR / 4 : MS_PER_HOUR; // 15min for 24h, 1hr otherwise
+  const needsWti   = force || !_oilCache.wti   || Date.now() - _oilFetched.wti   > TTL;
+  const needsBrent = force || !_oilCache.brent || Date.now() - _oilFetched.brent > TTL;
+  const fetches = [];
+  if (needsWti)   fetches.push(_fetchOilSeries('wti',   _oilRange).then(d => { _oilCache.wti   = d; _oilFetched.wti   = Date.now(); }).catch(e=>{ if(el('oil-chart'))el('oil-chart').innerHTML=`<span style="color:var(--Rm);font-size:12px">WTI fetch failed: ${e.message}</span>`; }));
+  if (needsBrent) fetches.push(_fetchOilSeries('brent', _oilRange).then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); }).catch(()=>{}));
+  await Promise.allSettled(fetches);
+  if (btn) btn.textContent = '↻ Refresh';
+  updateOilBadges();
+  renderOilChart();
+  updateOilCalc();
+}
+
+function updateOilBadges() {
+  ['wti','brent'].forEach(type => {
+    const d   = _oilCache[type]; if (!d) return;
+    const val = el(`oil-${type}-val`);
+    const chg = el(`oil-${type}-chg`);
+    if (val) val.textContent = `$${d.current.toFixed(2)}`;
+    if (chg && d.prev) {
+      const diff = d.current - d.prev;
+      const pct  = (diff / d.prev * 100).toFixed(2);
+      chg.textContent = `${diff>=0?'+':''}${diff.toFixed(2)} (${diff>=0?'+':''}${pct}%)`;
+      chg.style.color = diff >= 0 ? 'var(--Gm)' : 'var(--Rm)';
+    }
+  });
+  // Pre-fill calculator with WTI current price
+  const wtiCalc = el('oil-calc-barrel');
+  const primaryCache = (DATA.settings?.oilBenchmark||'brent')==='brent' ? _oilCache.brent : _oilCache.wti;
+  if (wtiCalc && !wtiCalc.dataset.userSet && primaryCache)
+    wtiCalc.value = primaryCache.current.toFixed(2);
+  updateOilCalc();
+}
+
+function setOilRange(range) {
+  _oilRange = range;
+  ['1d','14d','1mo'].forEach(r => el(`oil-rng-${r}`)?.classList.toggle('active', r === range));
+  // Force refetch since range changed
+  _oilFetched = { wti: 0, brent: 0 };
+  fetchOilPrices();
+}
+
+function renderOilChart() {
+  const wrap = el('oil-chart'); if (!wrap) return;
+  const compare = el('oil-compare')?.checked !== false;
+  const wti   = _oilCache.wti;
+  const brent = _oilCache.brent;
+  if (!wti && !brent) { wrap.innerHTML='<span style="font-size:13px;color:var(--ink3)">No data — click ↻ Refresh</span>'; return; }
+
+  const W=600, H=140, padL=52, padR=16, padT=16, padB=28;
+  const cW=W-padL-padR, cH=H-padT-padB;
+
+  // Collect series to draw
+  const series = [];
+  const oilPrimary = DATA.settings?.oilBenchmark || 'brent';
+  if (oilPrimary === 'brent') {
+    if (brent)           series.push({ key:'brent', pts:brent.pts, color:'var(--Bm)', label:'Brent' });
+    if (wti && compare)  series.push({ key:'wti',   pts:wti.pts,   color:'var(--Am)', label:'WTI' });
+  } else {
+    if (wti)             series.push({ key:'wti',   pts:wti.pts,   color:'var(--Am)', label:'WTI' });
+    if (brent && compare)series.push({ key:'brent', pts:brent.pts, color:'var(--Bm)', label:'Brent' });
+  }
+
+  // Unified price range across active series
+  const allPrices = series.flatMap(s=>s.pts.map(p=>p.p));
+  const minP = Math.min(...allPrices)*0.998, maxP = Math.max(...allPrices)*1.002;
+  const pRange = maxP - minP || 1;
+
+  // Unified time range
+  const allTs = series.flatMap(s=>s.pts.map(p=>p.t));
+  const minT = Math.min(...allTs), maxT = Math.max(...allTs);
+  const tRange = maxT - minT || 1;
+
+  const xS = t => padL + ((t-minT)/tRange)*cW;
+  const yS = p => padT + cH - ((p-minP)/pRange)*cH;
+
+  // Draw series
+  let polylines = '', dots = '', hoverRects = '';
+  series.forEach(s => {
+    const pts2 = s.pts.filter(p=>p.t>=minT);
+    if (!pts2.length) return;
+    const polyPts = pts2.map(p=>`${xS(p.t).toFixed(1)},${yS(p.p).toFixed(1)}`).join(' ');
+    polylines += `<polyline points="${polyPts}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>`;
+    // Last dot + label
+    const last = pts2[pts2.length-1];
+    dots += `<circle cx="${xS(last.t).toFixed(1)}" cy="${yS(last.p).toFixed(1)}" r="3" fill="${s.color}"/>`;
+    dots += `<text x="${(xS(last.t)-3).toFixed(1)}" y="${(yS(last.p)-6).toFixed(1)}" font-size="8" fill="${s.color}" text-anchor="end" font-weight="600">$${last.p.toFixed(2)}</text>`;
+  });
+
+  // Hover strips (WTI primary series)
+  const primary = series[0];
+  if (primary) {
+    const step = cW / Math.max(primary.pts.length-1, 1);
+    primary.pts.forEach((p,i) => {
+      const x   = xS(p.t);
+      const sw  = Math.max(step, 8);
+      const d   = new Date(p.t);
+      const lbl = _oilRange==='1d'
+        ? d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'})
+        : d.toLocaleDateString('de-AT',{day:'numeric',month:'short'});
+      const prices = series.map(s=>{const pt=s.pts.find(q=>q.t===p.t)||(s.pts[i]);return pt?`${s.label}: $${pt.p.toFixed(2)}`:''}).filter(Boolean).join(' · ');
+      hoverRects += `<rect x="${(x-sw/2).toFixed(1)}" y="${padT}" width="${sw.toFixed(1)}" height="${cH}" fill="transparent"
+        onmousemove="oilTip(event,'${lbl} · ${prices}')"
+        onmouseleave="oilTipHide()"/>`;
+    });
+  }
+
+  // Y axis ticks
+  const yTicks = [minP,minP+(maxP-minP)/2,maxP].map(v=>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">$${v.toFixed(1)}</text>`
+  ).join('');
+
+  // X axis labels (5 evenly spaced)
+  const primary2 = series[0];
+  let xLabels = '';
+  if (primary2?.pts.length) {
+    const step2 = Math.max(1, Math.floor(primary2.pts.length/5));
+    xLabels = primary2.pts.filter((_,i)=>i%step2===0||i===primary2.pts.length-1).map(p=>{
+      const d = new Date(p.t);
+      const lbl = _oilRange==='1d'
+        ? d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'})
+        : d.toLocaleDateString('de-AT',{day:'numeric',month:'short'});
+      return `<text x="${xS(p.t).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${lbl}</text>`;
+    }).join('');
+  }
+
+  // Legend
+  const legend = series.map(s=>
+    `<circle cx="0" cy="0" r="4" fill="${s.color}"/><text x="8" y="4" font-size="9" fill="${s.color}" font-weight="600">${s.label}</text>`
+  );
+  const legendG = series.map((s,i)=>
+    `<g transform="translate(${padL + i*60},${padT-3})">${legend[i]}</g>`
+  ).join('');
+
+  // Grid
+  const gridLines = [0,0.25,0.5,0.75,1].map(t=>{
+    const y=(padT+cH*t).toFixed(1);
+    return `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--chart-grid)" stroke-width=".4"/>`;
+  }).join('');
+
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${gridLines}${legendG}${polylines}${dots}${yTicks}${xLabels}${hoverRects}
+    <line id="oil-xhair" x1="0" y1="${padT}" x2="0" y2="${padT+cH}" stroke="var(--ink3)" stroke-width="1" stroke-dasharray="3,2" style="display:none"/>
+  </svg>`;
+}
+
+function oilTip(e, txt) {
+  const tip = el('oil-chart-tip'); if (!tip) return;
+  tip.textContent = txt; tip.style.display='block';
+  tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-28)+'px';
+  const xhair=document.getElementById('oil-xhair');
+  if(xhair){const rect=e.currentTarget?.closest('svg')?.getBoundingClientRect();if(rect)xhair.setAttribute('x1',e.clientX-rect.left);xhair.setAttribute('x2',e.clientX-rect.left);xhair.style.display='';}
+}
+function oilTipHide(){const t=el('oil-chart-tip');if(t)t.style.display='none';const x=document.getElementById('oil-xhair');if(x)x.style.display='none';}
+
+function updateOilCalc() {
+  const res = el('oil-calc-result'); if (!res) return;
+  const barrel  = parseFloat(el('oil-calc-barrel')?.value);
+  const marginPct= parseFloat(el('oil-calc-margin')?.value) || 0;
+  if (!barrel || barrel <= 0) { res.textContent=''; return; }
+  const priceUsd  = barrel * BARRELS_PER_LITRE;
+  const withMargin= priceUsd * (1 + marginPct/100);
+  // Convert to EUR if we have a rate
+  const eurUsd = _fxRates?.USD;
+  const eur    = eurUsd ? withMargin / eurUsd : null;
+  res.innerHTML = `$${withMargin.toFixed(4)}/L crude cost`
+    + (eur ? ` &nbsp;·&nbsp; <strong>€${eur.toFixed(4)}/L</strong>` : '')
+    + `<span style="font-size:10px;font-weight:400;color:var(--ink3)"> (raw crude only, excl. local taxes)</span>`;
+}
+
+
+// ══════════════════════════════════════════
+// REGIONAL SETTINGS
+// ══════════════════════════════════════════
+function saveRegionalSettings() {
+  if (!DATA.settings) DATA.settings = {};
+  const benchmark = document.querySelector('input[name="oil-benchmark"]:checked')?.value || 'brent';
+  DATA.settings.oilBenchmark = benchmark;
+  saveLocal();
+  // Update primary badge star
+  const lbl = el('oil-primary-lbl');
+  if (lbl) lbl.style.color = benchmark === 'brent' ? 'var(--Bm)' : 'var(--Am)';
+  // Re-render chart with new primary
+  renderOilChart();
+  updateOilCalc();
+}
+
+function renderRegionalSettings() {
+  const benchmark = DATA.settings?.oilBenchmark || 'brent';
+  const bEl = el('ob-brent'), wEl = el('ob-wti');
+  if (bEl) bEl.checked = benchmark === 'brent';
+  if (wEl) wEl.checked = benchmark === 'wti';
+  // Sync primary star
+  const lbl = el('oil-primary-lbl');
+  if (lbl) lbl.style.color = benchmark === 'brent' ? 'var(--Bm)' : 'var(--Am)';
 }
 
 // ══════════════════════════════════════════
