@@ -8864,34 +8864,78 @@ const OIL_SYMBOLS = { wti: 'CL=F', brent: 'BZ=F' };
 const OIL_INTERVALS = { '1d': '5m', '14d': '1h', '1mo': '1d' };
 const OIL_COLOURS   = { wti: 'var(--Am)', brent: 'var(--Bm)' };
 
+// Yahoo Finance now requires a crumb token (session cookie handshake).
+// We fetch the crumb first, then use it in the data request.
+let _yfCrumb = null;
+
+async function _getYahooCrumb() {
+  if (_yfCrumb) return _yfCrumb;
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const r = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      credentials: 'include', signal: ctrl.signal
+    });
+    if (!r.ok) throw new Error(`crumb HTTP ${r.status}`);
+    const crumb = (await r.text()).trim();
+    if (!crumb || crumb.includes('<')) throw new Error('invalid crumb response');
+    _yfCrumb = crumb;
+    return crumb;
+  } finally { clearTimeout(tid); }
+}
+
+function _parseYahooChart(j) {
+  const result = j?.chart?.result?.[0];
+  if (!result) throw new Error('No data in Yahoo Finance response');
+  const meta       = result.meta;
+  const timestamps = result.timestamp || [];
+  const closes     = result.indicators?.quote?.[0]?.close || [];
+  const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
+                        .filter(p => p.p != null && isFinite(p.p));
+  if (!pts.length) throw new Error('Empty price series after filtering');
+  return {
+    pts,
+    current: meta.regularMarketPrice,
+    prev:    meta.chartPreviousClose || meta.previousClose,
+    currency: meta.currency || 'USD',
+    ts: Date.now(),
+  };
+}
+
 async function _fetchOilSeries(type, range) {
   const symbol   = OIL_SYMBOLS[type];
   const interval = OIL_INTERVALS[range] || '1d';
-  // Yahoo Finance v8 — public, CORS-enabled, 15-min delay
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
-  const ctrl= new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), 6000);
+
+  // Attempt 1: crumb-based auth (works if user has visited Yahoo Finance recently)
   try {
-    const r = await fetch(url, { signal: ctrl.signal });
-    if (!r.ok) throw new Error(`Yahoo Finance HTTP ${r.status}`);
-    const j = await r.json();
-    const result = j?.chart?.result?.[0];
-    if (!result) throw new Error('No data in response');
-    const meta       = result.meta;
-    const timestamps = result.timestamp || [];
-    const closes     = result.indicators?.quote?.[0]?.close || [];
-    // Filter out nulls (pre/post market gaps)
-    const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
-                          .filter(p => p.p != null);
-    if (!pts.length) throw new Error('Empty price series');
-    return {
-      pts,
-      current: meta.regularMarketPrice,
-      prev:    meta.chartPreviousClose || meta.previousClose,
-      currency: meta.currency || 'USD',
-      ts: Date.now(),
-    };
-  } finally { clearTimeout(tid); }
+    const crumb = await _getYahooCrumb();
+    const url   = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`;
+    const ctrl  = new AbortController();
+    const tid   = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const r = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return _parseYahooChart(await r.json());
+    } finally { clearTimeout(tid); }
+  } catch(e1) {
+    _yfCrumb = null; // reset crumb on failure
+    console.warn('[oil] crumb fetch failed:', e1.message);
+  }
+
+  // Attempt 2: query2 subdomain (sometimes has different CORS policy)
+  try {
+    const url  = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const r = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return _parseYahooChart(await r.json());
+    } finally { clearTimeout(tid); }
+  } catch(e2) {
+    console.warn('[oil] query2 failed:', e2.message);
+    throw new Error('Yahoo Finance is unavailable — use manual price entry below');
+  }
 }
 
 async function fetchOilPrices(force=false) {
@@ -8901,10 +8945,55 @@ async function fetchOilPrices(force=false) {
   const needsWti   = force || !_oilCache.wti   || Date.now() - _oilFetched.wti   > TTL;
   const needsBrent = force || !_oilCache.brent || Date.now() - _oilFetched.brent > TTL;
   const fetches = [];
-  if (needsWti)   fetches.push(_fetchOilSeries('wti',   _oilRange).then(d => { _oilCache.wti   = d; _oilFetched.wti   = Date.now(); }).catch(e=>{ if(el('oil-chart'))el('oil-chart').innerHTML=`<span style="color:var(--Rm);font-size:12px">WTI fetch failed: ${e.message}</span>`; }));
-  if (needsBrent) fetches.push(_fetchOilSeries('brent', _oilRange).then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); }).catch(()=>{}));
+  let  fetchErr  = null;
+  if (needsBrent) fetches.push(
+    _fetchOilSeries('brent', _oilRange)
+      .then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); })
+      .catch(e => { fetchErr = e; })
+  );
+  if (needsWti)   fetches.push(
+    _fetchOilSeries('wti', _oilRange)
+      .then(d => { _oilCache.wti = d; _oilFetched.wti = Date.now(); })
+      .catch(e => { if (!fetchErr) fetchErr = e; })
+  );
   await Promise.allSettled(fetches);
   if (btn) btn.textContent = '↻ Refresh';
+
+  // Show manual entry if both fetches failed and we have no cached data
+  if (fetchErr && !_oilCache.brent && !_oilCache.wti) {
+    const chartEl = el('oil-chart');
+    if (chartEl) chartEl.innerHTML = `
+      <div style="font-size:12px;color:var(--ink2);padding:8px 0">
+        <div style="color:var(--Am);margin-bottom:8px">⚠ ${fetchErr.message}</div>
+        <div style="color:var(--ink3);font-size:11px;margin-bottom:10px">
+          Yahoo Finance requires a valid session. Visit
+          <a href="https://finance.yahoo.com/quote/BZ=F/" target="_blank" rel="noopener" style="color:var(--B)">finance.yahoo.com</a>
+          then click ↻ Refresh — or enter prices manually below.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:12px;color:var(--ink2);margin:0;text-transform:none;letter-spacing:0;font-weight:400">Brent (USD/bbl)
+            <input type="number" step="0.01" placeholder="82.00" style="width:90px;font-family:var(--mono);margin-left:6px"
+              oninput="_oilManual('brent',this.value)"></label>
+          <label style="font-size:12px;color:var(--ink2);margin:0;text-transform:none;letter-spacing:0;font-weight:400">WTI (USD/bbl)
+            <input type="number" step="0.01" placeholder="78.00" style="width:90px;font-family:var(--mono);margin-left:6px"
+              oninput="_oilManual('wti',this.value)"></label>
+        </div>
+      </div>`;
+    return;
+  }
+  updateOilBadges();
+  renderOilChart();
+  updateOilCalc();
+}
+
+function _oilManual(type, val) {
+  const price = parseFloat(val);
+  if (!price || price <= 0) return;
+  // Create a minimal cache entry from manual input (no historical pts)
+  _oilCache[type] = {
+    pts: [{ t: Date.now(), p: price }],
+    current: price, prev: null, currency: 'USD', ts: Date.now(), manual: true
+  };
   updateOilBadges();
   renderOilChart();
   updateOilCalc();
