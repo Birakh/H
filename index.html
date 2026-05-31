@@ -2277,9 +2277,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div id="fuel-odo-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:15px;color:var(--ink3)"></div>
           </div>
           <div class="fg" style="margin:0">
-            <label>Trip km <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">since last fill</span></label>
-            <input type="number" id="fuel-trip-km" min="0" step="1" placeholder="450" style="font-family:var(--mono)" oninput="onFuelTripKmInput()">
-            <div id="fuel-trip-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:15px;color:var(--ink3)"></div>
+            <label>Trip A <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">km since last fill — reset at each fill</span></label>
+            <input type="number" id="fuel-trip-a" min="0" step="1" placeholder="450" style="font-family:var(--mono)" oninput="onFuelTripAInput()">
+            <div id="fuel-trip-a-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:14px;color:var(--ink3)"></div>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Trip B <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">monthly km — reset each month</span></label>
+            <input type="number" id="fuel-trip-b" min="0" step="1" placeholder="1 240" style="font-family:var(--mono)" oninput="onFuelTripBInput()">
+            <div id="fuel-trip-b-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:14px;color:var(--ink3)"></div>
           </div>
           <div class="fg" style="margin:0">
             <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
@@ -2295,9 +2300,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="btn primary" onclick="addFuel()">Log refuel</button>
           <span id="fuel-preview" style="font-size:13px;color:var(--ink2);font-family:var(--mono)"></span>
           <div id="fuel-outlier-warn" class="fuel-outlier-warn"></div>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
-            <input type="checkbox" id="fuel-full-tank" checked> Full tank
-          </label>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="fuel-fill-type" style="font-size:12px;padding:3px 8px;width:auto" onchange="onFuelFillTypeChange()">
+              <option value="full">⛽ Full tank</option>
+              <option value="partial">◑ Partial fill</option>
+              <option value="brim">⬆ Brim (overflow)</option>
+            </select>
+            <div id="fuel-level-wrap" style="display:none;align-items:center;gap:5px">
+              <span style="font-size:11px;color:var(--ink3)">Level before fill</span>
+              <input type="number" id="fuel-level-before" min="0" max="99" step="1" placeholder="25"
+                style="width:55px;font-family:var(--mono);font-size:12px" oninput="updateFuelFillHelper()">
+              <span style="font-size:11px;color:var(--ink3)">%</span>
+              <span id="fuel-level-hint" style="font-size:11px;font-family:var(--mono);color:var(--Gm)"></span>
+            </div>
+          </div>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
             <input type="checkbox" id="fuel-add-entry"> Also add as expense entry
           </label>
@@ -2540,7 +2556,7 @@ const NEAR_TREAD_MM  = 2.1;     // warn when within this mm of legal limit
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 14,
+  v: 15,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -3211,7 +3227,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 14; // current target version
+const SCHEMA_VERSION = 15; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3316,6 +3332,16 @@ const MIGRATIONS = [
   d => {
     if (!d.settings) d.settings = { oilBenchmark: 'brent' };
     if (!d.settings.oilBenchmark) d.settings.oilBenchmark = 'brent';
+    return d;
+  },
+  // v14 → v15 : fillType, levelBefore, tripA, tripB on fuel records
+  d => {
+    (d.fuel||[]).forEach(f => {
+      if (!f.fillType)      f.fillType    = f.fullTank===false ? 'partial' : 'full';
+      if (f.levelBefore==null) f.levelBefore = null;
+      if (f.tripA == null)  f.tripA  = null;
+      if (f.tripB == null)  f.tripB  = null;
+    });
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -8282,14 +8308,50 @@ function fuelHmHide() {
 // SMARTER COST TRACKING — full tank, cost/km, projection, longest stretch
 // ══════════════════════════════════════════
 function _fullTankPairs(records) {
-  // Return pairs of consecutive full-tank fills for accurate L/100km
-  const sorted = [...records].filter(f=>f.odo).sort((a,b)=>a.date.localeCompare(b.date));
-  const pairs = [];
+  // Return pairs for accurate L/100km calculation.
+  // Supports three methods (in priority order):
+  //   1. Trip A logged: direct km reading from car's trip computer
+  //   2. Partial fill with levelBefore%: actual consumed = liters + litresBefore
+  //   3. Classic: two consecutive full-tank fills with odo delta
+  const sorted = [...records].sort((a,b)=>a.date.localeCompare(b.date));
+  const pairs  = [];
+  const tank   = DATA.fuelSettings?.tankSize || null;
+
   for (let i=1; i<sorted.length; i++) {
     const prev = sorted[i-1], curr = sorted[i];
-    if (prev.fullTank !== false && curr.fullTank !== false) {
+
+    // Method 1: Trip A on current record (most accurate — from car computer)
+    if (curr.tripA && curr.tripA > 0) {
+      const km    = curr.tripA;
+      // Adjust liters for partial fill using levelBefore
+      let   liters= curr.liters;
+      if (curr.fillType === 'partial' && curr.levelBefore != null && tank) {
+        liters = curr.liters + tank * curr.levelBefore / 100;
+      }
+      const eff = liters / km * 100;
+      if (eff > 1 && eff < 30) // sanity check
+        pairs.push({ from:prev, to:curr, km, liters, eff:+eff.toFixed(2), costPerKm:+(curr.total/km).toFixed(4), method:'tripA' });
+      continue;
+    }
+
+    // Method 2: Partial fill with levelBefore + tank size — calculate consumed
+    if (curr.fillType === 'partial' && curr.levelBefore != null && tank &&
+        prev.odo && curr.odo && curr.odo > prev.odo) {
+      const km          = curr.odo - prev.odo;
+      const litresBefore= tank * curr.levelBefore / 100;
+      const liters      = curr.liters + litresBefore;
+      const eff = liters / km * 100;
+      if (eff > 1 && eff < 30)
+        pairs.push({ from:prev, to:curr, km, liters, eff:+eff.toFixed(2), costPerKm:+(curr.total/km).toFixed(4), method:'partial+level' });
+      continue;
+    }
+
+    // Method 3: Classic full-tank to full-tank odo delta
+    if ((prev.fillType==='full'||prev.fillType==='brim'||prev.fullTank!==false) &&
+        (curr.fillType==='full'||curr.fillType==='brim'||curr.fullTank!==false) &&
+        prev.odo && curr.odo && curr.odo > prev.odo) {
       const km = curr.odo - prev.odo;
-      if (km > 0) pairs.push({ from:prev, to:curr, km, liters:curr.liters, eff:+(curr.liters/km*100).toFixed(2), costPerKm:+(curr.total/km).toFixed(4) });
+      pairs.push({ from:prev, to:curr, km, liters:curr.liters, eff:+(curr.liters/km*100).toFixed(2), costPerKm:+(curr.total/km).toFixed(4), method:'odo' });
     }
   }
   return pairs;
@@ -9183,6 +9245,67 @@ function renderRegionalSettings() {
   if (lbl) lbl.style.color = benchmark === 'brent' ? 'var(--Bm)' : 'var(--Am)';
 }
 
+
+// ══════════════════════════════════════════
+// FILL TYPE + TRIP A/B  FORM LOGIC
+// ══════════════════════════════════════════
+function onFuelFillTypeChange() {
+  const type = el('fuel-fill-type')?.value || 'full';
+  const wrap = el('fuel-level-wrap');
+  if (wrap) wrap.style.display = type === 'partial' ? 'flex' : 'none';
+  updateFuelFillHelper();
+}
+
+function updateFuelFillHelper() {
+  const hint    = el('fuel-level-hint'); if (!hint) return;
+  const levelPct= parseFloat(el('fuel-level-before')?.value);
+  const tankSize= DATA.fuelSettings?.tankSize;
+  const liters  = parseFloat(el('fuel-liters')?.value);
+  if (!levelPct || levelPct < 0 || levelPct > 99) { hint.textContent=''; return; }
+  if (tankSize) {
+    const litresBefore  = tankSize * levelPct / 100;
+    const actualConsumed= litresBefore + (liters||0);
+    hint.textContent = `~${litresBefore.toFixed(1)}L before + ${(liters||0).toFixed(1)}L added = ${actualConsumed.toFixed(1)}L consumed`;
+  } else {
+    hint.textContent = `Set tank size above to see consumption estimate`;
+  }
+}
+
+// Trip A: km since last fill — used directly for L/100km (no odo delta needed)
+function onFuelTripAInput() {
+  const tripA  = parseFloat(el('fuel-trip-a')?.value);
+  const liters = parseFloat(el('fuel-liters')?.value);
+  const helper = el('fuel-trip-a-helper'); if (!helper) return;
+  if (!tripA || tripA <= 0) { helper.textContent=''; return; }
+  // Auto-fill odo if we have last known odo
+  const lastOdo = _lastRecordedOdo();
+  const odoEl   = el('fuel-odo');
+  if (lastOdo && odoEl && !odoEl.value) {
+    odoEl.value = lastOdo + tripA;
+    updateOdoHelper();
+  }
+  if (liters > 0) {
+    const eff = liters / tripA * 100;
+    const col = eff > 8 ? 'color:var(--Rm)' : eff < 6 ? 'color:var(--Gm)' : '';
+    helper.innerHTML = `Trip A: ${tripA} km · <span style="${col}">${eff.toFixed(1)} L/100km</span>`;
+  } else {
+    helper.textContent = `Trip A: ${tripA} km`;
+  }
+}
+
+// Trip B: monthly km counter — shows how far this period
+function onFuelTripBInput() {
+  const tripB  = parseFloat(el('fuel-trip-b')?.value);
+  const helper = el('fuel-trip-b-helper'); if (!helper) return;
+  if (!tripB || tripB <= 0) { helper.textContent=''; return; }
+  const now      = new Date();
+  const daysIn   = now.getDate();
+  const daysInMo = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const dailyKm  = (tripB / daysIn).toFixed(1);
+  const projKm   = Math.round(tripB / daysIn * daysInMo);
+  helper.textContent = `${tripB} km this month · ${dailyKm} km/day · proj. ${projKm.toLocaleString('de-AT')} km/month`;
+}
+
 // ══════════════════════════════════════════
 // OFFLINE INDICATOR
 // ══════════════════════════════════════════
@@ -9784,9 +9907,16 @@ async function addFuel() {
     const total = totalIn > 0 ? totalIn : +(liters * ppl).toFixed(2);
     const finalPpl = ppl > 0 ? ppl : +(total / liters).toFixed(4);
 
-    const fullTank = el('fuel-full-tank')?.checked ?? true;
+    const fillTypeEl  = el('fuel-fill-type');
+    const fillType     = fillTypeEl?.value || 'full';         // 'full' | 'partial' | 'brim'
+    const levelBefore  = parseFloat(el('fuel-level-before')?.value) || null; // % 0-99
+    const tripA        = parseFloat(el('fuel-trip-a')?.value) || null;  // km since last fill
+    const tripB        = parseFloat(el('fuel-trip-b')?.value) || null;  // monthly km
+    // Legacy fullTank boolean mapped from fillType
+    const fullTank     = fillType === 'full' || fillType === 'brim';
     const record = { id: uid(), date, type, station, liters: +liters.toFixed(3),
-                     ppl: +finalPpl.toFixed(4), total, odo, note, fullTank };
+                     ppl: +finalPpl.toFixed(4), total, odo, note,
+                     fullTank, fillType, levelBefore, tripA, tripB };
     if (!DATA.fuel) DATA.fuel = [];
     DATA.fuel.push(record);
     DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
@@ -9805,7 +9935,14 @@ async function addFuel() {
     el('fuel-liters').value = ''; el('fuel-ppl').value = '';
     el('fuel-total').value  = ''; el('fuel-odo').value = '';
     const _oh = el('fuel-odo-helper'); if (_oh) _oh.textContent = '';
-    const _ft = el('fuel-full-tank'); if (_ft) _ft.checked = true;
+    const _ft = el('fuel-fill-type');     if (_ft) _ft.value = 'full';
+    const _lb = el('fuel-level-before');   if (_lb) _lb.value = '';
+    const _ta = el('fuel-trip-a');         if (_ta) _ta.value = '';
+    const _tb = el('fuel-trip-b');         if (_tb) _tb.value = '';
+    const _tlw= el('fuel-level-wrap');     if (_tlw) _tlw.style.display = 'none';
+    const _alh= el('fuel-level-hint');     if (_alh) _alh.textContent = '';
+    const _tah= el('fuel-trip-a-helper'); if (_tah) _tah.textContent = '';
+    const _tbh= el('fuel-trip-b-helper'); if (_tbh) _tbh.textContent = '';
     const _tk = el('fuel-trip-km'); if (_tk) { _tk.value=''; delete _tk.dataset.userEdited; }
     const _th = el('fuel-trip-helper'); if (_th) _th.textContent = '';
     el('fuel-note').value   = ''; el('fuel-station').value = '';
@@ -9893,8 +10030,13 @@ function renderFuel() {
     // Display newest first
     const rows = [...withDeltas].reverse().map(f => {
       const effCls    = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
-      const fullBadge = f.fullTank === false ? '½' : '⛽';
-      const fullTitle = f.fullTank === false ? 'Partial — click to mark full' : 'Full tank — click to mark partial';
+      const FILL_BADGES = { full:'⛽', partial:'◑', brim:'⬆' };
+      const FILL_TITLES = { full:'Full tank', partial:'Partial fill', brim:'Brim (overfill)' };
+      const fillType    = f.fillType || (f.fullTank===false?'partial':'full');
+      const fullBadge   = FILL_BADGES[fillType] || '⛽';
+      const fullTitle   = `${FILL_TITLES[fillType]||''}${f.levelBefore!=null?' ('+f.levelBefore+'% before)':''}`
+        + (f.tripA ? ` · Trip A: ${f.tripA} km` : '')
+        + (f.tripB ? ` · Trip B: ${f.tripB} km` : '');
       // Editable cells use ondblclick; computed cells and full-tank toggle are special
       return `<tr>
         <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','date','${f.date}',{type:'date',width:'110px'})"
