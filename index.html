@@ -1106,6 +1106,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="btn xs success" onclick="toggleGoalForm()">+ Add goal</button>
         </div>
         <div id="d-goals"></div>
+        <!-- Auto-fill: move unspent budget to goal at month end -->
+        <div style="background:var(--s1);border-radius:var(--rs);padding:11px 14px;margin-bottom:12px;border:.5px solid var(--bdr)">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Month-end auto-fill</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="font-size:12px;color:var(--ink2);margin:0;font-weight:400;text-transform:none;letter-spacing:0">Move unspent</label>
+            <select id="af-cat" style="width:auto;font-size:12px" onchange="updateGoalAutoFillPreview()">
+              <option value="needs">Needs</option><option value="wants">Wants</option><option value="savings" selected>Savings</option>
+            </select>
+            <label style="font-size:12px;color:var(--ink2);margin:0;font-weight:400;text-transform:none;letter-spacing:0">surplus to</label>
+            <select id="af-goal" style="width:auto;font-size:12px" onchange="updateGoalAutoFillPreview()"></select>
+            <button class="btn xs success" onclick="applyGoalAutoFill()">Apply now</button>
+          </div>
+          <div id="af-preview" style="font-size:11px;color:var(--ink3);margin-top:6px"></div>
+        </div>
+
         <div class="goal-add-form" id="goal-add-form">
           <div class="g3" style="margin-bottom:8px">
             <div class="fg" style="margin:0"><label>Goal name</label><input type="text" id="goal-name" placeholder="Vacation, New laptop…"></div>
@@ -1300,6 +1315,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
           <div class="fg" id="fg-acct-to" style="margin:0;display:none"><label>To account <span class="muted" style="text-transform:none;letter-spacing:0">(transfer destination)</span></label>
             <select id="ef-acct-to"><option value="">Select account</option></select>
+            <div style="font-size:11px;color:var(--ink3);margin-top:3px">Transfer moves money between accounts without affecting income/expense totals.</div>
           </div>
           <div class="fg" style="margin:0">
             <label>Tags <span class="muted" style="text-transform:none;letter-spacing:0">(press Enter or comma)</span></label>
@@ -1420,6 +1436,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">
           Recurring entries
           <span id="recur-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+          <button class="btn xs success" onclick="applyPendingRecur()" title="Add all pending recurring entries for this month">▶ Apply this month</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">
+          Click <strong>▶ Apply this month</strong> to automatically create entries for all recurring items not yet logged this month.
         </div>
         <div id="recur-list"></div>
       </div>
@@ -1446,7 +1466,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </select>
         <select id="ef-ftag" style="width:auto" onchange="renderEntries()"><option value="">All tags</option></select>
         <select id="ef-sort" style="width:auto" onchange="renderEntries()"><option value="date-desc">Date &#x2193; newest</option><option value="date-asc">Date &#x2191; oldest</option><option value="amt-desc">Amount &#x2193; high</option><option value="amt-asc">Amount &#x2191; low</option><option value="desc-asc">Description A&#x2192;Z</option><option value="desc-desc">Description Z&#x2192;A</option></select>
-        <input type="text" id="ef-fs" placeholder="Search…" oninput="renderEntries()">
+        <input type="text" id="ef-fs" placeholder="Search…" oninput="_debouncedRender()">
       </div>
 
       <div class="tbl-wrap"><table>
@@ -1869,18 +1889,46 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="stat-grid" id="stock-summary" style="margin-top:14px"></div>
       </div>
 
-      <!-- ── AI Analysis Export ── -->
+      <!-- ── AI Financial Assistant ── -->
       <div class="card">
-        <div class="card-title">Export for AI Analysis</div>
+        <div class="card-title">AI Financial Assistant
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">powered by Claude · your data stays local</span>
+        </div>
+
+        <!-- Period selector -->
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>From</label><input type="month" id="ai-from" style="width:100%"></div>
           <div class="fg" style="margin:0"><label>To</label><input type="month" id="ai-to" style="width:100%"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn sm primary" onclick="exportAI()">📋 Copy AI prompt</button>
-          <button class="btn sm" onclick="exportAIFile()">⬇ Download .txt</button>
+
+        <!-- Quick-fire questions -->
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Ask Claude about your finances</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="btn xs ghost" onclick="askVaultAI('Why did I overspend this period? Which categories were the biggest culprits?')">Why did I overspend?</button>
+          <button class="btn xs ghost" onclick="askVaultAI('Am I on track with my savings goals? What should I adjust?')">Goals on track?</button>
+          <button class="btn xs ghost" onclick="askVaultAI('What are my top 5 spending patterns? Any surprises or trends?')">Spending patterns</button>
+          <button class="btn xs ghost" onclick="askVaultAI('Where can I cut spending without major lifestyle impact?')">Where to cut?</button>
+          <button class="btn xs ghost" onclick="askVaultAI('Give me a full financial health summary for this period with actionable recommendations.')">Full summary</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Generates a structured financial summary of the selected period — paste into any AI for personalized analysis.</div>
+
+        <!-- Custom question -->
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="text" id="ai-question" placeholder="Ask anything about your finances…"
+            style="flex:1" onkeydown="if(event.key==='Enter')askVaultAI(this.value)">
+          <button class="btn sm primary" onclick="askVaultAI(el('ai-question').value)">Ask</button>
+        </div>
+
+        <!-- Response area -->
+        <div id="ai-response" style="display:none;background:var(--s1);border-radius:var(--rs);padding:14px;font-size:13px;line-height:1.65;color:var(--ink);border:.5px solid var(--bdr);max-height:400px;overflow-y:auto;white-space:pre-wrap"></div>
+        <div id="ai-loading" style="display:none;font-size:13px;color:var(--ink3);padding:10px 0">Claude is analysing your vault…</div>
+        <div id="ai-error" style="display:none;font-size:12px;color:var(--Rm);padding:8px 0"></div>
+
+        <!-- Export fallback -->
+        <div style="margin-top:12px;padding-top:10px;border-top:.5px solid var(--bdr);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--ink3)">Or export context for external AI:</span>
+          <button class="btn xs ghost" onclick="exportAI()">📋 Copy prompt</button>
+          <button class="btn xs ghost" onclick="exportAIFile()">⬇ Download .txt</button>
+        </div>
       </div>
 
       <!-- ── Portfolio Allocation ── -->
@@ -2501,6 +2549,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Predictions</div>
         <div id="fuel-predictor"></div>
+
+        <!-- Cost per km vs transit -->
+        <div style="margin-top:16px;padding-top:14px;border-top:.5px solid var(--bdr)">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🚌 Driving vs public transport</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <label style="font-size:12px;color:var(--ink2);margin:0;font-weight:400;text-transform:none;letter-spacing:0">Monthly transit pass</label>
+            <input type="number" id="fuel-transit-cost" step="1" placeholder="€65" min="0"
+              style="width:80px;font-family:var(--mono);font-size:13px"
+              oninput="saveFuelSettings();renderTransitComparison()">
+            <span style="font-size:12px;color:var(--ink3)">€/month</span>
+          </div>
+          <div id="fuel-transit-compare"></div>
+        </div>
       </div>
 
       <!-- ── Seasonal efficiency chart ── -->
@@ -2552,11 +2613,15 @@ const MS_PER_HOUR =  3_600_000;    // milliseconds in one hour
 const LEGAL_TREAD_MM = 1.6;     // EU minimum tyre tread depth
 const NEAR_TREAD_MM  = 2.1;     // warn when within this mm of legal limit
 
+// Debounced render for search — avoids re-rendering on every keystroke
+let _debounceTimer = null;
+function _debouncedRender() { clearTimeout(_debounceTimer); _debounceTimer = setTimeout(renderEntries, 150); }
+
 // ══════════════════════════════════════════
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 15,
+  v: 16,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -3227,7 +3292,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 15; // current target version
+const SCHEMA_VERSION = 16; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3341,6 +3406,15 @@ const MIGRATIONS = [
       if (f.levelBefore==null) f.levelBefore = null;
       if (f.tripA == null)  f.tripA  = null;
       if (f.tripB == null)  f.tripB  = null;
+    });
+    return d;
+  },
+  // v15 → v16 : fuelSettings transit cost + recurring dayOfMonth normalise
+  d => {
+    if (d.fuelSettings && d.fuelSettings.transitMonthly == null)
+      d.fuelSettings.transitMonthly = null;
+    (d.recurring||[]).forEach(r => {
+      if (r.dayOfMonth == null) r.dayOfMonth = r.day || 1;
     });
     return d;
   },
@@ -4309,6 +4383,41 @@ async function applyRecurring(month) {
   } catch(e) { toast(e.message || 'Failed to apply recurring entries.', 1); }
 }
 
+function editRecurEntry(id) {
+  const r = DATA.recurring.find(r=>r.id===id); if (!r) return;
+  const amt  = prompt('Amount (or =formula):', r.formula || r.amount);
+  if (amt === null) return;
+  const { amount, formula } = parseAmt(amt);
+  if (!amount || amount <= 0) return toast('Invalid amount.', 1);
+  const desc = prompt('Description:', r.desc || '');
+  if (desc === null) return;
+  const freq = prompt('Frequency (daily/weekly/monthly/yearly):', r.freq || 'monthly');
+  if (!freq) return;
+  const day  = prompt('Day of month (1-28, for monthly):', r.dayOfMonth || '1');
+  r.amount  = amount; r.formula = formula||null;
+  r.desc    = desc; r.freq = freq; r.dayOfMonth = parseInt(day)||1;
+  saveLocal(); renderRecurList(); toast('Recurring entry updated');
+}
+
+function applyPendingRecur() {
+  const month  = curMonth();
+  const today  = ymd();
+  const applied= [];
+  (DATA.recurring||[]).filter(r=>r.active!==false).forEach(r => {
+    const already = DATA.entries.some(e => e.recurId===r.id && ym(e.date)===month);
+    if (already) return;
+    const dayTarget = r.dayOfMonth || 1;
+    const [y,m] = month.split('-').map(Number);
+    const maxDay= new Date(y,m,0).getDate();
+    const date  = `${month}-${String(Math.min(dayTarget,maxDay)).padStart(2,'0')}`;
+    DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula||null,
+      type:r.type||'expense', category:r.category||'needs', tags:r.tags||[], accountId:r.accountId||null, recurId:r.id });
+    applied.push(r.desc);
+  });
+  if (!applied.length) return toast('No pending recurring entries for this month.');
+  saveLocal(); render(); toast(`Applied ${applied.length} recurring entr${applied.length===1?'y':'ies'}: ${applied.join(', ')}`);
+}
+
 function renderRecurList() {
   const list = DATA.recurring;
   el('recur-count').textContent = list.length ? `(${list.length})` : '';
@@ -4317,14 +4426,26 @@ function renderRecurList() {
     return;
   }
   const freqLabel = { monthly:'monthly', weekly:'weekly', biweekly:'bi-weekly', quarterly:'quarterly' };
-  el('recur-list').innerHTML = list.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr)">
-    <span style="flex:1;font-size:13px">${esc(r.desc)||'—'}</span>
-    <span class="${r.type==='income'?'amt-p':'amt-n'} num">${r.type==='income'?'+':'−'}${fmt(r.amount)}</span>
-    <span class="badge ${esc(r.category)}">${esc(r.category)}</span>
-    <span class="recur-badge">↻ ${freqLabel[r.freq||'monthly']}</span>
-    <span class="muted num" style="font-size:11px">day&nbsp;${r.day}</span>
-    <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
-  </div>`).join('');
+  const month = curMonth();
+  el('recur-list').innerHTML = list.map(r => {
+    const alreadyApplied = DATA.entries.some(e=>e.recurId===r.id&&ym(e.date)===month);
+    const [y,m] = month.split('-').map(Number);
+    const maxDay = new Date(y,m,0).getDate();
+    const dueDay = Math.min(r.dayOfMonth||r.day||1, maxDay);
+    const dueDate = `${month}-${String(dueDay).padStart(2,'0')}`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
+      <span style="flex:1;font-size:13px;min-width:120px">${esc(r.desc)||'—'}</span>
+      <span class="${r.type==='income'?'amt-p':'amt-n'} num">${r.type==='income'?'+':'−'}${fmt(r.amount)}</span>
+      <span class="badge ${esc(r.category)}">${esc(r.category)}</span>
+      <span class="recur-badge">↻ ${freqLabel[r.freq||'monthly']}</span>
+      <span class="muted" style="font-size:10px">day ${dueDay}</span>
+      <span style="font-size:10px;padding:1px 6px;border-radius:3px;${alreadyApplied?'background:var(--Gbg);color:var(--Gm)':'background:var(--Abg);color:var(--Am)'}">
+        ${alreadyApplied?'✓ applied':'pending '+dueDate}
+      </span>
+      <button class="btn xs ghost" onclick="editRecurEntry('${r.id}')" title="Edit">✎</button>
+      <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
+    </div>`;
+  }).join('');
 }
 
 async function deleteRecur(id) {
@@ -4736,6 +4857,20 @@ function updateBulkBar() {
   el('sel-all').indeterminate = n > 0 && n < document.querySelectorAll('.row-sel-entry').length;
 }
 function clearSelection() { _selEntries.clear(); renderEntries(); }
+function bulkRecat(cat) {
+  if (!_selEntries.size) return;
+  DATA.entries.forEach(e => { if (_selEntries.has(e.id)) { e.category=cat; e.type=cat==='income'?'income':cat==='savings'?'savings':'expense'; } });
+  saveLocal(); renderEntries(); toast(`Re-categorised ${_selEntries.size} entries → ${cat}`);
+}
+
+function bulkTag(tag) {
+  if (!_selEntries.size) return;
+  tag = tag.trim().toLowerCase(); if (!tag) return;
+  DATA.entries.forEach(e => { if (_selEntries.has(e.id)) { if (!e.tags) e.tags=[]; if (!e.tags.includes(tag)) e.tags.push(tag); } });
+  const inp = el('bulk-tag-in'); if (inp) inp.value = '';
+  saveLocal(); renderEntries(); toast(`Tagged ${_selEntries.size} entries with "${tag}"`);
+}
+
 function bulkDelete() {
   if (!_selEntries.size) return;
   showConfirm(`Delete ${_selEntries.size} entries?`, 'This cannot be undone.', () => {
@@ -6768,6 +6903,7 @@ function updateGoalSaved(id, val) {
 }
 
 function renderSavingsGoals() {
+  renderGoalAutoFillUI();
   const goals = DATA.savingsGoals || [];
   const container = el('d-goals');
   if (!container) return;
@@ -8703,14 +8839,15 @@ function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
 // ══════════════════════════════════════════
 function saveFuelSettings() {
   if (!DATA.fuelSettings) DATA.fuelSettings = {};
-  DATA.fuelSettings.tankSize = parseFloat(el('fuel-tank-size')?.value) || null;
+  DATA.fuelSettings.tankSize        = parseFloat(el('fuel-tank-size')?.value) || null;
+  DATA.fuelSettings.transitMonthly  = parseFloat(el('fuel-transit-cost')?.value) || null;
   saveLocal();
 }
 
 function renderFuelSettingsUI() {
-  const ts = DATA.fuelSettings?.tankSize;
-  const inp = el('fuel-tank-size');
-  if (inp && ts) inp.value = ts;
+  const fs  = DATA.fuelSettings || {};
+  const inp = el('fuel-tank-size');   if (inp && fs.tankSize)       inp.value = fs.tankSize;
+  const tc  = el('fuel-transit-cost');if (tc  && fs.transitMonthly) tc.value  = fs.transitMonthly;
 }
 
 // ══════════════════════════════════════════
@@ -9304,6 +9441,174 @@ function onFuelTripBInput() {
   const dailyKm  = (tripB / daysIn).toFixed(1);
   const projKm   = Math.round(tripB / daysIn * daysInMo);
   helper.textContent = `${tripB} km this month · ${dailyKm} km/day · proj. ${projKm.toLocaleString('de-AT')} km/month`;
+}
+
+
+// ══════════════════════════════════════════
+// GOAL AUTO-FILL
+// ══════════════════════════════════════════
+function renderGoalAutoFillUI() {
+  const sel = el('af-goal'); if (!sel) return;
+  const goals = DATA.savingsGoals || [];
+  sel.innerHTML = goals.length
+    ? goals.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')
+    : '<option value="">No goals yet</option>';
+  updateGoalAutoFillPreview();
+}
+
+function updateGoalAutoFillPreview() {
+  const prev = el('af-preview'); if (!prev) return;
+  const cat  = el('af-cat')?.value || 'savings';
+  const month= curMonth();
+  const mes  = DATA.entries.filter(e=>ym(e.date)===month);
+  const base = DATA.incomes[month]?.amount || 0;
+  const target= base * (DATA.splits[cat]||0) / 100;
+  const actual= mes.filter(e=>e.type==='expense'&&e.category===cat).reduce((s,e)=>s+e.amount,0);
+  const surplus= +(target - actual).toFixed(2);
+  const goalId = el('af-goal')?.value;
+  const goal   = DATA.savingsGoals?.find(g=>g.id===goalId);
+  if (surplus <= 0) { prev.innerHTML=`No unspent ${cat} budget this month (${fmt(actual)} of ${fmt(target)} used).`; return; }
+  prev.innerHTML = `Unspent ${cat} budget: <strong style="color:var(--Gm)">${fmt(surplus)}</strong>`
+    + (goal ? ` → would bring <em>${esc(goal.name)}</em> from ${fmt(goal.saved)} to ${fmt(+(goal.saved+surplus).toFixed(2))}` : '');
+}
+
+function applyGoalAutoFill() {
+  const cat    = el('af-cat')?.value || 'savings';
+  const goalId = el('af-goal')?.value;
+  const goal   = DATA.savingsGoals?.find(g=>g.id===goalId);
+  if (!goal) return toast('Select a savings goal first.', 1);
+  const month  = curMonth();
+  const mes    = DATA.entries.filter(e=>ym(e.date)===month);
+  const base   = DATA.incomes[month]?.amount || 0;
+  const target = base * (DATA.splits[cat]||0) / 100;
+  const actual = mes.filter(e=>e.type==='expense'&&e.category===cat).reduce((s,e)=>s+e.amount,0);
+  const surplus= +(target - actual).toFixed(2);
+  if (surplus <= 0) return toast(`No unspent ${cat} surplus to move.`, 1);
+  if (!showConfirm(`Move ${fmt(surplus)} unspent ${cat} budget to "${goal.name}"?`, '', () => {
+    goal.saved = +(goal.saved + surplus).toFixed(2);
+    // Log as a savings entry
+    DATA.entries.unshift({ id:uid(), date:ymd(), desc:`Auto-fill → ${goal.name}`, amount:surplus,
+      formula:null, type:'savings', category:'savings', tags:['auto-fill'], accountId:null, recurId:null });
+    saveLocal(); renderSavingsGoals(); renderGoalAutoFillUI(); render();
+    toast(`Moved ${fmt(surplus)} to "${goal.name}" ✓`);
+  })) {}
+}
+
+// ══════════════════════════════════════════
+// COST PER KM VS PUBLIC TRANSPORT
+// ══════════════════════════════════════════
+function renderTransitComparison() {
+  const wrap = el('fuel-transit-compare'); if (!wrap) return;
+  const pairs = _fullTankPairs(DATA.fuel||[]);
+  const transitCost = DATA.fuelSettings?.transitMonthly || null;
+  if (!transitCost && !wrap.querySelector('input')) {
+    wrap.innerHTML = `<div style="font-size:13px;color:var(--ink3)">Enter your monthly transit pass cost to compare.</div>`;
+    return;
+  }
+  if (!pairs.length) { wrap.innerHTML='<div style="font-size:13px;color:var(--ink3)">Need fuel records with odometer to compare.</div>'; return; }
+
+  const avgCostPerKm = pairs.reduce((s,p)=>s+p.costPerKm,0)/pairs.length;
+  const now    = new Date();
+  const cut90  = new Date(now.getTime()-90*MS_PER_DAY);
+  const recent = (DATA.fuel||[]).filter(f=>new Date(f.date+'T12:00:00')>=cut90);
+  const monthlyFuelCost = recent.reduce((s,f)=>s+f.total,0)/3;
+
+  // km/month from last 3 months odo delta
+  const sorted = [...(DATA.fuel||[])].filter(f=>f.odo).sort((a,b)=>a.date.localeCompare(b.date));
+  const recentOdo = sorted.filter(f=>new Date(f.date+'T12:00:00')>=cut90);
+  const kmPerMonth = recentOdo.length>=2
+    ? (recentOdo.slice(-1)[0].odo - recentOdo[0].odo) / 3
+    : null;
+
+  if (!transitCost) return;
+
+  const breakEvenKm = kmPerMonth && avgCostPerKm > 0
+    ? Math.round(transitCost / avgCostPerKm) : null;
+  const cheaper = monthlyFuelCost < transitCost ? 'driving' : 'transit';
+  const saving  = Math.abs(monthlyFuelCost - transitCost).toFixed(2);
+
+  wrap.innerHTML = `<div class="stat-grid" style="margin-top:8px">
+    <div class="stat"><div class="stat-lbl">Monthly fuel cost</div>
+      <div class="stat-val">€${monthlyFuelCost.toFixed(2)}</div><div style="font-size:10px;color:var(--ink3)">3-month avg</div></div>
+    <div class="stat"><div class="stat-lbl">Transit pass</div>
+      <div class="stat-val">€${transitCost.toFixed(2)}</div><div style="font-size:10px;color:var(--ink3)">per month</div></div>
+    <div class="stat highlight"><div class="stat-lbl">Currently cheaper</div>
+      <div class="stat-val ${cheaper==='driving'?'cg':'cb'}">${cheaper}</div>
+      <div style="font-size:10px;color:var(--ink3)">saving €${saving}/mo</div></div>
+    ${breakEvenKm ? `<div class="stat"><div class="stat-lbl">Break-even km</div>
+      <div class="stat-val">${breakEvenKm.toLocaleString('de-AT')} km</div>
+      <div style="font-size:10px;color:var(--ink3)">${kmPerMonth?'you drive ~'+Math.round(kmPerMonth).toLocaleString('de-AT')+' km/mo':''}</div></div>` : ''}
+  </div>
+  <div style="font-size:11px;color:var(--ink3);margin-top:6px">Avg fuel cost per km: €${avgCostPerKm.toFixed(3)} · excludes depreciation, insurance, parking</div>`;
+}
+
+
+// ══════════════════════════════════════════
+// IN-APP AI FINANCIAL ASSISTANT
+// ══════════════════════════════════════════
+async function askVaultAI(question) {
+  if (!question?.trim()) return;
+  const loadEl = el('ai-loading');
+  const respEl = el('ai-response');
+  const errEl  = el('ai-error');
+  const qInp   = el('ai-question');
+
+  // Build financial context from vault
+  const r = _validateAIRange();
+  const context = buildAIText(r.from, r.to);
+
+  if (loadEl) { loadEl.style.display='block'; }
+  if (respEl) { respEl.style.display='none'; respEl.textContent=''; }
+  if (errEl)  { errEl.style.display='none'; }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are a personal finance advisor analysing a user's encrypted Vault Finance data.
+The user is from Austria. Use € for currency. Be specific with numbers from the data.
+Be concise, actionable, and honest. Format with clear sections if needed.
+Do not make up numbers — only reference figures present in the data.`,
+        messages: [{
+          role: 'user',
+          content: `Here is my financial data:\n\n${context}\n\n---\n\nQuestion: ${question.trim()}`
+        }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err?.error?.message || `API error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const text = data.content?.find(b=>b.type==='text')?.text || '(no response)';
+
+    if (respEl) {
+      respEl.style.display = 'block';
+      respEl.textContent   = text;
+    }
+    if (qInp) qInp.value = '';
+
+  } catch(e) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.innerHTML = e.message.includes('401') || e.message.includes('403')
+        ? `⚠ API key not configured — Claude cannot be accessed from this browser context. Use the "Copy prompt" export below to paste into claude.ai instead.`
+        : `⚠ ${e.message}`;
+    }
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+  }
+}
+
+function _validateAIRange() {
+  const from = el('ai-from')?.value || offsetMonStr(-5);
+  const to   = el('ai-to')?.value   || curMonth();
+  return { from, to };
 }
 
 // ══════════════════════════════════════════
@@ -10010,6 +10315,7 @@ function renderFuel() {
   // ── Predictions + seasonal + charts ─────────────────────────────────────────
   renderFuelSmartStats(all);
   renderFuelPredictor();
+  renderTransitComparison();
   renderFuelSeasonal();
   renderFuelChart(all);
 
@@ -10582,6 +10888,17 @@ function runVaultHealth() {
   // ── Info ──────────────────────────────────────────────────────────────────
   notes.push({ icon:'ℹ', text:`${(DATA.entries||[]).length} entries · ${(DATA.accounts||[]).length} accounts · ${(DATA.fuel||[]).length} fuel records · ${(DATA.fxAccounts||[]).length} FX accounts` });
   notes.push({ icon:'ℹ', text:`${(DATA.recurring||[]).length} recurring · ${(DATA.savingsGoals||[]).length} savings goals · ${(DATA.stocks||[]).length} stock positions` });
+
+  // ── Vault size check ────────────────────────────────────────────────────────
+  try {
+    const raw    = JSON.stringify(DATA);
+    const kb     = (raw.length / 1024).toFixed(1);
+    const encEst = Math.round(raw.length * 1.37 / 1024); // base64 overhead ~37%
+    const sizeCol= encEst > 800 ? 'var(--Rm)' : encEst > 400 ? 'var(--Am)' : 'var(--Gm)';
+    notes.push({ icon:'📦', text:`Vault size: ${kb} KB raw · ~${encEst} KB encrypted · GitHub file limit 100 MB`
+      + (encEst > 800 ? ' ⚠ Large vault — consider archiving old entries' : '') });
+    if (encEst > 800) issues.push({ icon:'⚠', text:`Encrypted vault is ~${encEst} KB — very large vaults may slow sync and approach GitHub limits`, fix:'Export entries older than 2 years to CSV and delete them from the vault.' });
+  } catch {}
 
   // ── Schema version info ─────────────────────────────────────────────────
   const vaultV   = DATA.v ?? 0;
