@@ -238,6 +238,11 @@ tr:hover td{background:rgba(128,128,0,.03)}
 #offline-bar .ob-dot{width:7px;height:7px;border-radius:50%;background:var(--Am);
   animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* recurring edit modal */
+#recur-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:none;align-items:center;justify-content:center;padding:16px}
+#recur-modal-overlay.open{display:flex}
+#recur-modal{background:var(--s0);border-radius:var(--rs);padding:20px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.25);border:.5px solid var(--bdr)}
+#recur-modal h3{margin:0 0 14px;font-size:15px;font-weight:700}
 /* over-budget banner */
 #budget-alert{position:fixed;top:0;left:0;right:0;z-index:998;background:var(--Rm);color:#fff;
   font-size:13px;font-weight:500;padding:7px 16px;display:none;align-items:center;gap:10px;
@@ -881,6 +886,45 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <span id="rate-alert-msg" style="flex:1"></span>
     <button onclick="dismissRateAlert()" title="Dismiss">✕</button>
   </div>
+  <!-- Recurring entry edit modal -->
+  <div id="recur-modal-overlay" onclick="if(event.target===this)closeRecurModal()">
+    <div id="recur-modal">
+      <h3>Edit recurring entry</h3>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="fg" style="margin:0"><label>Description</label>
+          <input type="text" id="rm-desc" style="width:100%"></div>
+        <div class="fg" style="margin:0"><label>Amount (or =formula)</label>
+          <input type="text" id="rm-amt" style="font-family:var(--mono);width:100%"></div>
+        <div class="fg" style="margin:0"><label>Category</label>
+          <select id="rm-cat" style="width:100%">
+            <option value="needs">Needs</option>
+            <option value="wants">Wants</option>
+            <option value="savings">Savings</option>
+            <option value="income">Income</option>
+          </select></div>
+        <div class="fg" style="margin:0"><label>Account (deducted from)</label>
+          <select id="rm-acct" style="width:100%">
+            <option value="">No account</option>
+          </select></div>
+        <div class="fg" style="margin:0"><label>Frequency</label>
+          <select id="rm-freq" style="width:100%">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Bi-weekly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select></div>
+        <div class="fg" style="margin:0"><label>Day of month</label>
+          <input type="number" id="rm-day" min="1" max="28" step="1"
+            style="font-family:var(--mono);width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn ghost" onclick="closeRecurModal()">Cancel</button>
+        <button class="btn primary" onclick="saveRecurModal()">Save changes</button>
+      </div>
+    </div>
+  </div>
+
   <div id="budget-alert">
     <span style="font-size:15px;margin-right:2px">⚠</span>
     <span style="font-weight:700;margin-right:6px">Over budget:</span>
@@ -1538,6 +1582,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </div>
           </div>
           <div class="fg" style="margin:0"><label>Store</label><input type="text" id="gr-store" placeholder="Spar / Lidl…"></div>
+        </div>
+        <!-- Barcode scanner row -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="btn xs ghost" onclick="startBarcodeScanner()" title="Scan product barcode with camera (Chrome/Android)">📷 Scan barcode</button>
+          <input type="text" id="gr-barcode-manual" placeholder="or type/paste barcode…" inputmode="numeric"
+            style="font-family:var(--mono);font-size:12px;width:150px;padding:3px 8px"
+            oninput="lookupBarcode(this.value.trim())">
+          <span id="gr-barcode-status" style="font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <!-- Camera viewfinder (hidden until scan starts) -->
+        <div id="gr-camera-wrap" style="display:none;margin-bottom:8px;position:relative">
+          <video id="gr-camera-video" autoplay playsinline muted
+            style="width:100%;max-width:320px;border-radius:var(--rs);border:.5px solid var(--bdr)"></video>
+          <button class="btn xs danger" style="position:absolute;top:6px;right:6px" onclick="stopBarcodeScanner()">✕ Stop</button>
+          <div style="font-size:11px;color:var(--ink3);margin-top:3px">Point camera at barcode — auto-detects</div>
+        </div>
+        <!-- Price-change confirmation checkbox (shown when price differs from catalog) -->
+        <div id="gr-price-confirm" style="display:none;background:var(--Abg);border-radius:var(--rs);padding:8px 12px;margin-bottom:8px;border:.5px solid rgba(176,110,20,.25)">
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:12px;color:var(--Am)">
+            <input type="checkbox" id="gr-price-confirm-chk" style="width:auto;margin-top:2px" onchange="onPriceConfirmChange()">
+            <span id="gr-price-confirm-msg">Price changed — tick to confirm before adding</span>
+          </label>
         </div>
         <div class="g4" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>Category</label>
@@ -2354,6 +2420,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <option value="partial">◑ Partial fill</option>
               <option value="brim">⬆ Brim (overflow)</option>
             </select>
+            <div id="fuel-fill-hint" style="font-size:11px;color:var(--ink3);margin-top:3px"></div>
             <div id="fuel-level-wrap" style="display:none;align-items:center;gap:5px">
               <span style="font-size:11px;color:var(--ink3)">Level before fill</span>
               <input type="number" id="fuel-level-before" min="0" max="99" step="1" placeholder="25"
@@ -2621,7 +2688,7 @@ function _debouncedRender() { clearTimeout(_debounceTimer); _debounceTimer = set
 // SCHEMA  v4
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 16,
+  v: 17,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
@@ -3292,7 +3359,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 16; // current target version
+const SCHEMA_VERSION = 17; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3416,6 +3483,11 @@ const MIGRATIONS = [
     (d.recurring||[]).forEach(r => {
       if (r.dayOfMonth == null) r.dayOfMonth = r.day || 1;
     });
+    return d;
+  },
+  // v16 → v17 : grocery catalog barcode field
+  d => {
+    (d.catalog||[]).forEach(c => { if (c.barcode == null) c.barcode = null; });
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -4383,20 +4455,50 @@ async function applyRecurring(month) {
   } catch(e) { toast(e.message || 'Failed to apply recurring entries.', 1); }
 }
 
+let _editRecurId = null;
+
 function editRecurEntry(id) {
   const r = DATA.recurring.find(r=>r.id===id); if (!r) return;
-  const amt  = prompt('Amount (or =formula):', r.formula || r.amount);
-  if (amt === null) return;
-  const { amount, formula } = parseAmt(amt);
+  _editRecurId = id;
+
+  // Populate modal fields
+  const set = (elId, val) => { const e=el(elId); if(e&&val!=null) e.value=val; };
+  set('rm-desc', r.desc||'');
+  set('rm-amt',  r.formula || r.amount || '');
+  set('rm-cat',  r.category||'needs');
+  set('rm-freq', r.freq||'monthly');
+  set('rm-day',  r.dayOfMonth||r.day||1);
+
+  // Populate account selector from vault accounts
+  const acctSel = el('rm-acct');
+  if (acctSel) {
+    acctSel.innerHTML = '<option value="">No account / cash</option>'
+      + (DATA.accounts||[]).map(a=>`<option value="${a.id}"${a.id===r.accountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  }
+
+  el('recur-modal-overlay')?.classList.add('open');
+}
+
+function closeRecurModal() {
+  el('recur-modal-overlay')?.classList.remove('open');
+  _editRecurId = null;
+}
+
+function saveRecurModal() {
+  const r = DATA.recurring.find(r=>r.id===_editRecurId); if (!r) return;
+  const amtRaw = el('rm-amt')?.value || '';
+  const { amount, formula } = parseAmt(amtRaw);
   if (!amount || amount <= 0) return toast('Invalid amount.', 1);
-  const desc = prompt('Description:', r.desc || '');
-  if (desc === null) return;
-  const freq = prompt('Frequency (daily/weekly/monthly/yearly):', r.freq || 'monthly');
-  if (!freq) return;
-  const day  = prompt('Day of month (1-28, for monthly):', r.dayOfMonth || '1');
-  r.amount  = amount; r.formula = formula||null;
-  r.desc    = desc; r.freq = freq; r.dayOfMonth = parseInt(day)||1;
-  saveLocal(); renderRecurList(); toast('Recurring entry updated');
+  r.desc       = (el('rm-desc')?.value||'').trim();
+  r.amount     = amount;
+  r.formula    = formula || null;
+  r.category   = el('rm-cat')?.value  || r.category;
+  r.type       = r.category==='income' ? 'income' : r.category==='savings' ? 'savings' : 'expense';
+  r.freq       = el('rm-freq')?.value || 'monthly';
+  r.dayOfMonth = parseInt(el('rm-day')?.value)||1;
+  r.accountId  = el('rm-acct')?.value || null;
+  saveLocal(); closeRecurModal(); renderRecurList();
+  toast(`"${r.desc}" updated`);
 }
 
 function applyPendingRecur() {
@@ -4442,6 +4544,7 @@ function renderRecurList() {
       <span style="font-size:10px;padding:1px 6px;border-radius:3px;${alreadyApplied?'background:var(--Gbg);color:var(--Gm)':'background:var(--Abg);color:var(--Am)'}">
         ${alreadyApplied?'✓ applied':'pending '+dueDate}
       </span>
+      ${(()=>{const acct=DATA.accounts?.find(a=>a.id===r.accountId);return acct?`<span style="font-size:10px;color:var(--ink3);padding:1px 5px;border-radius:3px;background:var(--s2)">${esc(acct.name)}</span>`:r.accountId?'':'';})()}
       <button class="btn xs ghost" onclick="editRecurEntry('${r.id}')" title="Edit">✎</button>
       <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
     </div>`;
@@ -8845,6 +8948,7 @@ function saveFuelSettings() {
 }
 
 function renderFuelSettingsUI() {
+  onFuelFillTypeChange(); // set hint from current value
   const fs  = DATA.fuelSettings || {};
   const inp = el('fuel-tank-size');   if (inp && fs.tankSize)       inp.value = fs.tankSize;
   const tc  = el('fuel-transit-cost');if (tc  && fs.transitMonthly) tc.value  = fs.transitMonthly;
@@ -9609,6 +9713,163 @@ function _validateAIRange() {
   const from = el('ai-from')?.value || offsetMonStr(-5);
   const to   = el('ai-to')?.value   || curMonth();
   return { from, to };
+}
+
+
+// ══════════════════════════════════════════
+// FUEL FILL TYPE HINTS
+// ══════════════════════════════════════════
+const FILL_HINTS = {
+  full:    'Fill until the pump clicks off automatically — standard reference point for L/100km.',
+  partial: 'Did not fill completely — enter level before filling (%) for accurate consumption tracking.',
+  brim:    '⬆ Brim (overflow): filled until a small amount spills back, ensuring the tank is truly 100% full. More precise than a standard full-tank click-off. Ideal for the most accurate L/100km baseline.'
+};
+
+function onFuelFillTypeChange() {
+  const type = el('fuel-fill-type')?.value || 'full';
+  const wrap = el('fuel-level-wrap');
+  const hint = el('fuel-fill-hint');
+  if (wrap) wrap.style.display = type === 'partial' ? 'flex' : 'none';
+  if (hint) hint.textContent   = FILL_HINTS[type] || '';
+  updateFuelFillHelper();
+}
+
+// ══════════════════════════════════════════
+// GROCERY BARCODE SCANNER
+// ══════════════════════════════════════════
+let _barcodeStream    = null;
+let _barcodeInterval  = null;
+let _barcodeDetector  = null;
+
+async function startBarcodeScanner() {
+  const wrap  = el('gr-camera-wrap');
+  const video = el('gr-camera-video');
+  const stat  = el('gr-barcode-status');
+
+  // Check BarcodeDetector API support
+  if (!window.BarcodeDetector) {
+    if (stat) stat.textContent = 'Camera scanning not supported in this browser — type barcode manually';
+    return;
+  }
+
+  try {
+    _barcodeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','qr_code','code_128','code_39'] });
+    _barcodeStream   = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    if (video) { video.srcObject = _barcodeStream; }
+    if (wrap)  { wrap.style.display = 'block'; }
+    if (stat)  { stat.textContent = 'Camera active — scanning…'; }
+
+    // Poll every 300ms for barcodes
+    _barcodeInterval = setInterval(async () => {
+      if (!video || video.readyState < 2) return;
+      try {
+        const codes = await _barcodeDetector.detect(video);
+        if (codes.length) {
+          stopBarcodeScanner();
+          const barcode = codes[0].rawValue;
+          const inp = el('gr-barcode-manual');
+          if (inp) inp.value = barcode;
+          lookupBarcode(barcode);
+        }
+      } catch {}
+    }, 300);
+
+  } catch(e) {
+    if (stat) stat.textContent = `Camera error: ${e.message}`;
+    if (wrap) wrap.style.display = 'none';
+  }
+}
+
+function stopBarcodeScanner() {
+  clearInterval(_barcodeInterval); _barcodeInterval = null;
+  if (_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
+  const wrap = el('gr-camera-wrap'); if (wrap) wrap.style.display = 'none';
+  const stat = el('gr-barcode-status'); if (stat) stat.textContent = '';
+}
+
+function lookupBarcode(barcode) {
+  const stat = el('gr-barcode-status'); if (!stat) return;
+  if (!barcode || barcode.length < 4) { stat.textContent=''; return; }
+
+  // Search catalog for matching barcode
+  const cat = (DATA.catalog||[]).find(c => c.barcode === barcode);
+  if (cat) {
+    // Auto-fill the form
+    const srch = el('gr-search'); if (srch) srch.value = cat.name;
+    const prc  = el('gr-price');  if (prc)  prc.value  = cat.price || '';
+    checkPriceDelta(cat.name, parseFloat(cat.price)||0);
+    stat.textContent = `✓ Found: ${cat.name}`;
+    stat.style.color = 'var(--Gm)';
+    const manual = el('gr-barcode-manual'); if (manual) manual.value = '';
+  } else {
+    stat.textContent = `Barcode ${barcode} — not in catalog yet. Fill name & price, it will be saved.`;
+    stat.style.color = 'var(--ink3)';
+    // Store barcode for when item is added
+    el('gr-search')?.focus();
+    el('gr-search')._pendingBarcode = barcode;
+  }
+}
+
+// ══════════════════════════════════════════
+// GROCERY PRICE-CHANGE CONFIRMATION
+// ══════════════════════════════════════════
+let _grPriceChangePending = false;
+
+// Override checkPriceDelta to also show the confirm checkbox
+const _origCheckPriceDelta = checkPriceDelta;
+function checkPriceDelta(name, currentPrice) {
+  _origCheckPriceDelta(name, currentPrice);
+  const confirmDiv = el('gr-price-confirm');
+  const confirmMsg = el('gr-price-confirm-msg');
+  const confirmChk = el('gr-price-confirm-chk');
+  if (!confirmDiv) return;
+
+  const cat = DATA.catalog?.find(c=>c.name?.toLowerCase()===name?.toLowerCase());
+  if (!cat?.lastPrice || !currentPrice || Math.abs(currentPrice-cat.lastPrice)/cat.lastPrice < 0.01) {
+    confirmDiv.style.display = 'none';
+    _grPriceChangePending = false;
+    if (confirmChk) confirmChk.checked = false;
+    return;
+  }
+
+  const pct  = ((currentPrice - cat.lastPrice) / cat.lastPrice * 100).toFixed(1);
+  const dir  = currentPrice > cat.lastPrice ? 'up' : 'down';
+  const col  = dir === 'up' ? 'var(--Rm)' : 'var(--Gm)';
+  if (confirmMsg) confirmMsg.innerHTML =
+    `Price ${dir} <strong style="color:${col}">${dir==='up'?'+':''}${pct}%</strong> from last recorded <strong>${fmt(cat.lastPrice)}</strong> on ${cat.lastDate||'?'} — tick to confirm and update catalog`;
+  confirmDiv.style.display = 'block';
+  _grPriceChangePending = true;
+  if (confirmChk) confirmChk.checked = false;
+}
+
+function onPriceConfirmChange() {
+  const chk = el('gr-price-confirm-chk');
+  _grPriceChangePending = chk ? !chk.checked : true;
+}
+
+// Patch addShopItem to gate on price confirmation and save barcode
+const _origAddShopItem = addShopItem;
+async function addShopItem() {
+  if (_grPriceChangePending) {
+    toast('⚠ Confirm the price change by ticking the checkbox first.', 1);
+    return;
+  }
+  // Save barcode onto catalog entry after add
+  const srchEl = el('gr-search');
+  const pendingBarcode = srchEl?._pendingBarcode || null;
+  await _origAddShopItem();
+  // After add, attach barcode to catalog entry if pending
+  if (pendingBarcode) {
+    const name = srchEl?.value || '';
+    const cat  = DATA.catalog?.find(c=>c.name?.toLowerCase()===name?.toLowerCase());
+    if (cat) { cat.barcode = pendingBarcode; saveLocal(); }
+    if (srchEl) delete srchEl._pendingBarcode;
+    const stat = el('gr-barcode-status'); if (stat) stat.textContent = `Barcode ${pendingBarcode} linked to ${name}`;
+  }
+  // Reset confirm state
+  _grPriceChangePending = false;
+  const cd = el('gr-price-confirm'); if (cd) cd.style.display='none';
+  const cc = el('gr-price-confirm-chk'); if (cc) cc.checked=false;
 }
 
 // ══════════════════════════════════════════
