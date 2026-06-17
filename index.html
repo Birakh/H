@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vault · Finance</title>
+<title>Vault Finance V4</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -774,8 +774,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1.5L2 4.5v4c0 3.2 2.5 5.9 6 7 3.5-1.1 6-3.8 6-7v-4Z"/></svg>
     </div>
     <div>
-      <div class="brand-name">Vault Finance</div>
-      <div class="brand-sub">AES-256-GCM · encrypted at rest · private vault repo</div>
+      <div class="brand-name">Vault Finance <span style="font-size:11px;font-weight:500;opacity:.7;letter-spacing:.04em">V4</span></div>
+      <div class="brand-sub">V4 · AES-256-GCM · encrypted at rest · private vault repo</div>
     </div>
   </div>
 
@@ -1653,7 +1653,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="tbl-wrap"><table>
         <thead><tr>
           <th style="width:28px"></th><th>Item</th><th class="gr-hide-mob">Category</th>
-          <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Disc.</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob">Bought</th><th></th>
+          <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Disc.</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob" style="width:110px" title="EAN/UPC barcode — double-click to edit, or use scanner above">Barcode</th><th class="gr-hide-mob">Bought</th><th></th>
         </tr></thead>
         <tbody id="gr-body"></tbody>
       </table></div>
@@ -2685,7 +2685,7 @@ let _debounceTimer = null;
 function _debouncedRender() { clearTimeout(_debounceTimer); _debounceTimer = setTimeout(renderEntries, 150); }
 
 // ══════════════════════════════════════════
-// SCHEMA  v4
+// SCHEMA  v17  (app: Vault Finance V4)
 // ══════════════════════════════════════════
 const FRESH = () => ({
   v: 17,
@@ -5069,6 +5069,20 @@ function quickAdd() {
 }
 
 // ── GROCERY INLINE EDIT ─────────────────────────────────────────────────────
+function updateGroceryBarcode(groceryId, barcode) {
+  const g = DATA.grocery.find(x => x.id === groceryId); if (!g) return;
+  // Barcode lives on the catalog entry, not the grocery list item
+  const cat = DATA.catalog?.find(c => c.name?.toLowerCase() === g.name?.toLowerCase());
+  if (cat) {
+    cat.barcode = barcode || null;
+    saveLocal();
+    const stat = el('gr-barcode-status');
+    if (stat) { stat.textContent = barcode ? `Barcode ${barcode} linked to ${cat.name}` : ''; stat.style.color='var(--Gm)'; }
+  } else {
+    toast('Item not in catalog — add it first via the form above.', 1);
+  }
+}
+
 function updateGroceryField(id, field, val) {
   const g = DATA.grocery.find(x => x.id === id);
   if (!g) return;
@@ -5261,15 +5275,34 @@ function buildGrCatFilter() {
 function setGrCat(k) { _grCatFilter=k; buildGrCatFilter(); renderGrocery(); }
 
 function catSearch() {
-  const q=el('gr-search').value.toLowerCase(), dd=el('cat-dd');
+  const rawQ = el('gr-search').value.trim();
+  const q    = rawQ.toLowerCase();
+  const dd   = el('cat-dd');
   if (!q||!DATA.catalog.length) { dd.classList.remove('open'); return; }
-  const hits=DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,12);
+  // Match by name OR by barcode — barcode typed directly goes to exact match first
+  const isNumeric = /^\d{4,}$/.test(rawQ);
+  let hits;
+  if (isNumeric) {
+    // Barcode search: exact barcode match first, then name fallback
+    const barcodeHit = DATA.catalog.filter(c=>c.barcode===rawQ);
+    const nameHits   = DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)&&c.barcode!==rawQ);
+    hits = [...barcodeHit, ...nameHits].slice(0,12);
+  } else {
+    hits = DATA.catalog.filter(c=>
+      c.name.toLowerCase().includes(q) ||
+      (c.barcode && c.barcode.includes(rawQ))
+    ).slice(0,12);
+  }
   if (!hits.length) { dd.classList.remove('open'); return; }
   _cache={};
   dd.innerHTML=hits.map((h,i)=>{
     _cache['c'+i]=h;
     return `<div class="ddi" onmousedown="pickCat('c${i}')">
-      <div><div>${h.name}</div>${h.store?`<div class="ddi-s">${h.store}</div>`:''}</div>
+      <div>
+        <div>${h.name}</div>
+        ${h.store?`<div class="ddi-s">${h.store}</div>`:''}
+        ${h.barcode?`<div class="ddi-s" style="font-family:var(--mono);color:var(--ink3)">📷 ${h.barcode}</div>`:''}
+      </div>
       <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span></div>
     </div>`;
   }).join('');
@@ -5282,6 +5315,12 @@ function pickCat(key) {
   el('gr-store').value=h.store||'';
   el('gr-price').value=h.price||'';
   checkPriceDelta(h.name, h.price);
+  // Show barcode status if item has one
+  const stat = el('gr-barcode-status');
+  if (stat) {
+    stat.textContent = h.barcode ? `📷 ${h.barcode} linked` : '';
+    stat.style.color = 'var(--ink3)';
+  }
   closeCatDD();
 }
 
@@ -5497,6 +5536,18 @@ function renderGrocery() {
           : '—'}
       </td>
       <td>${trendCell}</td>
+      <td class="gr-hide-mob">
+        ${(()=>{
+          // Look up barcode from catalog entry matching this item name
+          const cat=DATA.catalog?.find(c=>c.name?.toLowerCase()===g.name?.toLowerCase());
+          const bc = cat?.barcode || '';
+          return `<input class="gr-edit-input" type="text" value="${esc(bc)}"
+            placeholder="— barcode —" inputmode="numeric"
+            style="width:95px;font-family:var(--mono);font-size:11px"
+            onchange="updateGroceryBarcode('${g.id}',this.value.trim())"
+            title="EAN/UPC barcode for this item">`;
+        })()}
+      </td>
       <td class="num muted">${g.boughtDate||'—'}</td>
       <td><button class="btn xs danger" onclick="deleteGrocery('${g.id}')">✕</button></td>
     </tr>`;
@@ -6796,7 +6847,7 @@ function buildAIText(from, to) {
   }
 
   const lines = [];
-  lines.push(`# Vault Finance — AI Analysis Export`);
+  lines.push(`# Vault Finance V4 — AI Analysis Export`);
   lines.push(`Period: ${from} to ${to} (${months.length} month${months.length===1?'':'s'})`);
   lines.push(`Generated: ${new Date().toLocaleDateString('de-AT')}\n`);
 
@@ -9167,35 +9218,15 @@ const OIL_SYMBOLS = { wti: 'CL=F', brent: 'BZ=F' };
 const OIL_INTERVALS = { '1d': '5m', '14d': '1h', '1mo': '1d' };
 const OIL_COLOURS   = { wti: 'var(--Am)', brent: 'var(--Bm)' };
 
-// Yahoo Finance now requires a crumb token (session cookie handshake).
-// We fetch the crumb first, then use it in the data request.
-let _yfCrumb = null;
-
-async function _getYahooCrumb() {
-  if (_yfCrumb) return _yfCrumb;
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), 5000);
-  try {
-    const r = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
-      credentials: 'include', signal: ctrl.signal
-    });
-    if (!r.ok) throw new Error(`crumb HTTP ${r.status}`);
-    const crumb = (await r.text()).trim();
-    if (!crumb || crumb.includes('<')) throw new Error('invalid crumb response');
-    _yfCrumb = crumb;
-    return crumb;
-  } finally { clearTimeout(tid); }
-}
-
 function _parseYahooChart(j) {
   const result = j?.chart?.result?.[0];
-  if (!result) throw new Error('No data in Yahoo Finance response');
+  if (!result) throw new Error('No data in response');
   const meta       = result.meta;
   const timestamps = result.timestamp || [];
   const closes     = result.indicators?.quote?.[0]?.close || [];
   const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
                         .filter(p => p.p != null && isFinite(p.p));
-  if (!pts.length) throw new Error('Empty price series after filtering');
+  if (!pts.length) throw new Error('Empty price series');
   return {
     pts,
     current: meta.regularMarketPrice,
@@ -9205,39 +9236,50 @@ function _parseYahooChart(j) {
   };
 }
 
+async function _fetchWithTimeout(url, opts={}, ms=7000) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(tid); }
+}
+
 async function _fetchOilSeries(type, range) {
   const symbol   = OIL_SYMBOLS[type];
   const interval = OIL_INTERVALS[range] || '1d';
+  const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
 
-  // Attempt 1: crumb-based auth (works if user has visited Yahoo Finance recently)
+  // Strategy 1: allorigins.win CORS proxy — wraps any public URL with CORS headers
+  // Response format: { contents: "<json string>", status: { http_code: 200 } }
   try {
-    const crumb = await _getYahooCrumb();
-    const url   = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`;
-    const ctrl  = new AbortController();
-    const tid   = setTimeout(() => ctrl.abort(), 6000);
-    try {
-      const r = await fetch(url, { credentials: 'include', signal: ctrl.signal });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return _parseYahooChart(await r.json());
-    } finally { clearTimeout(tid); }
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(chartUrl)}`;
+    const r = await _fetchWithTimeout(proxyUrl, {}, 8000);
+    if (!r.ok) throw new Error(`proxy HTTP ${r.status}`);
+    const wrapper = await r.json();
+    if (wrapper?.status?.http_code !== 200) throw new Error(`upstream HTTP ${wrapper?.status?.http_code}`);
+    const j = JSON.parse(wrapper.contents);
+    return _parseYahooChart(j);
   } catch(e1) {
-    _yfCrumb = null; // reset crumb on failure
-    console.warn('[oil] crumb fetch failed:', e1.message);
+    console.warn('[oil] allorigins proxy failed:', e1.message);
   }
 
-  // Attempt 2: query2 subdomain (sometimes has different CORS policy)
+  // Strategy 2: corsproxy.io — alternative free CORS proxy
   try {
-    const url  = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 6000);
-    try {
-      const r = await fetch(url, { credentials: 'include', signal: ctrl.signal });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return _parseYahooChart(await r.json());
-    } finally { clearTimeout(tid); }
+    const proxyUrl2 = `https://corsproxy.io/?${encodeURIComponent(chartUrl)}`;
+    const r = await _fetchWithTimeout(proxyUrl2, {}, 8000);
+    if (!r.ok) throw new Error(`proxy2 HTTP ${r.status}`);
+    return _parseYahooChart(await r.json());
   } catch(e2) {
-    console.warn('[oil] query2 failed:', e2.message);
-    throw new Error('Yahoo Finance is unavailable — use manual price entry below');
+    console.warn('[oil] corsproxy.io failed:', e2.message);
+  }
+
+  // Strategy 3: direct fetch with session cookie (works if user has visited yahoo.com recently)
+  try {
+    const r = await _fetchWithTimeout(chartUrl, { credentials: 'include' }, 6000);
+    if (!r.ok) throw new Error(`direct HTTP ${r.status}`);
+    return _parseYahooChart(await r.json());
+  } catch(e3) {
+    console.warn('[oil] direct fetch failed:', e3.message);
+    throw new Error('All oil price sources failed — enter price manually');
   }
 }
 
@@ -9672,7 +9714,7 @@ async function askVaultAI(question) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are a personal finance advisor analysing a user's encrypted Vault Finance data.
+        system: `You are a personal finance advisor analysing a user's encrypted Vault Finance V4 data.
 The user is from Austria. Use € for currency. Be specific with numbers from the data.
 Be concise, actionable, and honest. Format with clear sections if needed.
 Do not make up numbers — only reference figures present in the data.`,
@@ -11401,7 +11443,7 @@ function saveNotifPref(on) {
 
 function testBudgetNotif() {
   if (Notification.permission !== 'granted') return toast('Enable notifications first.', 1);
-  new Notification('Vault Finance — test', {
+  new Notification('Vault Finance V4 — test', {
     body: 'Budget alerts are working ✓ You will be notified at 80% and 100% of each category.',
     icon: ''
   });
@@ -11428,7 +11470,7 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
       if (fired[fireKey]) return;
       markNotifFired(fireKey);
       const overBy = pct >= 100 ? ` (over by ${fmt((act[key]||0)-target)})` : '';
-      new Notification(`Vault Finance — ${label} at ${threshold}%`, {
+      new Notification(`Vault Finance V4 — ${label} at ${threshold}%`, {
         body: `${label} budget is ${Math.round(pct)}% used this month.${overBy} ${fmt(act[key]||0)} of ${fmt(target)}.`,
         tag:  fireKey
       });
