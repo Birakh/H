@@ -5324,7 +5324,7 @@ function pickCat(key) {
   closeCatDD();
 }
 
-function checkPriceDelta(name, currentPrice) {
+function _checkPriceDeltaCore(name, currentPrice) {
   // Price tracker: compare with lastPrice on catalog item
   if (!currentPrice) { el('gr-price-warn').style.display='none'; el('gr-price-delta').textContent=''; return; }
   const cat = DATA.catalog.find(c=>c.name.toLowerCase()===name.toLowerCase());
@@ -5381,7 +5381,7 @@ el('gr-price')?.addEventListener('input', () => {
   updateGrDiscountPreview();
 });
 
-async function addShopItem() {
+async function _addShopItemCore() {
   try {
     const name=el('gr-search').value.trim(); if(!name) return toast('Enter an item.',1);
     const price=parseFloat(el('gr-price').value)||0;
@@ -9532,12 +9532,7 @@ function renderRegionalSettings() {
 // ══════════════════════════════════════════
 // FILL TYPE + TRIP A/B  FORM LOGIC
 // ══════════════════════════════════════════
-function onFuelFillTypeChange() {
-  const type = el('fuel-fill-type')?.value || 'full';
-  const wrap = el('fuel-level-wrap');
-  if (wrap) wrap.style.display = type === 'partial' ? 'flex' : 'none';
-  updateFuelFillHelper();
-}
+// (onFuelFillTypeChange defined below with FILL_HINTS support)
 
 function updateFuelFillHelper() {
   const hint    = el('fuel-level-hint'); if (!hint) return;
@@ -9857,10 +9852,9 @@ function lookupBarcode(barcode) {
 // ══════════════════════════════════════════
 let _grPriceChangePending = false;
 
-// Override checkPriceDelta to also show the confirm checkbox
-const _origCheckPriceDelta = checkPriceDelta;
+// checkPriceDelta: runs core delta logic then shows price-change confirmation
 function checkPriceDelta(name, currentPrice) {
-  _origCheckPriceDelta(name, currentPrice);
+  _checkPriceDeltaCore(name, currentPrice);
   const confirmDiv = el('gr-price-confirm');
   const confirmMsg = el('gr-price-confirm-msg');
   const confirmChk = el('gr-price-confirm-chk');
@@ -9889,17 +9883,15 @@ function onPriceConfirmChange() {
   _grPriceChangePending = chk ? !chk.checked : true;
 }
 
-// Patch addShopItem to gate on price confirmation and save barcode
-const _origAddShopItem = addShopItem;
+// addShopItem: gates on price confirmation, then calls core, then saves barcode
 async function addShopItem() {
   if (_grPriceChangePending) {
     toast('⚠ Confirm the price change by ticking the checkbox first.', 1);
     return;
   }
-  // Save barcode onto catalog entry after add
   const srchEl = el('gr-search');
   const pendingBarcode = srchEl?._pendingBarcode || null;
-  await _origAddShopItem();
+  await _addShopItemCore();
   // After add, attach barcode to catalog entry if pending
   if (pendingBarcode) {
     const name = srchEl?.value || '';
