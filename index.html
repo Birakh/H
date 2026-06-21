@@ -2787,6 +2787,23 @@ const fmtS = n  => (n >= 0 ? '+' : '') + n.toLocaleString('de-AT', { minimumFrac
 const MS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 
+// Single source of truth for "is this entry savings?" — an entry counts as savings
+// if it's the dedicated type, OR the legacy combo (type='expense', category='savings')
+// that older/migrated vaults may still contain before the v18 migration normalises them.
+const isSavingsEntry = e => e.type === 'savings' || (e.type === 'expense' && e.category === 'savings');
+// Single source of truth for "true spending" — an expense entry that is NOT savings.
+const isSpendEntry   = e => e.type === 'expense' && e.category !== 'savings';
+// Given a raw form/select type ('expense'|'income'|'transfer') and the chosen category,
+// returns the entry type that should actually be stored — 'savings' instead of 'expense'
+// when the category is savings, so savings entries render and total correctly everywhere.
+const entryTypeFor   = (category, selectedType) => (selectedType === 'expense' && category === 'savings') ? 'savings' : selectedType;
+// "Spent or saved" — every entry that represents money leaving the budget (needs+wants+savings),
+// as opposed to income or account transfers. Used for budget-style totals like "Total exp"/"Net".
+const isOutflowEntry  = e => e.type === 'expense' || e.type === 'savings';
+// Does this entry belong to a given needs/wants/savings budget bucket? Handles the
+// savings type living outside the normal type==='expense'+category match.
+const isInCategoryBucket = (e, key) => (e.type === 'expense' && e.category === key) || (e.type === 'savings' && key === 'savings');
+
 // Safe arithmetic expression parser — supports + - * / ( ) and numeric literals only.
 // No eval / new Function — immune to formula-injection from tampered vault data.
 function evalExpr(s) {
@@ -3720,7 +3737,8 @@ function renderDash() {
   const prevMon  = prevMonStr(month);
   const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
   const prevInc  = getMonthIncome(prevMon).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const prevSpent= prevMes.filter(e=>e.type==='expense'||e.type==='savings').reduce((s,e)=>s+e.amount,0);
+  const prevSpent= prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
+  const prevSaved= prevMes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
   const prevLeft = prevInc - prevSpent;
   function momDelta(curr, prev, invertColor) {
     if (prev === 0) return '';
@@ -3737,6 +3755,7 @@ function renderDash() {
     <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
     <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : 'Savings rate'}</div><div class="stat-val ${isCurrentMonth ? (dailyLeft>=0?'cg':'cr') : (savePct>=0?'cg':'cr')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','') + '/d' : savePct+'%'}</div></div>
+    <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
     ${nwStat}`;
 
   renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
@@ -3937,7 +3956,7 @@ function detectAnomalies(month, act) {
     if (current < MIN_AMOUNT) return;
 
     const hist = prevMons.map(m =>
-      DATA.entries.filter(e => ym(e.date)===m && (e.type==='expense' && e.category===key || e.type==='savings' && key==='savings'))
+      DATA.entries.filter(e => ym(e.date)===m && isInCategoryBucket(e, key))
         .reduce((s,e) => s+e.amount, 0)
     ).filter(v => v > 0);
 
@@ -4180,7 +4199,7 @@ function renderHeatmap() {
   const data = {};
   cats.forEach(({ key }) => {
     data[key] = mons.map(m =>
-      DATA.entries.filter(e => ym(e.date)===m && (e.type==='expense' && e.category===key || e.type==='savings' && key==='savings'))
+      DATA.entries.filter(e => ym(e.date)===m && isInCategoryBucket(e, key))
         .reduce((s,e) => s+e.amount, 0)
     );
   });
@@ -4401,7 +4420,7 @@ function csvImport() {
     const cat = ci ? (r[+ci]||defCat).toLowerCase().trim() || defCat : defCat;
     const finalCat = ['needs','wants','savings'].includes(cat) ? cat : defCat;
     DATA.entries.push({ id:uid(), date, desc, amount: Math.abs(amount), formula:null,
-      type: (defType==='expense' && finalCat==='savings') ? 'savings' : defType,
+      type: entryTypeFor(finalCat, defType),
       category: finalCat,
       tags:[], recurId:null });
     added++;
@@ -4694,8 +4713,8 @@ async function addEntry() {
     const pay2r = el('sp-pay2')?.value || '_main';
     const acct1 = pay1r === 'cash' ? 'cash' : (pay1r === '_main' ? acctId : pay1r);
     const acct2 = pay2r === 'cash' ? 'cash' : (pay2r === '_main' ? acctId : pay2r);
-    DATA.entries.unshift({ id:uid(), date, desc, amount:p1, formula:null, type:(cat1==='savings'?'savings':'expense'), category:cat1, tags:[..._curTags], accountId:acct1, recurId:null });
-    DATA.entries.unshift({ id:uid(), date, desc, amount:p2, formula:null, type:(cat2==='savings'?'savings':'expense'), category:cat2, tags:[..._curTags], accountId:acct2, recurId:null });
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p1, formula:null, type:entryTypeFor(cat1,'expense'), category:cat1, tags:[..._curTags], accountId:acct1, recurId:null });
+    DATA.entries.unshift({ id:uid(), date, desc, amount:p2, formula:null, type:entryTypeFor(cat2,'expense'), category:cat2, tags:[..._curTags], accountId:acct2, recurId:null });
     const pay1lbl = pay1r==='cash'?'cash':acct1||'no acct';
     const pay2lbl = pay2r==='cash'?'cash':acct2||'no acct';
     toast(`Split saved — ${fmt(p1)} ${cat1} (${pay1lbl}) + ${fmt(p2)} ${cat2} (${pay2lbl})`);
@@ -4704,7 +4723,7 @@ async function addEntry() {
     toggleSplitForm();
   } else {
   // category 'savings' is a distinct entry type (green/+), not a flavour of 'expense'
-  const entryType = (type==='expense' && cat==='savings') ? 'savings' : type;
+  const entryType = entryTypeFor(cat, type);
   const entry = {
     id:uid(), date, desc, amount, formula, type: entryType,
     category: type==='expense' ? cat : type,
@@ -4900,8 +4919,8 @@ function renderEntries() {
   }
 
   const sI=list.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const sS=list.filter(e=>e.type==='savings' || (e.type==='expense' && e.category==='savings')).reduce((s,e)=>s+e.amount,0);
-  const sE=list.filter(e=>e.type==='expense' && e.category!=='savings').reduce((s,e)=>s+e.amount,0);
+  const sS=list.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
+  const sE=list.filter(isSpendEntry).reduce((s,e)=>s+e.amount,0);
 
   const qaRow = `<tr class="quick-add-row">
     <td></td>
@@ -4916,7 +4935,7 @@ function renderEntries() {
   el('ent-body').innerHTML = qaRow + list.map(e => {
     const isI   = e.type==='income';
     const isT   = e.type==='transfer';
-    const isS   = e.type==='savings' || (e.type==='expense' && e.category==='savings');
+    const isS   = isSavingsEntry(e);
     const cls   = isI || isS ? 'amt-p' : (isT ? 'num' : 'amt-n');
     const sign  = isI || isS ? '+' : (isT ? '⇄' : '−');
     const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
@@ -4928,7 +4947,7 @@ function renderEntries() {
     const acctLabel = acct
       ? `<span style="font-size:11px;color:var(--ink2)">${esc(acct.name)}</span>`
       : `<span class="muted" style="font-size:11px">—</span>`;
-    return `<tr>
+    return `<tr data-entry-id="${e.id}">
       <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
       <td class="editable num" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${esc(e.date)}</td>
       <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${esc(e.desc||'')}')">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}</td>
@@ -5990,7 +6009,7 @@ function exportExcel() {
       const row=[cat.charAt(0).toUpperCase()+cat.slice(1)];
       for (let m=1;m<=12;m++) {
         const mo=`${yr}-${String(m).padStart(2,'0')}`;
-        row.push(DATA.entries.filter(e=>ym(e.date)===mo&&e.category===cat&&(e.type==='expense'||e.type==='savings')).reduce((s,e)=>s+e.amount,0)||'');
+        row.push(DATA.entries.filter(e=>ym(e.date)===mo&&e.category===cat&&isOutflowEntry(e)).reduce((s,e)=>s+e.amount,0)||'');
       }
       rows.push(row);
     });
@@ -6000,7 +6019,7 @@ function exportExcel() {
         const mo=`${yr}-${String(m).padStart(2,'0')}`;
         const base=label==='Total Income'?getMonthIncome(mo).amount:0;
         const inc=base+DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='income').reduce((s,e)=>s+e.amount,0);
-        const exp=DATA.entries.filter(e=>ym(e.date)===mo&&(e.type==='expense'||e.type==='savings')).reduce((s,e)=>s+e.amount,0);
+        const exp=DATA.entries.filter(e=>ym(e.date)===mo&&isOutflowEntry(e)).reduce((s,e)=>s+e.amount,0);
         if (label==='Total Income') row.push(inc||'');
         else if (label==='Total Expenses') row.push(exp||'');
         else row.push(inc-exp||'');
@@ -6065,7 +6084,7 @@ function getPrevMonthSurplus(month) {
   if (!prevSaved || !prevSaved.amount) return { surplus: 0, prevMon };
   const prevMes = DATA.entries.filter(e => ym(e.date) === prevMon);
   const prevInc  = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-  const prevSpent= prevMes.filter(e=>e.type==='expense'||e.type==='savings').reduce((s,e)=>s+e.amount,0);
+  const prevSpent= prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
   return { surplus: +(prevInc - prevSpent).toFixed(2), prevMon };
 }
 
@@ -6091,7 +6110,7 @@ function getSavingsCarry(month) {
   const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
   const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   // savings-type entries count as "spent" (money intentionally allocated) — reduces available surplus
-  const prevSpent = prevMes.filter(e=>e.type==='expense'||e.type==='savings').reduce((s,e)=>s+e.amount,0);
+  const prevSpent = prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
   return Math.max(0, +(prevInc - prevSpent).toFixed(2));
 }
 
@@ -6107,7 +6126,7 @@ function computeSavingsStreak() {
     if (!savedInc || savedInc.amount === 0) break;
     const mes    = DATA.entries.filter(e => ym(e.date) === mon);
     const inc    = savedInc.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    const saved  = mes.filter(e=>(e.type==='expense'&&e.category==='savings')||e.type==='savings').reduce((s,e)=>s+e.amount,0);
+    const saved  = mes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
     const target = inc * DATA.splits.savings / 100;
     if (target > 0 && saved >= target * 0.9) streak++; else break;
   }
@@ -6288,7 +6307,7 @@ function createInstallmentEntries(date, desc, totalAmount, formula, cat, acctId,
     const entryDate = `${d.getFullYear()}-${mm}-${dd}`;
     const amt = i === n-1 ? +(totalAmount - perPayment*(n-1)).toFixed(2) : perPayment;
     DATA.entries.unshift({ id:uid(), date:entryDate, desc:`${desc} (${i+1}/${n})`,
-      amount:amt, formula:null, type:(cat==='savings'?'savings':'expense'), category:cat,
+      amount:amt, formula:null, type:entryTypeFor(cat,'expense'), category:cat,
       tags:['installment'], accountId:acctId, recurId:null, installmentId:iid });
   }
   DATA.installments.push({ id:iid, desc, total:totalAmount, n, paid:0,
@@ -6874,7 +6893,7 @@ function buildAIText(from, to) {
     const mes  = DATA.entries.filter(e => ym(e.date) === month);
     const addInc  = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
     const totalInc = base + addInc;
-    const exp = mes.filter(e=>e.type==='expense'||e.type==='savings');
+    const exp = mes.filter(isOutflowEntry);
     const totalExp = exp.reduce((s,e)=>s+e.amount,0);
     const bycat = { needs:0, wants:0, savings:0 };
     exp.forEach(e => { if (e.category in bycat) bycat[e.category]+=e.amount; });
@@ -7023,7 +7042,7 @@ function saveReceipt() {
   if (!amount || amount <= 0) { toast('Invalid amount', 1); return; }
   const desc = el('rc-desc').value.trim();
   const date = ymd();
-  DATA.entries.unshift({ id:uid(), date, desc, amount, formula, type:(_rcCat==='savings'?'savings':'expense'),
+  DATA.entries.unshift({ id:uid(), date, desc, amount, formula, type:entryTypeFor(_rcCat,'expense'),
     category:_rcCat, tags:[], recurId:null, accountId:null });
   saveLocal(); render();
   toast(`${fmt(amount)} logged to ${_rcCat}`);
@@ -7084,7 +7103,7 @@ function renderSavingsGoals() {
   // Avg monthly savings from last 3 months (type=savings entries)
   const _avgSav = [1,2,3].reduce((s,i) => {
     const m = prevMonStr(curMonth(), i);
-    return s + DATA.entries.filter(e=>ym(e.date)===m&&(e.type==='savings'||(e.type==='expense'&&e.category==='savings'))).reduce((a,e)=>a+e.amount,0);
+    return s + DATA.entries.filter(e=>ym(e.date)===m&&isSavingsEntry(e)).reduce((a,e)=>a+e.amount,0);
   }, 0) / 3;
 
   container.innerHTML = goals.map(g => {
@@ -7134,7 +7153,7 @@ function renderSavingsGoals() {
 
     // Mini sparkline: last 6 months of savings amounts
     const _sMons  = Array.from({length:6},(_,i)=>prevMonStr(curMonth(),6-i));
-    const _sVals2 = _sMons.map(m=>DATA.entries.filter(e=>ym(e.date)===m&&(e.type==='savings'||(e.type==='expense'&&e.category==='savings'))).reduce((s,e)=>s+e.amount,0));
+    const _sVals2 = _sMons.map(m=>DATA.entries.filter(e=>ym(e.date)===m&&isSavingsEntry(e)).reduce((s,e)=>s+e.amount,0));
     const _sMax2  = Math.max(..._sVals2, 1);
     const SW2=100, SH2=22;
     const _sPts2  = _sVals2.map((v,i)=>{
@@ -7185,7 +7204,7 @@ function renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapse
     container.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Forecast available for the current month after a few days of data.</div>';
     return;
   }
-  const spent = mes.filter(e => e.type==='expense'||e.type==='savings').reduce((s,e) => s+e.amount, 0);
+  const spent = mes.filter(isOutflowEntry).reduce((s,e) => s+e.amount, 0);
   const projected = (spent / daysElapsed) * daysInMonth;
   const budget    = totalInc;
   const pctActual = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
@@ -7197,7 +7216,7 @@ function renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapse
   // 3-month rolling average using prevMonStr
   const avgSpend = [1,2,3].reduce((s,i) => {
     const m = prevMonStr(month, i);
-    return s + DATA.entries.filter(e=>ym(e.date)===m&&(e.type==='expense'||e.type==='savings')).reduce((a,e)=>a+e.amount,0);
+    return s + DATA.entries.filter(e=>ym(e.date)===m&&isOutflowEntry(e)).reduce((a,e)=>a+e.amount,0);
   }, 0) / 3;
 
   el('forecast-lbl').textContent = `day ${daysElapsed} of ${daysInMonth}`;
@@ -7400,9 +7419,9 @@ function renderAnnualGrid() {
     { key:'income',   label:'Income',   fn:(mes,m)=>{ const inc=DATA.incomes[m]; return (inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); }, cls:'annual-pos' },
     { key:'needs',    label:'Needs',    fn:(mes)=>mes.filter(e=>e.type==='expense'&&e.category==='needs').reduce((s,e)=>s+e.amount,0), cls:'' },
     { key:'wants',    label:'Wants',    fn:(mes)=>mes.filter(e=>e.type==='expense'&&e.category==='wants').reduce((s,e)=>s+e.amount,0), cls:'' },
-    { key:'savings',  label:'Savings',  fn:(mes)=>mes.filter(e=>e.type==='savings'||(e.type==='expense'&&e.category==='savings')).reduce((s,e)=>s+e.amount,0), cls:'annual-pos' },
-    { key:'total',    label:'Total exp',fn:(mes)=>mes.filter(e=>e.type==='expense'||e.type==='savings').reduce((s,e)=>s+e.amount,0), cls:'' },
-    { key:'net',      label:'Net',      fn:(mes,m)=>{ const inc=DATA.incomes[m]; const base=(inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); const exp=mes.filter(e=>e.type==='expense'||e.type==='savings').reduce((s,e)=>s+e.amount,0); return base-exp; }, cls:'', signed:true },
+    { key:'savings',  label:'Savings',  fn:(mes)=>mes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0), cls:'annual-pos' },
+    { key:'total',    label:'Total exp',fn:(mes)=>mes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0), cls:'' },
+    { key:'net',      label:'Net',      fn:(mes,m)=>{ const inc=DATA.incomes[m]; const base=(inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); const exp=mes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0); return base-exp; }, cls:'', signed:true },
   ];
 
   const months = Array.from({length:12}, (_,i) => `${yr}-${String(i+1).padStart(2,'0')}`);
@@ -7511,7 +7530,7 @@ function renderHealthCheck() {
 
   // 3. Months with income but no expenses
   const incMonths = new Set(Object.keys(DATA.incomes).filter(m => (DATA.incomes[m]?.amount||0) > 0));
-  const expMonths = new Set(DATA.entries.filter(e=>e.type==='expense'||e.type==='savings').map(e=>ym(e.date)));
+  const expMonths = new Set(DATA.entries.filter(isOutflowEntry).map(e=>ym(e.date)));
   const missingExp = [...incMonths].filter(m => !expMonths.has(m));
   if (missingExp.length) issues.push({ level:'warn', icon:'⚠', text:`${missingExp.length} month${missingExp.length===1?'':'s'} with income but no expenses logged`, sub:missingExp.slice(0,3).join(', ') + (missingExp.length>3?'…':'') });
   else issues.push({ level:'ok', icon:'✓', text:'All income months have expense entries', sub:'' });
@@ -7535,8 +7554,16 @@ function renderHealthCheck() {
     return e.amount > inc.amount * 0.5;
   });
   if (bigOnes.length) issues.push({ level:'warn', icon:'⚠', text:`${bigOnes.length} expense${bigOnes.length===1?'':'s'} >50% of monthly income`, sub:bigOnes.slice(0,2).map(e=>`${esc(e.desc||'?')} ${fmt(e.amount)}`).join(' · ') });
+  else issues.push({ level:'ok', icon:'✓', text:'No oversized single expenses found', sub:'' });
 
-  container.innerHTML = issues.map(iss => `
+  // Summary header — gives an at-a-glance "X/Y checks passed" instead of having to
+  // scan every row to see whether anything actually needs attention.
+  const passed = issues.filter(i => i.level === 'ok').length;
+  const summary = `<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">
+    ${passed}/${issues.length} checks passed · ${DATA.entries.length} entries scanned
+  </div>`;
+
+  container.innerHTML = summary + issues.map(iss => `
     <div class="health-issue">
       <div class="health-icon ${iss.level}">${iss.icon}</div>
       <div>
@@ -9619,7 +9646,7 @@ function updateGoalAutoFillPreview() {
   const mes  = DATA.entries.filter(e=>ym(e.date)===month);
   const base = DATA.incomes[month]?.amount || 0;
   const target= base * (DATA.splits[cat]||0) / 100;
-  const actual= mes.filter(e=>(e.type==='expense'||e.type==='savings')&&e.category===cat).reduce((s,e)=>s+e.amount,0);
+  const actual= mes.filter(e=>isOutflowEntry(e)&&e.category===cat).reduce((s,e)=>s+e.amount,0);
   const surplus= +(target - actual).toFixed(2);
   const goalId = el('af-goal')?.value;
   const goal   = DATA.savingsGoals?.find(g=>g.id===goalId);
@@ -9637,7 +9664,7 @@ function applyGoalAutoFill() {
   const mes    = DATA.entries.filter(e=>ym(e.date)===month);
   const base   = DATA.incomes[month]?.amount || 0;
   const target = base * (DATA.splits[cat]||0) / 100;
-  const actual = mes.filter(e=>(e.type==='expense'||e.type==='savings')&&e.category===cat).reduce((s,e)=>s+e.amount,0);
+  const actual = mes.filter(e=>isOutflowEntry(e)&&e.category===cat).reduce((s,e)=>s+e.amount,0);
   const surplus= +(target - actual).toFixed(2);
   if (surplus <= 0) return toast(`No unspent ${cat} surplus to move.`, 1);
   if (!showConfirm(`Move ${fmt(surplus)} unspent ${cat} budget to "${goal.name}"?`, '', () => {
@@ -10166,7 +10193,7 @@ function renderBudgetVsActualHeatmap() {
   const rows = cats.map(({ key, label }) => {
     const goal = goals[key]; // absolute € goal
     const cells = months.map(m => {
-      const mes = DATA.entries.filter(e => ym(e.date) === m && (e.type === 'expense' || e.type === 'savings') && e.category === key);
+      const mes = DATA.entries.filter(e => ym(e.date) === m && isOutflowEntry(e) && e.category === key);
       const spent = mes.reduce((s,e) => s + e.amount, 0);
       const inc   = (DATA.incomes[m]?.amount || 0);
       // Budget = goal if set, else splits % × income
@@ -10253,8 +10280,9 @@ function renderRecurring12() {
         fires = ((i - originMo + 12) % 3 === 0);
       }
       if (!fires) return '';
-      const cls = (r.type === 'income' || r.type === 'savings') ? 'income' : 'expense';
-      const sign = r.type === 'income' || r.type === 'savings' ? '+' : '−';
+      const isPositive = r.type === 'income' || r.type === 'savings';
+      const cls = isPositive ? 'income' : 'expense';
+      const sign = isPositive ? '+' : '−';
       return `<div class="rc12-pill ${cls}" title="${esc(r.desc)} · day ${r.day}">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${esc(r.desc)}</span>
         <span style="flex-shrink:0;font-family:var(--mono)">${sign}${fmt(r.amount).replace('€','')}</span>
@@ -10273,7 +10301,7 @@ function renderRecurring12() {
       }
       return false;
     });
-    const exp = monthExpenses.filter(r=>r.type==='expense'||r.type==='savings').reduce((s,r)=>s+r.amount,0);
+    const exp = monthExpenses.filter(isOutflowEntry).reduce((s,r)=>s+r.amount,0);
     const inc = monthExpenses.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const net = inc - exp;
 
@@ -11222,19 +11250,48 @@ function runVaultHealth() {
   });
 
   // ── Completeness score ──────────────────────────────────────────────────
-  const entries = DATA.entries || [];
+  const entries     = DATA.entries || [];
+  const missingDesc  = entries.filter(e => !e.desc || !e.desc.trim()).length;
+  const missingAcct  = entries.filter(e => !e.accountId).length;
+  const missingCat   = entries.filter(e => !e.category).length;
   const scored  = entries.filter(e => e.desc && e.desc.trim() && e.accountId && e.category).length;
   const score   = entries.length > 0 ? Math.round(scored / entries.length * 100) : 100;
   const scoreColor = score >= 90 ? 'var(--Gm)' : score >= 70 ? 'var(--Am)' : 'var(--Rm)';
   const badgeEl = el('vh-score-badge');
-  if (badgeEl) badgeEl.innerHTML =
-    `<span style="color:${scoreColor};font-weight:600">${score}%</span> complete`;
+  if (badgeEl) {
+    badgeEl.innerHTML = `<span style="color:${scoreColor};font-weight:600">${score}%</span> complete`;
+    badgeEl.title = `${scored} of ${entries.length} entries have a description, account, and category set`;
+  }
 
-  // Also surface sparse entries as an issue
+  // Break the score down by field — a bare "53%" doesn't say *what's* missing,
+  // so list each contributing field with its own count and percentage.
   const sparse = entries.length - scored;
   if (sparse > 0) {
-    const pct = Math.round(sparse/entries.length*100);
-    issues.push({ icon:'ℹ', text:`${sparse} entr${sparse===1?'y':'ies'} (${pct}%) missing description, account, or category`, fix:'Complete these for better tracking and AI analysis.' });
+    const pct = n => Math.round(n/entries.length*100);
+    const fieldNotes = [];
+    if (missingDesc) fieldNotes.push(`${missingDesc} (${pct(missingDesc)}%) missing a description`);
+    if (missingAcct) fieldNotes.push(`${missingAcct} (${pct(missingAcct)}%) not linked to an account`);
+    if (missingCat)  fieldNotes.push(`${missingCat} (${pct(missingCat)}%) missing a category`);
+
+    // The actual list of incomplete entries, newest first, so the person can see
+    // *which* entries to go fix instead of just a count.
+    const incompleteEntries = entries
+      .filter(e => !(e.desc && e.desc.trim() && e.accountId && e.category))
+      .sort((a,b) => b.date.localeCompare(a.date))
+      .map(e => {
+        const missing = [];
+        if (!(e.desc && e.desc.trim())) missing.push('description');
+        if (!e.accountId) missing.push('account');
+        if (!e.category) missing.push('category');
+        return { id:e.id, date:e.date, desc:e.desc||'', amount:e.amount, missing };
+      });
+
+    issues.push({
+      icon:'ℹ',
+      text:`Completeness is ${score}% — ${sparse} of ${entries.length} entr${sparse===1?'y':'ies'} (${pct(sparse)}%) missing at least one of description / account / category`,
+      fix: fieldNotes.join(' · ') + '. Complete these for better tracking and AI analysis.',
+      incompleteEntries
+    });
   }
 
   if (!issues.length) {
@@ -11249,10 +11306,40 @@ function runVaultHealth() {
       <div class="vh-body">
         <div>${esc(iss.text)}</div>
         ${iss.fix ? `<div class="vh-fix">${esc(iss.fix)}</div>` : ''}
+        ${iss.incompleteEntries && iss.incompleteEntries.length ? `
+        <details style="margin-top:6px">
+          <summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Show incomplete entries (${iss.incompleteEntries.length})</summary>
+          <div style="max-height:240px;overflow-y:auto;margin-top:6px;border:.5px solid var(--bdr);border-radius:var(--rsm)">
+            ${iss.incompleteEntries.slice(0,200).map(e => `
+              <div onclick="vhJumpToEntry('${e.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:.5px solid var(--bdr);cursor:pointer;font-size:12px" onmouseover="this.style.background='var(--s1)'" onmouseout="this.style.background=''">
+                <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${esc(e.date)}</span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc) || '<em>no description</em>'}</span>
+                <span style="color:var(--ink3);flex-shrink:0">${fmt(e.amount)}</span>
+                <span style="color:var(--Am);flex-shrink:0;font-size:11px">missing ${e.missing.join(', ')}</span>
+              </div>`).join('')}
+            ${iss.incompleteEntries.length > 200 ? `<div style="padding:6px 8px;font-size:11px;color:var(--ink3)">+ ${iss.incompleteEntries.length-200} more</div>` : ''}
+          </div>
+        </details>` : ''}
       </div>
     </div>`
   ).join('') +
   notes.map(n => `<div class="vh-item"><span class="vh-icon" style="color:var(--ink3)">${n.icon}</span><div class="vh-body">${n.text}</div></div>`).join('');
+}
+
+// Jump from a Vault Health incomplete-entry row straight to it in the Entries tab.
+function vhJumpToEntry(id) {
+  const e = DATA.entries.find(x => x.id === id);
+  if (!e) { toast('Entry not found — it may have been deleted', true); return; }
+  nav('entries');
+  const fm = el('ef-fm'); if (fm) fm.value = ym(e.date);
+  const fc = el('ef-fc'); if (fc) fc.value = '';
+  const ft = el('ef-ftag'); if (ft) ft.value = '';
+  const fs = el('ef-fs'); if (fs) fs.value = e.desc && e.desc.trim() ? e.desc : '';
+  renderEntries();
+  setTimeout(() => {
+    const row = document.querySelector(`[data-entry-id="${id}"]`);
+    if (row) { row.scrollIntoView({ behavior:'smooth', block:'center' }); row.style.outline = '2px solid var(--Am)'; setTimeout(()=>{ row.style.outline=''; }, 2000); }
+  }, 50);
 }
 
 // ══════════════════════════════════════════
