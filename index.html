@@ -630,6 +630,26 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .vh-body{flex:1;color:var(--ink2)}
 .vh-fix{font-size:11px;color:var(--ink3);margin-top:2px}
 
+/* ── SELF-TEST ── */
+.st-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px}
+.st-item:last-child{border-bottom:none}
+.st-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+.st-icon.pass{color:var(--Gm)}
+.st-icon.fail{color:var(--Rm)}
+.st-body{flex:1;color:var(--ink2)}
+.st-detail{font-size:11px;color:var(--ink3);margin-top:2px;font-family:var(--mono);word-break:break-word}
+
+/* ── COMMAND PALETTE ── */
+#cmdk-overlay .modal-box{padding:0;overflow:hidden}
+#cmdk-input{width:100%;border:none;background:transparent;font-size:15px;outline:none;color:var(--ink);padding:14px 16px;box-sizing:border-box}
+.cmdk-group-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:8px 10px 4px}
+.cmdk-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--rsm);cursor:pointer;font-size:13px}
+.cmdk-row:hover,.cmdk-row.active{background:var(--s1)}
+.cmdk-row-icon{flex-shrink:0;width:18px;text-align:center;color:var(--ink3)}
+.cmdk-row-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.cmdk-row-sub{flex-shrink:0;font-size:11px;color:var(--ink3)}
+.cmdk-empty{padding:20px 16px;text-align:center;font-size:13px;color:var(--ink3)}
+
 /* ── FUEL TRACKER ── */
 .fuel-type-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .fuel-type-badge.petrol{background:var(--Gbg);color:var(--G)}
@@ -864,6 +884,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <span class="unsaved-dot" id="unsaved-dot" title="Unsaved local changes"></span>
       <span class="sync-badge" id="sync-badge" title="Sync status">idle</span>
       <span class="streak-badge" id="streak-badge" title="Savings streak" style="display:none"></span>
+      <button class="btn xs ghost" onclick="openCmdK()" title="Search everything (⌘K)">🔍</button>
+      <button class="btn xs ghost" onclick="openWizard()" title="Month setup wizard">🗓</button>
       <button class="btn xs ghost" onclick="openReceipt()" title="Quick receipt entry (R)">🧾</button>
       <button class="btn xs ghost" onclick="openKeys()" title="Keyboard shortcuts (?)">?</button>
       <span class="auto-theme-badge" id="auto-theme-badge" onclick="toggleAutoTheme()" title="Scheduled dark/light mode" style="display:none">auto</span>
@@ -961,6 +983,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="key-row"><span class="key-badge">N</span><span class="key-desc">New quick entry</span></div>
         <div class="key-row"><span class="key-badge">R</span><span class="key-desc">Receipt mode</span></div>
         <div class="key-row"><span class="key-badge">W</span><span class="key-desc">What-if planner (Overview)</span></div>
+        <div class="key-row"><span class="key-badge">⌘K</span><span class="key-desc">Search everything</span></div>
         <div class="key-row"><span class="key-badge">?</span><span class="key-desc">This shortcut overlay</span></div>
         <div class="key-row"><span class="key-badge">Esc</span><span class="key-desc">Close any modal</span></div>
         <div class="key-row"><span class="key-badge">⌘D</span><span class="key-desc">Toggle dark mode</span></div>
@@ -968,6 +991,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
       <div style="margin-top:16px;padding-top:12px;border-top:.5px solid var(--bdr);font-size:12px;color:var(--ink3)">Press <strong>?</strong> anywhere (outside inputs) to toggle this overlay.</div>
       <div style="margin-top:10px"><button class="btn sm ghost" onclick="closeKeys()">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ── Command Palette / Global Search ── -->
+  <div class="modal-overlay" id="cmdk-overlay" onclick="if(event.target===this)closeCmdK()">
+    <div class="modal-box" style="width:min(560px,100%)">
+      <input id="cmdk-input" type="text" placeholder="Search entries, recurring, accounts, stocks, goals…" autocomplete="off"
+             oninput="cmdkSearch()" onkeydown="cmdkKeydown(event)">
+      <div id="cmdk-results" style="max-height:360px;overflow-y:auto;padding:0 6px 6px"></div>
+      <div style="padding:8px 16px;border-top:.5px solid var(--bdr);font-size:11px;color:var(--ink3);display:flex;gap:10px">
+        <span>↑↓ navigate</span><span>↵ select</span><span>Esc close</span>
+      </div>
     </div>
   </div>
 
@@ -1196,6 +1231,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Net worth timeline</div>
         <div class="nw-chart-wrap"><div id="d-nw-timeline"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Savings rate trend
+          <span style="font-size:11px;font-weight:400;color:var(--ink3)">12 months · savings ÷ income</span>
+        </div>
+        <div id="d-savings-rate"></div>
       </div>
 
       <div class="card">
@@ -1471,6 +1513,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Recurring — 12 months
+          <button class="btn xs ghost" onclick="runRecurringIntelligence()" title="Scan entries for repeating patterns">🔍 Detect patterns</button>
           <select id="rc12-yr" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderRecurring12()"></select>
         </div>
         <div id="d-rc12"></div>
@@ -1786,6 +1829,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Self-test
+          <span id="st-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
+          <button class="btn xs ghost" onclick="runSelfTest()">Run tests</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Internal integrity checks — duplicate element ids, duplicate function declarations, inline event handlers pointing at functions that don't exist, and schema migration correctness. The same checks an AI assistant would run by hand after editing this file.
+          <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--ink3)">What to do if a test fails</summary>
+          <div style="margin-top:6px;line-height:1.7">
+            <strong>Duplicate ids:</strong> Two HTML elements share the same id — <code>el()</code> calls for that id are unpredictable. Find and rename one.<br>
+            <strong>Duplicate functions:</strong> The same function is declared twice — the second silently overrides the first. Search for the name and remove one declaration.<br>
+            <strong>Missing handler fns:</strong> An <code>onclick</code>/<code>oninput</code> etc. references a function that doesn't exist — clicking that element will throw. Usually caused by a rename without updating the HTML. Fix the handler or restore the function name.<br>
+            <strong>Migration failure:</strong> A step in the <code>MIGRATIONS</code> array threw an error or isn't idempotent. Check the newest migration step — it must be a pure function that handles already-migrated data gracefully.<br>
+            <strong>Utility failures:</strong> A core helper returned an unexpected value — likely broken by a recent edit. Restore the function from git or the previous working file.
+          </div></details>
+        </div>
+        <div id="st-list"><div style="font-size:13px;color:var(--ink3)">Click "Run tests" to scan the app for integrity issues.</div></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Sync &amp; auto-push</div>
         <div style="font-size:13px;color:var(--ink2);margin-bottom:4px">
           Vault file: <strong id="cfg-label"></strong> / <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
@@ -1813,7 +1874,61 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
-        <div class="card-title">Switch vault repository</div>
+        <div class="card-title">Point-in-time restore
+          <button class="btn xs ghost" onclick="loadCommitHistory()">↻ Load history</button>
+        </div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Every push creates a commit on GitHub. Browse your commit history, preview any snapshot, and restore it if needed. Your current vault is always backed up before a restore.</div>
+        <div id="pit-list"><div style="font-size:13px;color:var(--ink3)">Click "Load history" to fetch commit history from GitHub.</div></div>
+      </div>
+
+      <!-- PIT preview overlay -->
+      <div class="modal-overlay" id="pit-overlay" onclick="if(event.target===this)closePit()">
+        <div class="modal-box" style="width:min(480px,100%)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">Restore snapshot</div>
+          <div id="pit-meta" style="font-size:12px;color:var(--ink3);margin-bottom:12px"></div>
+          <div id="pit-preview" style="font-size:12px;color:var(--ink2);background:var(--s1);border-radius:var(--rs);padding:10px;margin-bottom:14px;max-height:200px;overflow-y:auto;font-family:var(--mono)">Loading…</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn sm danger" id="pit-confirm-btn" onclick="confirmPitRestore()" disabled>⚠ Restore this snapshot</button>
+            <button class="btn sm ghost" onclick="closePit()">Cancel</button>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:8px">A backup of your current vault will be saved locally before restoring.</div>
+        </div>
+      </div>
+
+  <!-- ── Duplicate Entry Warning ── -->
+  <div class="modal-overlay" id="dup-overlay" onclick="if(event.target===this)closeDupWarning()">
+    <div class="modal-box" style="width:min(440px,100%)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">⚠ Possible duplicate</div>
+      <div id="dup-detail" style="font-size:13px;color:var(--ink2);margin-bottom:14px"></div>
+      <div id="dup-matches" style="margin-bottom:16px;max-height:160px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm danger" onclick="dupProceed()">Save anyway</button>
+        <button class="btn sm ghost" onclick="closeDupWarning()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Month Wizard ── -->
+  <div class="modal-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">
+    <div class="modal-box" style="width:min(500px,100%)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗓 New month — quick setup</div>
+      <div id="wizard-content"></div>
+    </div>
+  </div>
+
+  <!-- ── Recurring Intelligence ── -->
+  <div class="modal-overlay" id="recint-overlay" onclick="if(event.target===this)closeRecInt()">
+    <div class="modal-box" style="width:min(480px,100%)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">🔍 Detected repeating patterns</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">These transactions appear to repeat regularly but aren't yet tracked as recurring entries.</div>
+      <div id="recint-list"></div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn sm ghost" onclick="closeRecInt()">Done</button>
+      </div>
+    </div>
+  </div>
+
+
         <div style="font-size:13px;color:var(--ink2);margin-bottom:12px">Move your vault to a different GitHub repository — for example from a public repo to a private one. Your data is re-encrypted with your current passphrase and pushed to the new location. The old repository file is <strong>not</strong> deleted.</div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>New owner</label><input type="text" id="sw-owner" placeholder="username" autocomplete="off" autocapitalize="none"></div>
@@ -2047,7 +2162,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="fire-result"></div>
       </div>
 
-      <!-- ── FX-Aware Balances ── -->
+      <!-- ── KeSt Calculator ── -->
+      <div class="card">
+        <div class="card-title">🇦🇹 KeSt liability (Kapitalertragsteuer)
+          <button class="btn xs ghost" onclick="renderKeSt()">↻ Recalculate</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Estimates Austrian capital gains tax (27.5% flat rate) on realised stock gains from your FIFO lot ledger. This is an estimate only — consult a tax advisor for your filing. Losses offset gains within the same year.</div>
+        <div id="kest-result"><div style="font-size:13px;color:var(--ink3)">Click Recalculate or add realised lots to see your KeSt estimate.</div></div>
+      </div>
+
+      <!-- ── Net Worth Trajectory ── -->
+      <div class="card">
+        <div class="card-title">Net worth trajectory
+          <span style="font-size:11px;font-weight:400;color:var(--ink3)">Linked to FIRE calculator</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Projects your net worth forward using your current average monthly savings rate and the real return set in the FIRE calculator. Dot = FIRE number if set.</div>
+        <div id="nw-trajectory"></div>
+      </div>
       <div class="card">
         <div class="card-title">Foreign currency holdings
           <button class="btn xs success" onclick="toggleFxForm()">+ Add</button>
@@ -3258,6 +3389,93 @@ function updateLastSync() {
 }
 
 // ══════════════════════════════════════════
+// POINT-IN-TIME RESTORE
+// ══════════════════════════════════════════
+let _pitCommits = [];     // cached commit list
+let _pitSelected = null;  // {sha, message, date} of commit currently being previewed
+let _pitPreviewData = null; // decrypted DATA from the selected commit
+
+async function loadCommitHistory() {
+  if (!PAT || !CFG?.owner) return toast('Set up GitHub sync first (Settings → Sync).', true);
+  const box = el('pit-list');
+  box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Fetching commit history…</div>';
+  try {
+    const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/commits?path=${CFG.path}&per_page=30`, PAT);
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    _pitCommits = await r.json();
+    if (!_pitCommits.length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No commits found for this vault file.</div>'; return; }
+    box.innerHTML = _pitCommits.map((c, i) => {
+      const msg  = c.commit?.message || '(no message)';
+      const date = c.commit?.author?.date ? new Date(c.commit.author.date).toLocaleString() : '?';
+      const isCurrent = i === 0;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:${isCurrent?'600':'400'};color:var(--ink)">${esc(msg)}${isCurrent ? ' <span style="color:var(--Gm);font-size:11px">← current</span>' : ''}</div>
+          <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">${date} · ${c.sha.slice(0,7)}</div>
+        </div>
+        ${!isCurrent ? `<button class="btn xs ghost" onclick="previewCommit('${c.sha}','${esc(msg).replace(/'/g,"\\'")}','${date}')">Preview</button>` : '<span style="font-size:11px;color:var(--ink3)">live</span>'}
+      </div>`;
+    }).join('');
+  } catch(e) { box.innerHTML = `<div style="font-size:13px;color:var(--Rm)">Error: ${esc(e.message)}</div>`; }
+}
+
+async function previewCommit(sha, message, date) {
+  _pitSelected = { sha, message, date };
+  _pitPreviewData = null;
+  el('pit-meta').textContent = `${date} — ${message} (${sha.slice(0,7)})`;
+  el('pit-preview').textContent = 'Decrypting snapshot…';
+  el('pit-confirm-btn').disabled = true;
+  el('pit-overlay').classList.add('open');
+  try {
+    // Fetch the file at this specific commit SHA
+    const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/contents/${CFG.path}?ref=${sha}`, PAT);
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    const j = await r.json();
+    const b64str = atob(j.content.replace(/\n/g,''));
+    let data;
+    try { ({ data } = await CX.open(b64str, PASS)); }
+    catch { ({ data } = await CX.openLegacy(b64str, PAT)); }
+    _pitPreviewData = migrate(data);
+    const s = _pitPreviewData;
+    el('pit-preview').innerHTML =
+      `Entries: <b>${s.entries?.length||0}</b> · Accounts: <b>${s.accounts?.length||0}</b> · Stocks: <b>${s.stocks?.length||0}</b> · Recurring: <b>${s.recurring?.length||0}</b>\n` +
+      `Schema: v${s.v}\n` +
+      `Last synced: ${s.meta?.lastSync ? new Date(s.meta.lastSync).toLocaleString() : '?'}\n\n` +
+      `Most recent entries:\n` +
+      (s.entries||[]).slice(0,5).map(e => `  ${e.date}  ${(e.desc||'(no desc)').slice(0,30).padEnd(30)}  ${e.type==='income'?'+':'−'}${e.amount?.toFixed(2)||'?'}`).join('\n');
+    el('pit-confirm-btn').disabled = false;
+  } catch(e) {
+    el('pit-preview').textContent = `Could not decrypt this snapshot: ${e.message}`;
+  }
+}
+
+async function confirmPitRestore() {
+  if (!_pitPreviewData) return;
+  // Save a local backup of current vault before overwriting
+  try {
+    const backupKey = `vault_backup_${ymd()}`;
+    localStorage.setItem(backupKey, localStorage.getItem('vault_local') || '');
+    console.log(`[PIT] Backup saved to localStorage key: ${backupKey}`);
+  } catch(e) { console.warn('[PIT] Could not save backup:', e.message); }
+
+  DATA = _pitPreviewData;
+  DATA.meta = DATA.meta || {};
+  DATA.meta.sha = null; // Clear SHA so next push creates a new commit rather than trying to update the restored SHA
+  await saveLocalNow();
+  nav(VIEW);
+  closePit();
+  toast(`Restored snapshot from ${_pitSelected.date}`);
+  _pitSelected = null; _pitPreviewData = null;
+}
+
+function closePit() {
+  el('pit-overlay').classList.remove('open');
+  _pitSelected = null; _pitPreviewData = null;
+}
+
+
+
+// ══════════════════════════════════════════
 // LEGACY MIGRATION  —  old vaults used PAT as key; migrate to passphrase scheme
 // ══════════════════════════════════════════
 function showLegacyMigrationBanner() {
@@ -3376,7 +3594,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 18; // current target version
+const SCHEMA_VERSION = 19; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3514,6 +3732,21 @@ const MIGRATIONS = [
   // Idempotent: only touches entries that still have the stale combination.
   d => {
     (d.entries||[]).forEach(e => { if (e.category === 'savings' && e.type === 'expense') e.type = 'savings'; });
+    return d;
+  },
+  // v18 → v19 : FIFO lot tracking for stocks.
+  // Each stock gets a `lots` array: [{id, date, shares, buyPrice}].
+  // Existing positions (single avgBuyPrice) are seeded as one opening lot so
+  // no history is lost. Realized gain/loss ledger is also initialised.
+  d => {
+    (d.stocks||[]).forEach(s => {
+      if (!s.lots) {
+        s.lots = (s.shares > 0 && s.avgBuyPrice > 0)
+          ? [{ id: `lot_${s.id}`, date: (s.priceHistory?.[0]?.date) || '2020-01-01', shares: s.shares, buyPrice: s.avgBuyPrice, note: 'Seeded from pre-FIFO data' }]
+          : [];
+      }
+      if (!s.realizedPnL) s.realizedPnL = [];
+    });
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -3697,7 +3930,10 @@ function renderDash() {
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
   const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
-  const totalInc = base > 0 ? base : (addInc || (DATA.plannedIncome?.[month] || 0));
+  // totalInc = salary + any extra income entries logged this month.
+  // Previously used `base > 0 ? base : addInc` which silently dropped entry-based
+  // income whenever a salary was set — making the bar targets wrong.
+  const totalInc = base > 0 ? base + addInc : (addInc || (DATA.plannedIncome?.[month] || 0));
   const act     = { needs:0, wants:0, savings:0 };
   mes.forEach(e => {
     if (e.type === 'expense' && e.category in act) {
@@ -3759,7 +3995,10 @@ function renderDash() {
     ${nwStat}`;
 
   renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
-  if (isCurrentMonth) maybeSendBudgetAlerts(month, act, totalInc);
+  if (isCurrentMonth) {
+    maybeSendBudgetAlerts(month, act, totalInc);
+    maybeShowWizard(month);
+  }
   renderCatBars(mes);
   renderWeeklySummary();
   renderChart();
@@ -3777,6 +4016,7 @@ function renderDash() {
     renderDash._cacheKey = _dashKey;
     renderBudgetVsActualHeatmap();
     renderNetWorthTimeline();
+    renderSavingsRateTrend();
   }
 
   renderMonthlyNote(month);
@@ -3913,6 +4153,22 @@ function renderDashBanners(month, act, totalInc) {
   });
   // ─────────────────────────────────────────────────────────────
 
+  // ── MID-MONTH PACE ALERTS ─────────────────────────────────────
+  // Only fire for current month and when >10 days remain.
+  const now2 = new Date();
+  const [mYr2, mMo2] = month.split('-').map(Number);
+  const isNow = mYr2===now2.getFullYear() && mMo2===(now2.getMonth()+1);
+  if (isNow) {
+    const paceAlerts = getMidMonthAlerts(month, act, totalInc);
+    paceAlerts.forEach(a => {
+      const projectedOver = a.projected > a.budget;
+      banners.push(`<div class="banner ${projectedOver?'alert':'warn'}">
+        <span>📊 <strong>${a.cat.charAt(0).toUpperCase()+a.cat.slice(1)}</strong>: ${a.pct}% of budget used with <strong>${a.daysLeft}d</strong> left — on pace for <strong>${fmt(a.projected)}</strong> vs budget ${fmt(a.budget)}</span>
+      </div>`);
+    });
+  }
+  // ─────────────────────────────────────────────────────────────
+
   // Goal alert banners (>80% of goal but not over)
   const { goals } = DATA;
   ['needs','wants','savings'].forEach(k => {
@@ -3930,6 +4186,21 @@ function renderDashBanners(month, act, totalInc) {
   });
 
   el('d-banners').innerHTML = banners.join('');
+}
+
+// Mid-month alerts are separate from the goal-based banners above — they fire
+// based on pace (actual / budget) rather than absolute overspend, and only when
+// there are >10 days left so there's still time to course-correct.
+function renderMidMonthAlerts(month, act, totalInc) {
+  const alerts = getMidMonthAlerts(month, act, totalInc);
+  if (!alerts.length) return;
+  alerts.forEach(a => {
+    const projectedOver = a.projected > a.budget;
+    toast(
+      `${a.cat.charAt(0).toUpperCase()+a.cat.slice(1)}: ${a.pct}% of budget used with ${a.daysLeft} days left${projectedOver ? ` — on pace for ${fmt(a.projected)} (budget ${fmt(a.budget)})` : ''}`,
+      projectedOver ? 1 : 0
+    );
+  });
 }
 
 // ══════════════════════════════════════════
@@ -3983,7 +4254,8 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     const mes = DATA.entries.filter(e => ym(e.date)===month);
     const { amount } = getMonthIncome(month);
     const _addInc = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    totalInc = amount > 0 ? amount : _addInc;
+    // Mirror the same logic as renderDash — salary + additional income entries
+    totalInc = amount > 0 ? amount + _addInc : (_addInc || 0);
     act = { needs:0, wants:0, savings:0 };
     mes.forEach(e => {
       if (e.type === 'expense' && e.category in act) act[e.category] += e.amount;
@@ -4702,6 +4974,16 @@ async function addEntry() {
   if (pendingTag && !_curTags.includes(pendingTag)) _curTags.push(pendingTag);
   el('tags-input').value = '';
 
+  // ── Duplicate detection (skip for splits — they're intentionally similar amounts)
+  if (!_splitActive) {
+    const candidate = { desc, amount, date, type: entryTypeFor(cat, type) };
+    const dupes = findDuplicates(candidate);
+    if (dupes.length) {
+      checkDuplicateBeforeSave(candidate, () => addEntry());
+      return;
+    }
+  }
+
   // Handle split entry
   if (_splitActive) {
     const p1 = evalExpr(el('sp-amt1').value);
@@ -5097,6 +5379,11 @@ function quickAdd() {
   if (!amount || amount <= 0) return toast('Invalid amount', 1);
   const cat  = (el('qa-cat') || el('qa-cat-empty'))?.value || 'needs';
   const type = cat === 'income' ? 'income' : cat === 'savings' ? 'savings' : 'expense';
+
+  const candidate = { desc, amount, date, type };
+  const dupes = findDuplicates(candidate);
+  if (dupes.length) { checkDuplicateBeforeSave(candidate, () => quickAdd()); return; }
+
   DATA.entries.unshift({ id:uid(), date, desc, amount, formula, type,
     category: cat, tags:[], recurId:null });
   saveLocal(); renderEntries(); toast('Added');
@@ -6624,9 +6911,9 @@ function renderStocks() {
 
   el('stock-list').innerHTML = stocks.map(s => {
     const sym      = currencySymbol(s.currency);
-    const shares   = s.shares || 1;
+    const shares   = fifoTotalShares(s) || s.shares || 1;  // FIFO total, fall back to legacy
     const curPrice = s.currentPrice || 0;
-    const buyPrice = s.avgBuyPrice || 0;
+    const buyPrice = fifoAvgCost(s) || s.avgBuyPrice || 0; // FIFO weighted avg cost
     const close    = s.closePrice;
     const totalNative = shares * curPrice;
     const eur      = toEur(totalNative, s.currency);
@@ -6725,22 +7012,70 @@ function renderStocks() {
               onchange="updateStockClosePrice('${s.id}', parseFloat(this.value)||0)">
           </div>
           <div class="stock-input-group">
-            <label>Shares held</label>
-            <input class="stock-price-input" type="number" step="0.0001" value="${shares||''}"
-              placeholder="10"
-              onchange="updateStockShares('${s.id}', parseFloat(this.value)||0)">
-          </div>
-          <div class="stock-input-group">
-            <label>Avg buy price</label>
-            <input class="stock-price-input" type="number" step="0.0001" value="${buyPrice||''}"
-              placeholder="${sym}0.00"
-              onchange="updateStockBuyPrice('${s.id}', parseFloat(this.value)||0)">
-          </div>
-          <div class="stock-input-group">
             <label>&nbsp;</label>
             <button class="btn xs success" onclick="logStockClose('${s.id}')" title="Save current price as today's session close">Log close</button>
           </div>
         </div>
+
+        <!-- FIFO Lot Table -->
+        ${(() => {
+          const lots = (s.lots||[]).sort((a,b) => a.date.localeCompare(b.date));
+          const lotRows = lots.map(l => {
+            const unrealPnl = curPrice > 0 ? (curPrice - l.buyPrice) * l.shares : null;
+            const pnlCls = unrealPnl === null ? '' : (unrealPnl >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg');
+            return `<tr>
+              <td style="font-family:var(--mono);font-size:11px">${l.date}</td>
+              <td style="font-family:var(--mono)">${l.shares.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono)">${sym}${l.buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td class="${pnlCls}" style="font-family:var(--mono)">${unrealPnl !== null ? (unrealPnl>=0?'+':'')+sym+Math.abs(unrealPnl).toLocaleString('de-AT',{maximumFractionDigits:2}) : '—'}</td>
+              <td style="font-size:11px;color:var(--ink3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.note||'')}">${esc(l.note||'')}</td>
+              <td><button class="btn xs danger" onclick="event.stopPropagation();deleteLot('${s.id}','${l.id}')">✕</button></td>
+            </tr>`;
+          }).join('');
+
+          const realRows = (s.realizedPnL||[]).slice(-10).reverse().map(r => {
+            const pnlCls = r.pnl >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg';
+            return `<tr>
+              <td style="font-family:var(--mono);font-size:11px">${r.date}</td>
+              <td style="font-family:var(--mono)">${r.sharesSold.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono)">${sym}${r.sellPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono)">${sym}${r.costBasis.toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
+              <td class="${pnlCls}" style="font-family:var(--mono)">${r.pnl>=0?'+':''}${sym}${Math.abs(r.pnl).toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
+            </tr>`;
+          }).join('');
+
+          return `<div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">FIFO Lots · avg cost ${sym}${buyPrice > 0 ? buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4}) : '—'}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Each purchase is a separate lot. Selling uses FIFO order (oldest lots first) and records realised P&amp;L — used by the KeSt calculator. <strong>Add lot</strong> = record a buy. <strong>Record sell</strong> = FIFO-drain shares and log the gain/loss.</div>
+            ${lots.length ? `<div style="overflow-x:auto;margin-bottom:10px"><table class="stock-hist-tbl">
+              <thead><tr><th>Date</th><th>Shares</th><th>Buy price</th><th>Unrealised P&L</th><th>Note</th><th></th></tr></thead>
+              <tbody>${lotRows}</tbody>
+            </table></div>` : '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">No lots yet. Add a purchase below.</div>'}
+
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+              <div class="stock-input-group" style="min-width:110px"><label>Buy date</label><input class="stock-price-input" type="date" id="lot-date-${s.id}" value="${ymd()}"></div>
+              <div class="stock-input-group" style="min-width:90px"><label>Shares</label><input class="stock-price-input" type="number" id="lot-shares-${s.id}" placeholder="10" step="0.0001" min="0"></div>
+              <div class="stock-input-group" style="min-width:100px"><label>Price / share</label><input class="stock-price-input" type="number" id="lot-price-${s.id}" placeholder="${sym}0.00" step="0.0001" min="0"></div>
+              <div class="stock-input-group" style="min-width:120px"><label>Note (optional)</label><input class="stock-price-input" type="text" id="lot-note-${s.id}" placeholder="e.g. DCA June"></div>
+              <div class="stock-input-group"><label>&nbsp;</label><button class="btn xs success" onclick="addLot('${s.id}')">+ Add lot</button></div>
+            </div>
+
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
+              <div class="stock-input-group" style="min-width:110px"><label>Sell date</label><input class="stock-price-input" type="date" id="sell-date-${s.id}" value="${ymd()}"></div>
+              <div class="stock-input-group" style="min-width:90px"><label>Shares to sell</label><input class="stock-price-input" type="number" id="sell-shares-${s.id}" placeholder="5" step="0.0001" min="0"></div>
+              <div class="stock-input-group" style="min-width:100px"><label>Sell price / sh</label><input class="stock-price-input" type="number" id="sell-price-${s.id}" placeholder="${sym}0.00" step="0.0001" min="0"></div>
+              <div class="stock-input-group"><label>&nbsp;</label><button class="btn xs warn" onclick="sellLot('${s.id}')">Record sell (FIFO)</button></div>
+            </div>
+
+            ${realRows ? `<div style="margin-top:12px">
+              <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Realized P&L (last 10 sales)</div>
+              <div style="overflow-x:auto"><table class="stock-hist-tbl">
+                <thead><tr><th>Date</th><th>Shares sold</th><th>Sell price</th><th>Cost basis</th><th>Realized P&L</th></tr></thead>
+                <tbody>${realRows}</tbody>
+              </table></div>
+            </div>` : ''}
+          </div>`;
+        })()}
 
         ${s.priceHistory?.length > 1 ? `
         <div class="stock-hist-chart" style="margin-top:12px">
@@ -6766,6 +7101,97 @@ function renderStocks() {
     <div class="stat"><div class="stat-lbl">Total P&amp;L</div><div class="stat-val ${pnlCls}">${totalCostEur > 0 ? (totalPnL >= 0 ? '+' : '') + fmt(Math.abs(totalPnL)) : '—'}</div></div>
     <div class="stat"><div class="stat-lbl">Accounts</div><div class="stat-val cg">${fmt(netWorth)}</div></div>
     <div class="stat" style="background:var(--Tbg)"><div class="stat-lbl">Total net worth</div><div class="stat-val" style="color:var(--Tm)">${totalAll}</div></div>`;
+}
+
+// ══════════════════════════════════════════
+// FIFO LOT MANAGEMENT
+// ══════════════════════════════════════════
+
+// Derived avgBuyPrice from lots — replaces the old single-value field.
+function fifoAvgCost(s) {
+  const lots = s.lots || [];
+  const totalShares = lots.reduce((a,l) => a + l.shares, 0);
+  const totalCost   = lots.reduce((a,l) => a + l.shares * l.buyPrice, 0);
+  return totalShares > 0 ? totalCost / totalShares : 0;
+}
+
+// Total shares held = sum of remaining lots.
+function fifoTotalShares(s) {
+  return (s.lots||[]).reduce((a,l) => a + l.shares, 0);
+}
+
+// Add a buy lot to a position.
+function addLot(stockId) {
+  const s = DATA.stocks.find(x => x.id === stockId); if (!s) return;
+  const date     = el(`lot-date-${stockId}`)?.value  || ymd();
+  const shares   = parseFloat(el(`lot-shares-${stockId}`)?.value) || 0;
+  const buyPrice = parseFloat(el(`lot-price-${stockId}`)?.value)  || 0;
+  const note     = el(`lot-note-${stockId}`)?.value?.trim() || '';
+  if (shares <= 0)   return toast('Enter number of shares', true);
+  if (buyPrice <= 0) return toast('Enter buy price per share', true);
+  if (!s.lots) s.lots = [];
+  s.lots.push({ id: uid(), date, shares, buyPrice, note });
+  s.lots.sort((a,b) => a.date.localeCompare(b.date)); // keep chronological for FIFO
+  // Keep derived fields in sync so legacy code still works
+  s.shares      = fifoTotalShares(s);
+  s.avgBuyPrice = fifoAvgCost(s);
+  s.nativeValue = s.shares * (s.currentPrice || 0);
+  saveLocal(); renderStocks();
+  toast(`Lot added · ${shares} sh @ ${el('sk-currency')?.value||s.currency} ${buyPrice}`);
+}
+
+// Sell shares using FIFO (oldest lots first). Records realized P&L.
+function sellLot(stockId) {
+  const s = DATA.stocks.find(x => x.id === stockId); if (!s) return;
+  const date      = el(`sell-date-${stockId}`)?.value  || ymd();
+  const sharesToSell = parseFloat(el(`sell-shares-${stockId}`)?.value) || 0;
+  const sellPrice = parseFloat(el(`sell-price-${stockId}`)?.value)  || 0;
+  if (sharesToSell <= 0) return toast('Enter shares to sell', true);
+  if (sellPrice <= 0)    return toast('Enter sell price per share', true);
+  const totalHeld = fifoTotalShares(s);
+  if (sharesToSell > totalHeld + 0.0001) return toast(`Only ${totalHeld.toLocaleString('de-AT',{maximumFractionDigits:4})} shares held`, true);
+
+  // FIFO drain: consume oldest lots first
+  let remaining = sharesToSell;
+  let totalCostBasis = 0;
+  const lots = [...(s.lots||[])].sort((a,b) => a.date.localeCompare(b.date));
+  const consumed = []; // {date, shares, buyPrice} — for the realized record
+  for (let i = 0; i < lots.length && remaining > 0.0001; i++) {
+    const l = lots[i];
+    const take = Math.min(remaining, l.shares);
+    totalCostBasis += take * l.buyPrice;
+    consumed.push({ date: l.date, shares: take, buyPrice: l.buyPrice });
+    l.shares -= take;
+    remaining -= take;
+  }
+  // Remove exhausted lots, keep partial
+  s.lots = lots.filter(l => l.shares > 0.00001);
+
+  const proceeds   = sharesToSell * sellPrice;
+  const realizedPnL = proceeds - totalCostBasis;
+  if (!s.realizedPnL) s.realizedPnL = [];
+  s.realizedPnL.push({ id: uid(), date, sharesSold: sharesToSell, sellPrice, proceeds, costBasis: totalCostBasis, pnl: realizedPnL, lots: consumed });
+
+  // Sync derived fields
+  s.shares      = fifoTotalShares(s);
+  s.avgBuyPrice = fifoAvgCost(s);
+  s.nativeValue = s.shares * (s.currentPrice || 0);
+
+  saveLocal(); renderStocks();
+  const sym = currencySymbol(s.currency);
+  toast(`Sold ${sharesToSell} sh · realized ${realizedPnL >= 0 ? '+' : ''}${sym}${Math.abs(realizedPnL).toLocaleString('de-AT',{maximumFractionDigits:2})}`);
+}
+
+// Delete a specific lot (with confirmation).
+function deleteLot(stockId, lotId) {
+  showConfirm('Delete lot', 'Remove this purchase lot? This cannot be undone.', () => {
+    const s = DATA.stocks.find(x => x.id === stockId); if (!s) return;
+    s.lots = (s.lots||[]).filter(l => l.id !== lotId);
+    s.shares      = fifoTotalShares(s);
+    s.avgBuyPrice = fifoAvgCost(s);
+    s.nativeValue = s.shares * (s.currentPrice || 0);
+    saveLocal(); renderStocks();
+  });
 }
 
 function updateStockShares(id, shares) {
@@ -6986,6 +7412,8 @@ async function renderWealth() {
     renderStocks();
     wcUpdate();
     fireUpdate();
+    renderKeSt();
+    renderNwTrajectory();
     renderPortfolioAlloc();
     renderFxAccounts();
     amCalc();
@@ -7054,6 +7482,108 @@ function saveReceipt() {
 // ══════════════════════════════════════════
 function openKeys()  { el('keys-overlay').classList.add('open'); }
 function closeKeys() { el('keys-overlay').classList.remove('open'); }
+
+// ══════════════════════════════════════════
+// COMMAND PALETTE / GLOBAL SEARCH
+// ══════════════════════════════════════════
+let _cmdkActive = -1; // index of the highlighted result row
+
+function openCmdK() {
+  el('cmdk-overlay').classList.add('open');
+  const inp = el('cmdk-input');
+  inp.value = '';
+  cmdkSearch();
+  setTimeout(() => inp.focus(), 30);
+}
+function closeCmdK() { el('cmdk-overlay').classList.remove('open'); _cmdkActive = -1; }
+
+// Builds the flat, ranked list of {group, icon, title, sub, action} results for a query.
+function cmdkBuildResults(q) {
+  q = q.trim().toLowerCase();
+  if (!q) return [];
+  const results = [];
+  const MAX_PER_GROUP = 6;
+
+  const entryMatches = DATA.entries
+    .filter(e => (e.desc||'').toLowerCase().includes(q) || (e.category||'').toLowerCase().includes(q) || (e.tags||[]).some(t=>t.toLowerCase().includes(q)))
+    .sort((a,b) => b.date.localeCompare(a.date))
+    .slice(0, MAX_PER_GROUP)
+    .map(e => ({ group:'Entries', icon:'💶', title: e.desc || '(no description)', sub:`${e.date} · ${fmt(e.amount)}`, action:() => vhJumpToEntry(e.id) }));
+  results.push(...entryMatches);
+
+  const recurMatches = (DATA.recurring||[])
+    .filter(r => (r.desc||'').toLowerCase().includes(q))
+    .slice(0, MAX_PER_GROUP)
+    .map(r => ({ group:'Recurring', icon:'🔁', title: r.desc || '(no description)', sub: fmt(r.amount), action:() => { nav('entries'); document.getElementById('recur-list')?.scrollIntoView({behavior:'smooth',block:'center'}); } }));
+  results.push(...recurMatches);
+
+  const acctMatches = (DATA.accounts||[])
+    .filter(a => (a.name||'').toLowerCase().includes(q) || (a.bank||'').toLowerCase().includes(q))
+    .slice(0, MAX_PER_GROUP)
+    .map(a => ({ group:'Accounts', icon:'🏦', title: a.name || '(unnamed account)', sub: a.bank||'', action:() => { nav('settings'); document.getElementById('acct-list')?.scrollIntoView({behavior:'smooth',block:'center'}); } }));
+  results.push(...acctMatches);
+
+  const stockMatches = (DATA.stocks||[])
+    .filter(s => (s.name||'').toLowerCase().includes(q))
+    .slice(0, MAX_PER_GROUP)
+    .map(s => ({ group:'Stocks', icon:'📈', title: s.name, sub: `${s.shares||0} sh`, action:() => { nav('wealth'); document.getElementById('stock-list')?.scrollIntoView({behavior:'smooth',block:'center'}); } }));
+  results.push(...stockMatches);
+
+  const goalMatches = (DATA.savingsGoals||[])
+    .filter(g => (g.name||'').toLowerCase().includes(q))
+    .slice(0, MAX_PER_GROUP)
+    .map(g => ({ group:'Savings goals', icon:'🎯', title: g.name, sub: `${fmt(g.saved||0)} / ${fmt(g.target||0)}`, action:() => { nav('dash'); document.getElementById('d-goals')?.scrollIntoView({behavior:'smooth',block:'center'}); } }));
+  results.push(...goalMatches);
+
+  return results.slice(0, 30);
+}
+
+function cmdkSearch() {
+  const q = el('cmdk-input').value;
+  const results = cmdkBuildResults(q);
+  _cmdkActive = results.length ? 0 : -1;
+  cmdkRender(results);
+}
+
+function cmdkRender(results) {
+  const box = el('cmdk-results');
+  if (!results.length) {
+    box.innerHTML = `<div class="cmdk-empty">${el('cmdk-input').value.trim() ? 'No matches' : 'Start typing to search across entries, recurring, accounts, stocks, and goals'}</div>`;
+    return;
+  }
+  let lastGroup = null;
+  box.innerHTML = results.map((r, i) => {
+    const groupHdr = r.group !== lastGroup ? `<div class="cmdk-group-lbl">${esc(r.group)}</div>` : '';
+    lastGroup = r.group;
+    return `${groupHdr}<div class="cmdk-row${i===_cmdkActive?' active':''}" data-idx="${i}" onmouseenter="_cmdkActive=${i};cmdkHighlight()" onclick="cmdkSelect(${i})">
+      <span class="cmdk-row-icon">${r.icon}</span>
+      <span class="cmdk-row-main">${esc(r.title)}</span>
+      <span class="cmdk-row-sub">${esc(r.sub)}</span>
+    </div>`;
+  }).join('');
+  _cmdkResults = results;
+}
+let _cmdkResults = [];
+
+function cmdkHighlight() {
+  document.querySelectorAll('#cmdk-results .cmdk-row').forEach(row => {
+    row.classList.toggle('active', +row.dataset.idx === _cmdkActive);
+  });
+}
+
+function cmdkSelect(i) {
+  const r = _cmdkResults[i];
+  if (!r) return;
+  closeCmdK();
+  r.action();
+}
+
+function cmdkKeydown(e) {
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (_cmdkResults.length) { _cmdkActive = Math.min(_cmdkActive+1, _cmdkResults.length-1); cmdkHighlight(); document.querySelector('#cmdk-results .cmdk-row.active')?.scrollIntoView({block:'nearest'}); } }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (_cmdkResults.length) { _cmdkActive = Math.max(_cmdkActive-1, 0); cmdkHighlight(); document.querySelector('#cmdk-results .cmdk-row.active')?.scrollIntoView({block:'nearest'}); } }
+  else if (e.key === 'Enter') { e.preventDefault(); if (_cmdkActive >= 0) cmdkSelect(_cmdkActive); }
+  else if (e.key === 'Escape') { closeCmdK(); }
+}
 
 // ══════════════════════════════════════════
 // SAVINGS GOALS
@@ -7312,6 +7842,320 @@ function fireUpdate() {
         Coast FIRE: ${fmt(coastFire)} — ${isCoasting ? '<strong style="color:var(--Gm)">✓ You\'re coasting!</strong>' : fmt(coastFire - nw)+' to go'}
       </div>
     </div>`;
+  // Keep trajectory chart in sync with FIRE inputs
+  renderNwTrajectory();
+}
+
+// ══════════════════════════════════════════
+// KEST CALCULATOR (Austrian Kapitalertragsteuer — 27.5% flat)
+// Uses realised P&L from FIFO lot ledger per calendar year.
+// Losses net against gains within the same year (§ 27 EStG).
+// ══════════════════════════════════════════
+function renderKeSt() {
+  const wrap = el('kest-result'); if (!wrap) return;
+
+  // Collect all realised P&L records across all stocks
+  const records = [];
+  (DATA.stocks||[]).forEach(s => {
+    (s.realizedPnL||[]).forEach(r => {
+      records.push({ date: r.date, pnl: r.pnl, desc: s.name, shares: r.sharesSold, sellPrice: r.sellPrice, costBasis: r.costBasis });
+    });
+  });
+
+  if (!records.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No realised gains/losses yet. Use the FIFO lot panel in the Stock Portfolio to record sells.</div>';
+    return;
+  }
+
+  // Group by calendar year
+  const byYear = {};
+  records.forEach(r => {
+    const yr = (r.date||'').slice(0,4);
+    if (!yr) return;
+    if (!byYear[yr]) byYear[yr] = { gains:[], losses:[] };
+    if (r.pnl >= 0) byYear[yr].gains.push(r);
+    else            byYear[yr].losses.push(r);
+  });
+
+  const KEST_RATE = 0.275;
+  const currentYr = String(new Date().getFullYear());
+
+  const rows = Object.keys(byYear).sort().reverse().map(yr => {
+    const { gains, losses } = byYear[yr];
+    const totalGains  = gains.reduce((s,r) => s+r.pnl, 0);
+    const totalLosses = losses.reduce((s,r) => s+Math.abs(r.pnl), 0);
+    const netGain     = totalGains - totalLosses;
+    const kest        = netGain > 0 ? netGain * KEST_RATE : 0;
+    const isCurrent   = yr === currentYr;
+
+    const gainRows = gains.map(r =>
+      `<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;color:var(--ink2)">
+        <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${r.date}</span>
+        <span style="flex:1">${esc(r.desc)}</span>
+        <span style="color:var(--Gm);font-family:var(--mono)">+${fmt(r.pnl)}</span>
+      </div>`).join('');
+    const lossRows = losses.map(r =>
+      `<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;color:var(--ink2)">
+        <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${r.date}</span>
+        <span style="flex:1">${esc(r.desc)}</span>
+        <span style="color:var(--Rm);font-family:var(--mono)">${fmt(r.pnl)}</span>
+      </div>`).join('');
+
+    return `<div style="margin-bottom:14px;padding:12px 14px;background:var(--s1);border-radius:var(--rs);border:.5px solid var(--bdr)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-weight:600;font-size:13px">${yr}${isCurrent ? ' <span style="font-size:11px;font-weight:400;color:var(--Am)">(in progress)</span>' : ''}</div>
+        <div style="flex:1"></div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--ink3)">Net gain</div>
+          <div style="font-weight:600;color:${netGain>=0?'var(--Gm)':'var(--Rm)'}">${netGain>=0?'+':''}${fmt(netGain)}</div>
+        </div>
+        <div style="text-align:right;min-width:90px">
+          <div style="font-size:11px;color:var(--ink3)">KeSt estimate</div>
+          <div style="font-weight:700;font-size:15px;color:${kest>0?'var(--Rm)':'var(--Gm)'}">${kest>0?fmt(kest):'—'}</div>
+        </div>
+      </div>
+      ${gainRows || lossRows ? `<details style="font-size:11px"><summary style="cursor:pointer;color:var(--ink3);margin-bottom:4px">Details (${gains.length+losses.length} transactions)</summary>
+        ${gainRows}${lossRows}
+        <div style="display:flex;gap:16px;padding-top:6px;border-top:.5px solid var(--bdr);margin-top:4px;font-size:11px;font-weight:600">
+          <span>Gains: <span style="color:var(--Gm)">${fmt(totalGains)}</span></span>
+          <span>Losses: <span style="color:var(--Rm)">−${fmt(totalLosses)}</span></span>
+          <span>Net: <span style="color:${netGain>=0?'var(--Gm)':'var(--Rm)'}">${netGain>=0?'+':''}${fmt(netGain)}</span></span>
+        </div>
+      </details>` : ''}
+    </div>`;
+  });
+
+  const totalCurrentKest = (() => {
+    const y = byYear[currentYr]; if (!y) return 0;
+    const net = y.gains.reduce((s,r)=>s+r.pnl,0) - y.losses.reduce((s,r)=>s+Math.abs(r.pnl),0);
+    return net > 0 ? net * KEST_RATE : 0;
+  })();
+
+  wrap.innerHTML = `
+    ${totalCurrentKest > 0 ? `<div style="padding:10px 14px;background:var(--Rbg);border:.5px solid var(--Rm);border-radius:var(--rs);margin-bottom:12px;font-size:13px;color:var(--Rm)">
+      ⚠ Estimated ${currentYr} KeSt liability: <strong>${fmt(totalCurrentKest)}</strong> — set aside if not yet withheld at source
+    </div>` : `<div style="padding:10px 14px;background:var(--Gbg);border:.5px solid var(--Gm);border-radius:var(--rs);margin-bottom:12px;font-size:13px;color:var(--Gm)">
+      ✓ No KeSt liability for ${currentYr} (no net realised gains)
+    </div>`}
+    ${rows.join('')}
+    <div style="font-size:11px;color:var(--ink3);margin-top:8px">Rate: 27.5% flat (§ 27a EStG) · Losses offset gains within the same year · Does not include interest income or dividends · Consult a Steuerberater for your filing.</div>`;
+}
+
+// ══════════════════════════════════════════
+// SAVINGS RATE TREND (12-month sparkline)
+// Shows savings ÷ income % per month as a bar/line chart
+// ══════════════════════════════════════════
+function renderSavingsRateTrend() {
+  const wrap = el('d-savings-rate'); if (!wrap) return;
+
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+
+  const points = months.map(m => {
+    const inc = getMonthIncome(m).amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const saved = DATA.entries.filter(e=>ym(e.date)===m&&isSavingsEntry(e)).reduce((s,e)=>s+e.amount,0);
+    const rate = inc > 0 ? Math.max(0, Math.min(100, saved/inc*100)) : null;
+    return { m, inc, saved, rate };
+  });
+
+  const hasData = points.some(p => p.rate !== null);
+  if (!hasData) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Set income for at least one month to see your savings rate trend.</div>';
+    return;
+  }
+
+  const W=600, H=110, padL=42, padR=12, padT=10, padB=24;
+  const cW=W-padL-padR, cH=H-padT-padB;
+  const barW = Math.floor(cW/months.length) - 3;
+  const maxRate = 100;
+  const yScale = v => padT + cH - (v/maxRate)*cH;
+  const xCentre = i => padL + (i+0.5)*(cW/months.length);
+
+  // Target line from DATA.splits.savings
+  const targetPct = DATA.splits?.savings || 20;
+  const targetY = yScale(targetPct);
+
+  const bars = points.map((p,i) => {
+    if (p.rate === null) return '';
+    const x = xCentre(i) - barW/2;
+    const bH = Math.max(2, (p.rate/maxRate)*cH);
+    const y = padT + cH - bH;
+    const col = p.rate >= targetPct ? 'var(--Gm)' : p.rate >= targetPct*0.7 ? 'var(--Am)' : 'var(--Rm)';
+    const tip = `${p.m}: ${p.rate.toFixed(1)}% (${fmt(p.saved)} saved of ${fmt(p.inc)})`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}"
+      fill="${col}" rx="2" opacity=".85"
+      onmouseover="this.setAttribute('opacity','1');srTip(this,'${tip}',${xCentre(i).toFixed(1)},${y.toFixed(1)})"
+      onmouseleave="this.setAttribute('opacity','.85');srHideTip()"/>`;
+  }).join('');
+
+  const xLabels = points.map((p,i) => {
+    if (i%3!==0 && i!==points.length-1) return '';
+    return `<text x="${xCentre(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="var(--chart-txt)">${p.m.slice(2)}</text>`;
+  }).join('');
+
+  const avgRate = (() => { const valid=points.filter(p=>p.rate!==null); return valid.length?valid.reduce((s,p)=>s+p.rate,0)/valid.length:0; })();
+  const lastRate = [...points].reverse().find(p=>p.rate!==null);
+
+  wrap.innerHTML = `
+    <div style="display:flex;gap:16px;margin-bottom:8px;font-size:12px;flex-wrap:wrap">
+      <span style="color:var(--ink3)">12-month avg: <strong style="color:${avgRate>=targetPct?'var(--Gm)':'var(--Am)'}">${avgRate.toFixed(1)}%</strong></span>
+      ${lastRate?`<span style="color:var(--ink3)">This month: <strong style="color:${lastRate.rate>=targetPct?'var(--Gm)':'var(--Am)'}">${lastRate.rate.toFixed(1)}%</strong></span>`:''}
+      <span style="color:var(--ink3)">Target: <strong>${targetPct}%</strong> (from splits)</span>
+    </div>
+    <div style="position:relative">
+      <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" id="sr-svg">
+        <line x1="${padL}" y1="${targetY.toFixed(1)}" x2="${W-padR}" y2="${targetY.toFixed(1)}"
+          stroke="var(--Gm)" stroke-width="1" stroke-dasharray="4,3" opacity=".5"/>
+        <text x="${padL-3}" y="${targetY.toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--Gm)" dominant-baseline="middle">${targetPct}%</text>
+        ${[0,25,50,75,100].map(v=>`<text x="${padL-3}" y="${yScale(v).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--chart-txt)" dominant-baseline="middle">${v}%</text>`).join('')}
+        ${bars}
+        ${xLabels}
+        <rect id="sr-tipbg" x="0" y="0" width="0" height="16" rx="3" fill="var(--s1)" stroke="var(--bdr)" stroke-width=".5" style="display:none"/>
+        <text id="sr-tiptxt" x="0" y="0" font-size="9" fill="var(--ink)" style="display:none"></text>
+      </svg>
+    </div>`;
+}
+function srTip(rect, tip, cx, cy) {
+  const bg=el('sr-tipbg'), txt=el('sr-tiptxt'); if(!bg||!txt) return;
+  const tW=tip.length*5.2+10, tX=cx+tW+4>600?cx-tW-4:cx+4;
+  bg.setAttribute('x',tX); bg.setAttribute('y',cy-4); bg.setAttribute('width',tW); bg.style.display='';
+  txt.textContent=tip; txt.setAttribute('x',tX+5); txt.setAttribute('y',cy+7); txt.style.display='';
+}
+function srHideTip() { ['sr-tipbg','sr-tiptxt'].forEach(id=>{const e=el(id);if(e)e.style.display='none';}); }
+
+// ══════════════════════════════════════════
+// NET WORTH TRAJECTORY
+// Projects current NW forward using avg monthly savings + real return from FIRE calc
+// FIRE target dot if FIRE number is calculable
+// ══════════════════════════════════════════
+function renderNwTrajectory() {
+  const wrap = el('nw-trajectory'); if (!wrap) return;
+
+  // Current net worth = accounts + stocks + FX + goals
+  const acctNw    = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
+  const stocksEur = (DATA.stocks||[]).reduce((s,st) => {
+    const rate = (typeof _fxRates!=='undefined'&&_fxRates[st.currency])||null;
+    const native = fifoTotalShares(st)*(st.currentPrice||0);
+    return s + (st.currency==='EUR'?native:(rate?native*rate:0));
+  }, 0);
+  const goalsSaved = (DATA.savingsGoals||[]).reduce((s,g)=>s+(+g.saved||0),0);
+  const currentNW = acctNw + stocksEur + goalsSaved;
+
+  // Average monthly savings over last 6 months with data
+  const now = new Date();
+  const recentMonths = [];
+  for (let i=1;i<=6;i++) {
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    recentMonths.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  const avgMonthlySavings = (() => {
+    const vals = recentMonths.map(m => DATA.entries.filter(e=>ym(e.date)===m&&isSavingsEntry(e)).reduce((s,e)=>s+e.amount,0));
+    const nonZero = vals.filter(v=>v>0);
+    return nonZero.length ? nonZero.reduce((a,b)=>a+b,0)/nonZero.length : 0;
+  })();
+
+  // Pull real return from FIRE calc if visible, else default 5%
+  const ret  = parseFloat(el('fire-ret')?.value) || 5;
+  const exp  = parseFloat(el('fire-exp')?.value) || 0;
+  const swr  = parseFloat(el('fire-swr')?.value) || 3.5;
+  const pension = parseFloat(el('fire-pension')?.value) || 0;
+  const annualExp = (exp - pension) * 12;
+  const fireNumber = annualExp > 0 ? annualExp / (swr/100) : 0;
+
+  if (avgMonthlySavings <= 0 && currentNW <= 0) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Add savings entries and account balances to see your trajectory.</div>';
+    return;
+  }
+
+  // Project 30 years monthly
+  const r = (ret/100)/12;
+  const N = 360;
+  const pts = [];
+  let portfolio = currentNW;
+  for (let i=0;i<=N;i++) {
+    pts.push({ i, v: portfolio });
+    if (i<N) portfolio = portfolio*(1+r) + avgMonthlySavings;
+  }
+
+  // Find FIRE crossing
+  let fireMonth = null;
+  if (fireNumber > currentNW) {
+    fireMonth = pts.findIndex(p => p.v >= fireNumber);
+  } else if (fireNumber > 0 && currentNW >= fireNumber) {
+    fireMonth = 0;
+  }
+
+  // Thin out to ~60 points for SVG
+  const step = Math.max(1, Math.floor(N/60));
+  const sparse = pts.filter((_,i) => i%step===0 || i===N);
+
+  const W=600,H=140,padL=60,padR=16,padT=12,padB=28;
+  const cW=W-padL-padR, cH=H-padT-padB;
+  const vals = sparse.map(p=>p.v);
+  const minV = Math.min(0,...vals), maxV = Math.max(...vals,1);
+  const range = maxV-minV||1;
+  const xS = i => padL+(i/(sparse.length-1))*cW;
+  const yS = v => padT+cH-((v-minV)/range)*cH;
+
+  const fmtAx = v => { const a=Math.abs(v),s=v<0?'-':''; if(a>=1e6) return s+'€'+(a/1e6).toFixed(1)+'M'; if(a>=1000) return s+'€'+Math.round(a/1000)+'k'; return s+'€'+Math.round(a); };
+
+  const polyPts = sparse.map((p,i)=>`${xS(i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ');
+  const lineClr = 'var(--Bm)';
+  const areaD = `M${xS(0).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} `+sparse.map((p,i)=>`L${xS(i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ')+` L${xS(sparse.length-1).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} Z`;
+
+  // FIRE dot
+  const fireDot = fireMonth!==null && fireMonth<=N ? (() => {
+    const fi = sparse.findIndex(p=>p.i>=fireMonth);
+    if (fi<0) return '';
+    const fx=xS(fi).toFixed(1), fy=yS(fireNumber).toFixed(1);
+    const yr = Math.floor(fireMonth/12);
+    const fireDate = new Date(now.getFullYear(),now.getMonth()+fireMonth);
+    const label = `FIRE ${fireDate.toLocaleDateString('de-AT',{month:'short',year:'numeric'})}`;
+    return `<circle cx="${fx}" cy="${fy}" r="6" fill="var(--Gm)" stroke="var(--s0)" stroke-width="2"/>
+      <text x="${fx}" y="${(+fy-10).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--Gm)" font-weight="600">${label}</text>`;
+  })() : '';
+
+  // FIRE horizontal target line
+  const fireLineY = fireNumber>0 && fireNumber>=minV && fireNumber<=maxV ? yS(fireNumber) : null;
+  const fireLine = fireLineY ? `<line x1="${padL}" y1="${fireLineY.toFixed(1)}" x2="${W-padR}" y2="${fireLineY.toFixed(1)}" stroke="var(--Gm)" stroke-width="1" stroke-dasharray="5,3" opacity=".6"/>
+    <text x="${padL-3}" y="${fireLineY.toFixed(1)}" text-anchor="end" font-size="8" fill="var(--Gm)" dominant-baseline="middle">FIRE</text>` : '';
+
+  const xLabels = sparse.map((p,i) => {
+    if (i%(Math.ceil(sparse.length/6))!==0 && i!==sparse.length-1) return '';
+    const d=new Date(now.getFullYear(),now.getMonth()+p.i); const lbl=`${d.getFullYear()}`;
+    return `<text x="${xS(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="var(--chart-txt)">${lbl}</text>`;
+  }).join('');
+  const yTicks=[minV,(minV+maxV)/2,maxV].map(v=>`<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`).join('');
+
+  const fireYrStr = fireMonth!==null ? `${Math.floor(fireMonth/12)}y ${fireMonth%12}m` : '—';
+
+  wrap.innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
+      <span style="color:var(--ink3)">Current NW: <strong>${fmtAx(currentNW)}</strong></span>
+      <span style="color:var(--ink3)">Avg monthly savings: <strong>${fmt(avgMonthlySavings)}</strong></span>
+      <span style="color:var(--ink3)">Real return: <strong>${ret}%</strong></span>
+      ${fireNumber>0?`<span style="color:var(--ink3)">FIRE number: <strong style="color:var(--Gm)">${fmtAx(fireNumber)}</strong></span>`:''}
+      ${fireMonth!==null?`<span style="color:var(--Gm);font-weight:600">📅 FIRE in ${fireYrStr}</span>`:''}
+    </div>
+    <div style="position:relative">
+      <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="trajGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineClr}" stop-opacity=".2"/>
+          <stop offset="100%" stop-color="${lineClr}" stop-opacity="0"/>
+        </linearGradient></defs>
+        ${fireLine}
+        <path d="${areaD}" fill="url(#trajGrad)"/>
+        <polyline points="${polyPts}" fill="none" stroke="${lineClr}" stroke-width="2" stroke-linejoin="round"/>
+        ${fireDot}
+        ${yTicks}
+        ${xLabels}
+      </svg>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:6px">Based on avg monthly savings from last 6 months with data · ${ret}% real return (from FIRE calc) · Stocks valued at current prices</div>`;
 }
 
 // ══════════════════════════════════════════
@@ -11343,6 +12187,115 @@ function vhJumpToEntry(id) {
 }
 
 // ══════════════════════════════════════════
+// SELF-TEST — internal integrity diagnostics
+// ══════════════════════════════════════════
+// Identifiers that inline event handlers call directly but which are declared as
+// `const` arrow functions rather than `function` declarations. Classic top-level
+// `function` declarations are exposed on `window`, but `const`/`let` bindings are
+// not — they only exist in this script's own lexical scope. Since this self-test
+// runs inside that same <script> block it can reference them directly here.
+const _SELFTEST_HELPERS = { el, esc, fmt, ym, ymd, uid, isDark, isSavingsEntry, isSpendEntry, isOutflowEntry, isInCategoryBucket, entryTypeFor, fifoAvgCost, fifoTotalShares };
+const _SELFTEST_JS_KEYWORDS = new Set(['if','for','while','switch','catch','function','return','typeof','new']);
+
+function runSelfTest() {
+  const out = [];
+  const pass = (text) => out.push({ ok:true, text });
+  const fail = (text, detail) => out.push({ ok:false, text, detail });
+
+  // 1. Duplicate element ids in the live DOM
+  const idCounts = {};
+  document.querySelectorAll('[id]').forEach(node => { idCounts[node.id] = (idCounts[node.id]||0) + 1; });
+  const dupIds = Object.entries(idCounts).filter(([,n]) => n > 1);
+  dupIds.length
+    ? fail(`${dupIds.length} duplicate element id${dupIds.length===1?'':'s'} found`, dupIds.map(([id,n]) => `${id} ×${n}`).join(', '))
+    : pass(`No duplicate element ids (${Object.keys(idCounts).length} checked)`);
+
+  // 2. Duplicate top-level function declarations — read straight from this page's
+  // own <script> source, the same way a manual code review would.
+  const scriptSrc = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n');
+  const fnCounts = {};
+  for (const m of scriptSrc.matchAll(/^function\s+([a-zA-Z0-9_$]+)\s*\(/gm)) fnCounts[m[1]] = (fnCounts[m[1]]||0) + 1;
+  const dupFns = Object.entries(fnCounts).filter(([,n]) => n > 1);
+  dupFns.length
+    ? fail(`${dupFns.length} duplicate function declaration${dupFns.length===1?'':'s'} found`, dupFns.map(([n,c]) => `${n} ×${c}`).join(', '))
+    : pass(`No duplicate function declarations (${Object.keys(fnCounts).length} checked)`);
+
+  // 3. Inline event handlers calling a function that doesn't actually exist
+  const HANDLER_ATTRS = ['onclick','onchange','oninput','onkeydown','onkeyup','ondblclick','onmousedown','onblur','onfocus','onsubmit'];
+  const missingHandlerFns = new Set();
+  let handlerCount = 0;
+  document.querySelectorAll(HANDLER_ATTRS.map(a=>`[${a}]`).join(',')).forEach(node => {
+    HANDLER_ATTRS.forEach(attr => {
+      const code = node.getAttribute(attr);
+      if (!code) return;
+      handlerCount++;
+      for (const m of code.matchAll(/(?<![.\w])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g)) {
+        const name = m[1];
+        if (_SELFTEST_JS_KEYWORDS.has(name)) continue;
+        const exists = typeof window[name] === 'function' || typeof _SELFTEST_HELPERS[name] === 'function';
+        if (!exists) missingHandlerFns.add(name);
+      }
+    });
+  });
+  missingHandlerFns.size
+    ? fail(`${missingHandlerFns.size} handler function${missingHandlerFns.size===1?'':'s'} not found`, [...missingHandlerFns].join(', '))
+    : pass(`All inline event handlers resolve (${handlerCount} scanned)`);
+
+  // 4. Schema migrations run cleanly and are idempotent — running migrate() twice
+  // on already-current data must be a no-op, since old vaults replay every step
+  // they haven't seen yet and must land on identical output either way.
+  try {
+    const once  = migrate(JSON.parse(JSON.stringify(DATA)));
+    const twice = migrate(JSON.parse(JSON.stringify(once)));
+    if (once.v !== SCHEMA_VERSION) {
+      fail('Migration did not reach the current schema version', `Expected v${SCHEMA_VERSION}, got v${once.v}`);
+    } else if (JSON.stringify(once) !== JSON.stringify(twice)) {
+      fail('A migration step is not idempotent', 'Running migrate() twice produced different output — check the newest step in MIGRATIONS.');
+    } else {
+      pass(`Schema migrations run cleanly and are idempotent (v${SCHEMA_VERSION})`);
+    }
+  } catch (err) {
+    fail('Schema migration threw an error', err.message);
+  }
+
+  // 5. Smoke-test a few core utilities actually behave as expected
+  try {
+    const checks = [
+      ['fmt', fmt(1234.5).startsWith('€') && fmt(1234.5).replace(/[^\d]/g,'') === '123450'],
+      ['ym',  ym('2026-06-21') === '2026-06'],
+      ['evalExpr', evalExpr('=2+3*4') === 14],
+      ['isSavingsEntry (type)',     isSavingsEntry({type:'savings', category:'savings'}) === true],
+      ['isSavingsEntry (legacy)',   isSavingsEntry({type:'expense', category:'savings'}) === true],
+      ['isSavingsEntry (negative)', isSavingsEntry({type:'expense', category:'needs'}) === false],
+      ['entryTypeFor',              entryTypeFor('savings','expense') === 'savings' && entryTypeFor('needs','expense') === 'expense'],
+    ];
+    const failedChecks = checks.filter(([,ok]) => !ok).map(([name]) => name);
+    failedChecks.length
+      ? fail(`${failedChecks.length} core utility check${failedChecks.length===1?'':'s'} failed`, failedChecks.join(', '))
+      : pass(`Core utilities behave as expected (${checks.length} checks)`);
+  } catch (err) {
+    fail('Core utility smoke test threw an error', err.message);
+  }
+
+  // Render
+  const passed = out.filter(o => o.ok).length;
+  const badge = el('st-badge');
+  if (badge) {
+    const allPass = passed === out.length;
+    badge.innerHTML = `<span style="color:${allPass?'var(--Gm)':'var(--Rm)'};font-weight:600">${passed}/${out.length} passed</span>`;
+  }
+  el('st-list').innerHTML = out.map(o => `
+    <div class="st-item">
+      <span class="st-icon ${o.ok?'pass':'fail'}">${o.ok?'✓':'✗'}</span>
+      <div class="st-body">
+        <div>${esc(o.text)}</div>
+        ${o.detail ? `<div class="st-detail">${esc(o.detail)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  toast(passed === out.length ? `Self-test: all ${out.length} checks passed` : `Self-test: ${out.length - passed} check(s) failed`, passed !== out.length);
+}
+
+// ══════════════════════════════════════════
 // CONFLICT MERGE
 // When doPush() fails with a SHA conflict, we fetch the remote,
 // decrypt it, merge the two vaults (union by ID, last-write-wins
@@ -11761,9 +12714,292 @@ function renderCashLog() {
 }
 
 // ══════════════════════════════════════════
+// DUPLICATE DETECTION
+// ══════════════════════════════════════════
+// Returns entries that look like duplicates of a candidate {desc, amount, date, type}.
+// Rules: same type, amount within 1%, description similarity >70%, date within 7 days.
+function findDuplicates(candidate) {
+  const { desc, amount, date, type } = candidate;
+  const cDate = new Date(date);
+  const cDesc = (desc||'').toLowerCase().trim();
+
+  function descSim(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const aW = new Set(a.split(/\s+/));
+    const bW = new Set(b.split(/\s+/));
+    const inter = [...aW].filter(w => bW.has(w)).length;
+    return inter / Math.max(aW.size, bW.size);
+  }
+
+  return DATA.entries.filter(e => {
+    if (e.type !== type) return false;
+    const amtOk = amount > 0 && Math.abs(e.amount - amount) / amount <= 0.01;
+    if (!amtOk) return false;
+    const eDate = new Date(e.date);
+    const dayDiff = Math.abs((cDate - eDate) / 86400000);
+    if (dayDiff > 7) return false;
+    const sim = descSim(cDesc, (e.desc||'').toLowerCase().trim());
+    return sim >= 0.7;
+  });
+}
+
+let _dupPendingCallback = null;
+
+function checkDuplicateBeforeSave(candidate, onProceed) {
+  const dupes = findDuplicates(candidate);
+  if (!dupes.length) { onProceed(); return; }
+
+  _dupPendingCallback = onProceed;
+  el('dup-detail').innerHTML =
+    `A similar <strong>${candidate.type}</strong> entry of <strong>${fmt(candidate.amount)}</strong> on <strong>${candidate.date}</strong> may already exist:`;
+  el('dup-matches').innerHTML = dupes.map(e =>
+    `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
+      <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${e.date}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc||'(no description)')}</span>
+      <span style="font-family:var(--mono);flex-shrink:0">${fmt(e.amount)}</span>
+    </div>`
+  ).join('');
+  el('dup-overlay').classList.add('open');
+}
+
+function dupProceed() {
+  closeDupWarning();
+  if (_dupPendingCallback) { _dupPendingCallback(); _dupPendingCallback = null; }
+}
+function closeDupWarning() {
+  el('dup-overlay').classList.remove('open');
+  _dupPendingCallback = null;
+}
+
+// ══════════════════════════════════════════
+// MID-MONTH BUDGET ALERTS
+// ══════════════════════════════════════════
+// Called from renderDashBanners only for the current month.
+// Shows a warning banner when a category has consumed ≥80% of its allocation
+// with more than 10 days remaining — unlike the existing goal-based alert,
+// this is pace-aware: it compares *actual spend* against the split % of income.
+function getMidMonthAlerts(month, act, totalInc) {
+  const now = new Date();
+  const [yr, mo] = month.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const daysElapsed = now.getDate();
+  const daysLeft = daysInMonth - daysElapsed;
+  if (daysLeft <= 10) return []; // too close to month end — not "mid-month"
+  if (totalInc <= 0) return [];
+
+  const splits = DATA.splits;
+  return ['needs','wants'].map(cat => {
+    const budget = totalInc * (splits[cat]||0) / 100;
+    if (budget <= 0) return null;
+    const pct = act[cat] / budget;
+    if (pct < 0.8) return null;
+    const pace = act[cat] / daysElapsed * daysInMonth; // projected end-of-month spend at this rate
+    return { cat, pct: Math.round(pct*100), budget, actual: act[cat], projected: pace, daysLeft };
+  }).filter(Boolean);
+}
+
+// ══════════════════════════════════════════
+// MONTH WIZARD
+// ══════════════════════════════════════════
+let _wizardMonth = null;
+
+function openWizard(month) {
+  _wizardMonth = month || curMonth();
+  el('wizard-content').innerHTML = buildWizardContent(_wizardMonth);
+  el('wizard-overlay').classList.add('open');
+}
+function closeWizard() { el('wizard-overlay').classList.remove('open'); }
+
+function buildWizardContent(month) {
+  const prev = prevMonStr(month);
+  const prevMes = DATA.entries.filter(e => ym(e.date) === prev);
+  const prevInc = getMonthIncome(prev).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevAct = { needs:0, wants:0, savings:0 };
+  prevMes.forEach(e => {
+    if (isOutflowEntry(e) && e.category in prevAct) prevAct[e.category] += e.amount;
+  });
+  const prevSaved = prevMes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
+  const prevLeft  = prevInc - Object.values(prevAct).reduce((a,b)=>a+b,0);
+
+  const thisInc = getMonthIncome(month);
+  const hasSavedIncome = thisInc.amount > 0;
+  const splits = DATA.splits;
+
+  const incHtml = hasSavedIncome
+    ? `<div style="color:var(--Gm);font-size:13px">✓ Income already set: <strong>${fmt(thisInc.amount)}</strong></div>`
+    : (prevInc > 0
+      ? `<div style="font-size:13px">Copy last month's income (<strong>${fmt(prevInc)}</strong>)?
+          <button class="btn xs success" style="margin-left:8px" onclick="wizardCopyIncome(${prevInc})">Copy</button>
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+            <input id="wizard-income-input" class="stock-price-input" type="number" placeholder="or enter new amount" style="width:160px">
+            <button class="btn xs primary" onclick="wizardSetIncome()">Set income</button>
+          </div>
+        </div>`
+      : `<div style="font-size:13px">Set this month's income:
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+            <input id="wizard-income-input" class="stock-price-input" type="number" placeholder="Monthly income" style="width:160px">
+            <button class="btn xs primary" onclick="wizardSetIncome()">Set income</button>
+          </div>
+        </div>`);
+
+  const prevRows = prev && prevInc > 0 ? `
+    <div style="margin:14px 0 8px;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">${prev} recap</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      ${['needs','wants','savings'].map(k => {
+        const budget = prevInc * (splits[k]||0) / 100;
+        const actual = prevAct[k] || 0;
+        const over = actual > budget;
+        return `<div style="background:var(--s1);border-radius:var(--rs);padding:8px 10px;font-size:12px">
+          <div style="color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.05em">${k}</div>
+          <div style="font-weight:600;color:${over?'var(--Rm)':'var(--ink)'}">${fmt(actual)}</div>
+          <div style="font-size:11px;color:var(--ink3)">${over?'▲':'▼'} budget ${fmt(budget)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${prevLeft >= 10 ? `<div style="font-size:12px;color:var(--Gm);margin-bottom:12px">💰 ${prev} left over: <strong>${fmt(prevLeft)}</strong></div>` : ''}` : '';
+
+  const pendingRec = DATA.recurring.filter(r => {
+    const alreadyApplied = DATA.entries.some(e => ym(e.date) === month && e.recurId === r.id);
+    return !alreadyApplied;
+  });
+
+  return `
+    <div style="margin-bottom:14px;font-size:12px;color:var(--ink3)">${month}</div>
+    ${prevRows}
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Step 1 — Income</div>
+      ${incHtml}
+    </div>
+    ${pendingRec.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Step 2 — Recurring entries</div>
+      <div style="font-size:13px">${pendingRec.length} recurring entr${pendingRec.length===1?'y':'ies'} not yet applied for ${month}</div>
+      <button class="btn xs primary" style="margin-top:6px" onclick="applyRecurring('${month}');closeWizard()">Apply now</button>
+    </div>` : `<div style="font-size:12px;color:var(--Gm);margin-bottom:14px">✓ All recurring entries applied</div>`}
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Step 3 — Budget splits</div>
+      <div style="font-size:12px;color:var(--ink2)">Needs <strong>${splits.needs}%</strong> · Wants <strong>${splits.wants}%</strong> · Savings <strong>${splits.savings}%</strong> &nbsp;
+        <button class="btn xs ghost" onclick="closeWizard();nav('settings')">Adjust →</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:.5px solid var(--bdr)">
+      <button class="btn sm primary" onclick="closeWizard()">Done</button>
+    </div>`;
+}
+
+function wizardCopyIncome(amount) {
+  const m = _wizardMonth;
+  if (!m) return;
+  DATA.incomes[m] = { amount, formula: null };
+  saveLocal();
+  el('wizard-content').innerHTML = buildWizardContent(m);
+  renderDash();
+  toast(`Income set to ${fmt(amount)} for ${m}`);
+}
+
+function wizardSetIncome() {
+  const val = parseFloat(el('wizard-income-input')?.value);
+  if (!val || val <= 0) return toast('Enter a valid income amount', true);
+  wizardCopyIncome(val);
+}
+
+// Auto-show wizard on first nav to a new month if income isn't set
+function maybeShowWizard(month) {
+  const key = `wizard_shown_${month}`;
+  if (localStorage.getItem(key)) return;
+  const thisInc = getMonthIncome(month);
+  if (thisInc.amount > 0) return; // income already set, no need
+  const now = new Date();
+  if (now.getDate() > 5) return; // only prompt in first 5 days
+  localStorage.setItem(key, '1');
+  setTimeout(() => openWizard(month), 800);
+}
+
+// ══════════════════════════════════════════
+// RECURRING INTELLIGENCE
+// ══════════════════════════════════════════
+// Scans the last 6 months of entries for descriptions that appear with a similar
+// amount in at least 2 of those months, within ±5 days of the same day-of-month,
+// and aren't already tracked as a recurring entry.
+function runRecurringIntelligence() {
+  const now = new Date();
+  const months = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+
+  // Group non-recurring expense/savings entries by normalised description
+  const groups = {};
+  DATA.entries.forEach(e => {
+    if (!ym(e.date) || !months.includes(ym(e.date))) return;
+    if (e.recurId) return; // already recurring
+    if (e.type === 'income' || e.type === 'transfer') return;
+    const key = (e.desc||'').toLowerCase().trim();
+    if (!key || key.length < 3) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+
+  // Already-tracked recurring descriptions (normalised)
+  const alreadyRecurring = new Set((DATA.recurring||[]).map(r => (r.desc||'').toLowerCase().trim()));
+
+  const suggestions = [];
+  Object.entries(groups).forEach(([key, entries]) => {
+    if (alreadyRecurring.has(key)) return;
+    // Need at least 2 occurrences in different months
+    const byMonth = {};
+    entries.forEach(e => { const m = ym(e.date); if (!byMonth[m]) byMonth[m] = []; byMonth[m].push(e); });
+    const monthsHit = Object.keys(byMonth);
+    if (monthsHit.length < 2) return;
+    // Check day-of-month consistency (within ±5 days across occurrences)
+    const days = entries.map(e => parseInt(e.date.slice(8)));
+    const avgDay = Math.round(days.reduce((a,b)=>a+b,0)/days.length);
+    const daySpread = Math.max(...days) - Math.min(...days);
+    if (daySpread > 10) return; // too irregular
+    // Check amount consistency (within 5%)
+    const amounts = entries.map(e => e.amount);
+    const avgAmt = amounts.reduce((a,b)=>a+b,0)/amounts.length;
+    const maxDeviation = Math.max(...amounts.map(a => Math.abs(a - avgAmt)/avgAmt));
+    if (maxDeviation > 0.05) return;
+    suggestions.push({ desc: entries[0].desc, avgAmt, avgDay, monthsHit: monthsHit.length, category: entries[0].category, type: entries[0].type, sampleId: entries[0].id });
+  });
+
+  if (!suggestions.length) {
+    toast('No new repeating patterns found');
+    return;
+  }
+
+  el('recint-list').innerHTML = suggestions.slice(0, 20).map((s, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px" id="recint-row-${i}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.desc)}</div>
+        <div style="color:var(--ink3);font-size:11px">~${fmt(s.avgAmt)} · around day ${s.avgDay} · seen ${s.monthsHit} months · ${s.category}</div>
+      </div>
+      <button class="btn xs success" onclick="recIntAdd(${i}, ${JSON.stringify(s).replace(/"/g,'&quot;')})">+ Add</button>
+      <button class="btn xs ghost" onclick="document.getElementById('recint-row-${i}').remove()">Skip</button>
+    </div>`).join('');
+  el('recint-overlay').classList.add('open');
+}
+
+function recIntAdd(i, s) {
+  DATA.recurring.push({ id:uid(), desc:s.desc, amount:+s.avgAmt.toFixed(2), formula:null, type:s.type, category:s.category, day:s.avgDay, freq:'monthly' });
+  saveLocal();
+  const row = document.getElementById(`recint-row-${i}`);
+  if (row) { row.style.opacity = '0.4'; row.style.pointerEvents = 'none'; row.querySelector('button').textContent = '✓ Added'; }
+  toast(`"${s.desc}" added to recurring`);
+}
+
+function closeRecInt() { el('recint-overlay').classList.remove('open'); }
+
+// ══════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
+  // Cmd/Ctrl+K opens the command palette regardless of focus (it's a modifier
+  // combo, so it can't collide with normal typing the way bare letter keys would).
+  if (e.key==='k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); el('cmdk-overlay').classList.contains('open') ? closeCmdK() : openCmdK(); return; }
   if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key==='1') nav('dash');
   if (e.key==='2') nav('entries');
@@ -11775,7 +13011,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='r') { if (!el('receipt-overlay').classList.contains('open')) openReceipt(); }
   if (e.key==='?') { el('keys-overlay').classList.contains('open') ? closeKeys() : openKeys(); }
   if (e.key==='w' && VIEW==='dash') openWhatIf();
-  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeTax(); }
+  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeCmdK(); closePit(); closeDupWarning(); closeWizard(); closeRecInt(); closeTax(); }
   if (e.key==='d' && e.metaKey) { e.preventDefault(); manualToggleTheme(); }
   if (e.key==='s' && e.metaKey && VIEW==='dash') { e.preventDefault(); saveMonthIncome(); }
 });
