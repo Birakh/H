@@ -3851,6 +3851,9 @@ RENDERS.fuel     = () => renderFuel();
 RENDERS.settings = () => renderSettings();
 
 function nav(sec) {
+  // Close any open modals/overlays before switching tabs so dialogs opened on
+  // one tab (e.g. confirm-delete in Settings) don't linger on the destination tab.
+  closeConfirm();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el('sec-'+sec).classList.add('active');
@@ -3930,10 +3933,14 @@ function renderDash() {
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
   const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
-  // totalInc = salary + any extra income entries logged this month.
-  // Previously used `base > 0 ? base : addInc` which silently dropped entry-based
-  // income whenever a salary was set — making the bar targets wrong.
-  const totalInc = base > 0 ? base + addInc : (addInc || (DATA.plannedIncome?.[month] || 0));
+  // totalInc  — actual money received this month (salary + any income entries logged).
+  //             Shown in the "Total income" stat so the user sees their real cash flow.
+  // budgetInc — baseline used for the 50/30/20 bar targets.
+  //             When a salary is set we use it alone so that one-off bonuses / transfers
+  //             logged as income don't silently inflate all three bar targets.
+  //             If no salary is saved we fall back to the sum of income entries.
+  const totalInc  = base > 0 ? base + addInc : (addInc || (DATA.plannedIncome?.[month] || 0));
+  const budgetInc = base > 0 ? base           : (addInc || (DATA.plannedIncome?.[month] || 0));
   const act     = { needs:0, wants:0, savings:0 };
   mes.forEach(e => {
     if (e.type === 'expense' && e.category in act) {
@@ -3944,8 +3951,8 @@ function renderDash() {
       act.savings += e.amount;
     }
   });
-  const spent   = act.needs + act.wants + act.savings;  const left    = totalInc - spent;
-  const savePct = totalInc > 0 ? Math.round(left/totalInc*100) : 0;
+  const spent   = act.needs + act.wants + act.savings;  const left    = budgetInc - spent;
+  const savePct = budgetInc > 0 ? Math.round(left/budgetInc*100) : 0;
 
   // pace: days elapsed / days in month (only meaningful for current month)
   const now     = new Date();
@@ -3961,7 +3968,7 @@ function renderDash() {
   renderAccountCards();
 
   // banners
-  renderDashBanners(month, act, totalInc);
+  renderDashBanners(month, act, budgetInc);
 
   // Net worth across all accounts
   const netWorth = DATA.accounts.reduce((s, a) => s + computeAcctBalance(a), 0);
@@ -3988,15 +3995,15 @@ function renderDash() {
   const leftClass = left >= 0 ? 'highlight' : 'danger-hi';
   el('d-stats').innerHTML = `
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
-    <div class="stat"><div class="stat-lbl">Total spent</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
+    <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
     <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : 'Savings rate'}</div><div class="stat-val ${isCurrentMonth ? (dailyLeft>=0?'cg':'cr') : (savePct>=0?'cg':'cr')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','') + '/d' : savePct+'%'}</div></div>
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
     ${nwStat}`;
 
-  renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
+  renderSplitBars(budgetInc, act, dayFrac, daysElapsed, daysInMonth, isCurrentMonth);
   if (isCurrentMonth) {
-    maybeSendBudgetAlerts(month, act, totalInc);
+    maybeSendBudgetAlerts(month, act, budgetInc);
     maybeShowWizard(month);
   }
   renderCatBars(mes);
@@ -4254,8 +4261,9 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     const mes = DATA.entries.filter(e => ym(e.date)===month);
     const { amount } = getMonthIncome(month);
     const _addInc = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    // Mirror the same logic as renderDash — salary + additional income entries
-    totalInc = amount > 0 ? amount + _addInc : (_addInc || 0);
+    // Mirror renderDash budgetInc logic — salary-only when set, so one-off bonuses
+    // logged as income entries don't inflate the 50/30/20 bar targets.
+    totalInc = amount > 0 ? amount : (_addInc || 0);
     act = { needs:0, wants:0, savings:0 };
     mes.forEach(e => {
       if (e.type === 'expense' && e.category in act) act[e.category] += e.amount;
@@ -6370,7 +6378,8 @@ function getPrevMonthSurplus(month) {
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return { surplus: 0, prevMon };
   const prevMes = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevInc  = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  // Use salary-only (budgetInc logic) so one-off income entries don't inflate the surplus.
+  const prevInc  = prevSaved.amount;
   const prevSpent= prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
   return { surplus: +(prevInc - prevSpent).toFixed(2), prevMon };
 }
@@ -6395,7 +6404,9 @@ function getSavingsCarry(month) {
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return 0;
   const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevInc   = prevSaved.amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  // Use salary-only for carry (same as budgetInc logic) so one-off income entries
+  // logged in a past month don't inflate the carry-forward into this month's savings target.
+  const prevInc   = prevSaved.amount;
   // savings-type entries count as "spent" (money intentionally allocated) — reduces available surplus
   const prevSpent = prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
   return Math.max(0, +(prevInc - prevSpent).toFixed(2));
@@ -6412,7 +6423,8 @@ function computeSavingsStreak() {
     const savedInc = DATA.incomes[mon];
     if (!savedInc || savedInc.amount === 0) break;
     const mes    = DATA.entries.filter(e => ym(e.date) === mon);
-    const inc    = savedInc.amount + mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    // Use salary-only (budgetInc logic) for streak target — consistent with bar targets.
+    const inc    = savedInc.amount;
     const saved  = mes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
     const target = inc * DATA.splits.savings / 100;
     if (target > 0 && saved >= target * 0.9) streak++; else break;
@@ -7956,7 +7968,8 @@ function renderSavingsRateTrend() {
   }
 
   const points = months.map(m => {
-    const inc = getMonthIncome(m).amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+    // Use salary-only (budgetInc logic) for savings rate trend — consistent with bar targets.
+    const inc = getMonthIncome(m).amount;
     const saved = DATA.entries.filter(e=>ym(e.date)===m&&isSavingsEntry(e)).reduce((s,e)=>s+e.amount,0);
     const rate = inc > 0 ? Math.max(0, Math.min(100, saved/inc*100)) : null;
     return { m, inc, saved, rate };
