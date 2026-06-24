@@ -3854,6 +3854,9 @@ function nav(sec) {
   // Close any open modals/overlays before switching tabs so dialogs opened on
   // one tab (e.g. confirm-delete in Settings) don't linger on the destination tab.
   closeConfirm();
+  // Always reset scroll position when switching tabs — prevents viewport from
+  // staying deep inside the previous (now-hidden) section's content.
+  window.scrollTo({ top: 0, behavior: 'instant' });
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el('sec-'+sec).classList.add('active');
