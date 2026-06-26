@@ -3968,6 +3968,7 @@ function renderDash() {
   const daysLeft       = Math.max(1, daysInMonth - daysElapsed);
   const dayFrac        = daysElapsed / daysInMonth;
   const dailyLeft      = left / daysLeft;
+  const dailyBudget    = budgetInc > 0 ? budgetInc / daysInMonth : 0; // daily income allocation
 
   // account cards
   renderAccountCards();
@@ -4002,8 +4003,8 @@ function renderDash() {
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
     <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
-    ${isCurrentMonth ? `<div class="stat"><div class="stat-lbl">€/day · ${daysLeft}d left</div><div class="stat-val ${dailyLeft>=0?'cg':'cr'}">${fmt(dailyLeft).replace('€','')}/d</div></div>` : ''}
-    <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=0?'cg':'cr'}">${savePct}%</div></div>
+    <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=20?'cg':savePct>=10?'ca':'cr'}">${budgetInc>0?savePct+'%':'—'}</div></div>
+    <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : '€/day (budget)'}</div><div class="stat-val ${isCurrentMonth?(dailyLeft>=0?'cg':'cr'):(dailyBudget>0?'cb':'')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','')+'/d' : dailyBudget>0 ? fmt(dailyBudget).replace('€','')+'/d' : '—'}</div></div>
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
     ${nwStat}`;
 
@@ -8113,10 +8114,8 @@ function renderNwTrajectory() {
   // Find FIRE crossing
   let fireMonth = null;
   if (fireNumber > currentNW) {
-    const _fi = pts.findIndex(p => p.v >= fireNumber);
-    // findIndex returns -1 when target is never reached in the 30-year window.
-    // Guard it here so fireYrStr never renders as "-1y -1m".
-    fireMonth = _fi >= 0 ? _fi : null;
+    const idx = pts.findIndex(p => p.v >= fireNumber);
+    fireMonth = idx >= 0 ? idx : null; // null = not reachable within 30 years
   } else if (fireNumber > 0 && currentNW >= fireNumber) {
     fireMonth = 0;
   }
@@ -8140,7 +8139,7 @@ function renderNwTrajectory() {
   const areaD = `M${xS(0).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} `+sparse.map((p,i)=>`L${xS(i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ')+` L${xS(sparse.length-1).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} Z`;
 
   // FIRE dot
-  const fireDot = fireMonth!==null && fireMonth<=N ? (() => {
+  const fireDot = fireMonth !== null && fireMonth <= N && fireMonth >= 0 ? (() => {
     const fi = sparse.findIndex(p=>p.i>=fireMonth);
     if (fi<0) return '';
     const fx=xS(fi).toFixed(1), fy=yS(fireNumber).toFixed(1);
@@ -8163,7 +8162,9 @@ function renderNwTrajectory() {
   }).join('');
   const yTicks=[minV,(minV+maxV)/2,maxV].map(v=>`<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`).join('');
 
-  const fireYrStr = fireMonth!==null ? `${Math.floor(fireMonth/12)}y ${fireMonth%12}m` : '—';
+  const fireYrStr = fireMonth === null   ? '> 30 years'
+                  : fireMonth === 0     ? 'already reached 🎉'
+                  : `${Math.floor(fireMonth/12)}y ${fireMonth%12}m`;
 
   wrap.innerHTML = `
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
@@ -8171,7 +8172,9 @@ function renderNwTrajectory() {
       <span style="color:var(--ink3)">Avg monthly savings: <strong>${fmt(avgMonthlySavings)}</strong></span>
       <span style="color:var(--ink3)">Real return: <strong>${ret}%</strong></span>
       ${fireNumber>0?`<span style="color:var(--ink3)">FIRE number: <strong style="color:var(--Gm)">${fmtAx(fireNumber)}</strong></span>`:''}
-      ${fireMonth!==null?`<span style="color:var(--Gm);font-weight:600">📅 FIRE in ${fireYrStr}</span>`:''}
+      ${fireMonth===0?`<span style="color:var(--Gm);font-weight:600">🎉 FIRE already reached!</span>`
+        :fireMonth!==null?`<span style="color:var(--Gm);font-weight:600">📅 FIRE in ${fireYrStr}</span>`
+        :fireNumber>0?`<span style="color:var(--Am);font-weight:500">📅 FIRE in ${fireYrStr} at current rate</span>`:''}
     </div>
     <div style="position:relative">
       <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
