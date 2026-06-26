@@ -4002,7 +4002,8 @@ function renderDash() {
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
     <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
-    <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : 'Savings rate'}</div><div class="stat-val ${isCurrentMonth ? (dailyLeft>=0?'cg':'cr') : (savePct>=0?'cg':'cr')}">${isCurrentMonth ? fmt(dailyLeft).replace('€','') + '/d' : savePct+'%'}</div></div>
+    ${isCurrentMonth ? `<div class="stat"><div class="stat-lbl">€/day · ${daysLeft}d left</div><div class="stat-val ${dailyLeft>=0?'cg':'cr'}">${fmt(dailyLeft).replace('€','')}/d</div></div>` : ''}
+    <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=0?'cg':'cr'}">${savePct}%</div></div>
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
     ${nwStat}`;
 
@@ -8112,7 +8113,11 @@ function renderNwTrajectory() {
   // Find FIRE crossing
   let fireMonth = null;
   if (fireNumber > currentNW) {
-    fireMonth = pts.findIndex(p => p.v >= fireNumber);
+    const idx = pts.findIndex(p => p.v >= fireNumber);
+    // findIndex returns -1 when no crossing found in the 30-year window —
+    // leave fireMonth as null (handled as "> 50 years") rather than -1
+    // which would produce a bogus "-1y -1m" display.
+    fireMonth = idx >= 0 ? idx : null;
   } else if (fireNumber > 0 && currentNW >= fireNumber) {
     fireMonth = 0;
   }
