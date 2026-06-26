@@ -1881,54 +1881,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="pit-list"><div style="font-size:13px;color:var(--ink3)">Click "Load history" to fetch commit history from GitHub.</div></div>
       </div>
 
-      <!-- PIT preview overlay -->
-      <div class="modal-overlay" id="pit-overlay" onclick="if(event.target===this)closePit()">
-        <div class="modal-box" style="width:min(480px,100%)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:6px">Restore snapshot</div>
-          <div id="pit-meta" style="font-size:12px;color:var(--ink3);margin-bottom:12px"></div>
-          <div id="pit-preview" style="font-size:12px;color:var(--ink2);background:var(--s1);border-radius:var(--rs);padding:10px;margin-bottom:14px;max-height:200px;overflow-y:auto;font-family:var(--mono)">Loading…</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn sm danger" id="pit-confirm-btn" onclick="confirmPitRestore()" disabled>⚠ Restore this snapshot</button>
-            <button class="btn sm ghost" onclick="closePit()">Cancel</button>
-          </div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:8px">A backup of your current vault will be saved locally before restoring.</div>
-        </div>
-      </div>
-
-  <!-- ── Duplicate Entry Warning ── -->
-  <div class="modal-overlay" id="dup-overlay" onclick="if(event.target===this)closeDupWarning()">
-    <div class="modal-box" style="width:min(440px,100%)">
-      <div style="font-size:14px;font-weight:600;margin-bottom:6px">⚠ Possible duplicate</div>
-      <div id="dup-detail" style="font-size:13px;color:var(--ink2);margin-bottom:14px"></div>
-      <div id="dup-matches" style="margin-bottom:16px;max-height:160px;overflow-y:auto"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm danger" onclick="dupProceed()">Save anyway</button>
-        <button class="btn sm ghost" onclick="closeDupWarning()">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Month Wizard ── -->
-  <div class="modal-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">
-    <div class="modal-box" style="width:min(500px,100%)">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗓 New month — quick setup</div>
-      <div id="wizard-content"></div>
-    </div>
-  </div>
-
-  <!-- ── Recurring Intelligence ── -->
-  <div class="modal-overlay" id="recint-overlay" onclick="if(event.target===this)closeRecInt()">
-    <div class="modal-box" style="width:min(480px,100%)">
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">🔍 Detected repeating patterns</div>
-      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">These transactions appear to repeat regularly but aren't yet tracked as recurring entries.</div>
-      <div id="recint-list"></div>
-      <div style="margin-top:14px;display:flex;gap:8px">
-        <button class="btn sm ghost" onclick="closeRecInt()">Done</button>
-      </div>
-    </div>
-  </div>
-
-
+      <div class="card">
+        <div class="card-title">Switch vault repository</div>
         <div style="font-size:13px;color:var(--ink2);margin-bottom:12px">Move your vault to a different GitHub repository — for example from a public repo to a private one. Your data is re-encrypted with your current passphrase and pushed to the new location. The old repository file is <strong>not</strong> deleted.</div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0"><label>New owner</label><input type="text" id="sw-owner" placeholder="username" autocomplete="off" autocapitalize="none"></div>
@@ -2798,6 +2752,54 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </section>
 
   </main>
+
+  <!-- ── PIT preview overlay ── -->
+  <div class="modal-overlay" id="pit-overlay" onclick="if(event.target===this)closePit()">
+    <div class="modal-box" style="width:min(480px,100%)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">Restore snapshot</div>
+      <div id="pit-meta" style="font-size:12px;color:var(--ink3);margin-bottom:12px"></div>
+      <div id="pit-preview" style="font-size:12px;color:var(--ink2);background:var(--s1);border-radius:var(--rs);padding:10px;margin-bottom:14px;max-height:200px;overflow-y:auto;font-family:var(--mono)">Loading…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm danger" id="pit-confirm-btn" onclick="confirmPitRestore()" disabled>⚠ Restore this snapshot</button>
+        <button class="btn sm ghost" onclick="closePit()">Cancel</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:8px">A backup of your current vault will be saved locally before restoring.</div>
+    </div>
+  </div>
+
+  <!-- ── Duplicate Entry Warning ── -->
+  <div class="modal-overlay" id="dup-overlay" onclick="if(event.target===this)closeDupWarning()">
+    <div class="modal-box" style="width:min(440px,100%)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">⚠ Possible duplicate</div>
+      <div id="dup-detail" style="font-size:13px;color:var(--ink2);margin-bottom:14px"></div>
+      <div id="dup-matches" style="margin-bottom:16px;max-height:160px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm danger" onclick="dupProceed()">Save anyway</button>
+        <button class="btn sm ghost" onclick="closeDupWarning()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Month Wizard ── -->
+  <div class="modal-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">
+    <div class="modal-box" style="width:min(500px,100%)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗓 New month — quick setup</div>
+      <div id="wizard-content"></div>
+    </div>
+  </div>
+
+  <!-- ── Recurring Intelligence ── -->
+  <div class="modal-overlay" id="recint-overlay" onclick="if(event.target===this)closeRecInt()">
+    <div class="modal-box" style="width:min(480px,100%)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">🔍 Detected repeating patterns</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">These transactions appear to repeat regularly but aren't yet tracked as recurring entries.</div>
+      <div id="recint-list"></div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn sm ghost" onclick="closeRecInt()">Done</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
