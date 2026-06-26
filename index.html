@@ -7049,13 +7049,13 @@ function renderStocks() {
           }).join('');
 
           const realRows = (s.realizedPnL||[]).slice(-10).reverse().map(r => {
-            const pnlCls = r.pnl >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg';
+            const pnlCls = (r.pnl||0) >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg';
             return `<tr>
-              <td style="font-family:var(--mono);font-size:11px">${r.date}</td>
-              <td style="font-family:var(--mono)">${r.sharesSold.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
-              <td style="font-family:var(--mono)">${sym}${r.sellPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
-              <td style="font-family:var(--mono)">${sym}${r.costBasis.toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
-              <td class="${pnlCls}" style="font-family:var(--mono)">${r.pnl>=0?'+':''}${sym}${Math.abs(r.pnl).toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
+              <td style="font-family:var(--mono);font-size:11px">${r.date||'—'}</td>
+              <td style="font-family:var(--mono)">${(r.sharesSold||0).toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono)">${sym}${(r.sellPrice||0).toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono)">${sym}${(r.costBasis||0).toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
+              <td class="${pnlCls}" style="font-family:var(--mono)">${(r.pnl||0)>=0?'+':''}${sym}${Math.abs(r.pnl||0).toLocaleString('de-AT',{maximumFractionDigits:2})}</td>
             </tr>`;
           }).join('');
 
@@ -7424,20 +7424,30 @@ async function renderWealth() {
       el('wc-inc-num').value = savedInc.amount;
     }
     fetchFxRates().then(() => renderStocks());
-    renderStocks();
-    wcUpdate();
-    fireUpdate();
-    renderKeSt();
-    renderNwTrajectory();
-    renderPortfolioAlloc();
-    renderFxAccounts();
-    amCalc();
-    renderSubscriptions();
-    renderAnnualGrid();
-    // Mortgage checker — fetch if no market rate yet, otherwise just re-render countdown
-    if (!el('rm-market')?.value) rmFetch(); else rmRenderEcb();
-    renderRateResetCalendar();
-  } catch(e) { toast(e.message || 'Wealth tab error.', 1); }
+    const _wCalls = [
+      ['renderStocks',          () => renderStocks()],
+      ['wcUpdate',              () => wcUpdate()],
+      ['fireUpdate',            () => fireUpdate()],
+      ['renderKeSt',            () => renderKeSt()],
+      ['renderNwTrajectory',    () => renderNwTrajectory()],
+      ['renderPortfolioAlloc',  () => renderPortfolioAlloc()],
+      ['renderFxAccounts',      () => renderFxAccounts()],
+      ['amCalc',                () => amCalc()],
+      ['renderSubscriptions',   () => renderSubscriptions()],
+      ['renderAnnualGrid',      () => renderAnnualGrid()],
+      ['renderRateResetCalendar',() => renderRateResetCalendar()],
+    ];
+    const _wErrs = [];
+    for (const [name, fn] of _wCalls) {
+      try { fn(); } catch(e) { _wErrs.push(`${name}: ${e.message}`); console.error('[Wealth]', name, e); }
+    }
+    if (_wErrs.length) {
+      const dbg = el('kest-result') || el('stock-list');
+      if (dbg) dbg.innerHTML = `<div style="background:var(--Rbg);border:.5px solid var(--Rm);border-radius:var(--rs);padding:12px;font-size:12px;font-family:var(--mono);color:var(--Rm)">`
+        + `<strong>Wealth tab errors (${_wErrs.length}):</strong><br>` + _wErrs.map(e=>`• ${esc(e)}`).join('<br>') + `</div>`;
+      toast(`Wealth: ${_wErrs[0]}`, 1);
+    }
+  } catch(e) { toast(e.message || 'Wealth tab error.', 1); console.error('[Wealth boot]', e); }
 }
 
 function renderSettings() {
@@ -11466,6 +11476,7 @@ function deleteFuel(id) {
 
 // ── Main render ───────────────────────────────────────────────────────────────
 function renderFuel() {
+  try {
   fuelFormInit();
   if (!DATA.fuel) DATA.fuel = [];
   if (!DATA.fuelSettings) DATA.fuelSettings = {};
@@ -11579,6 +11590,12 @@ function renderFuel() {
   renderFuelEcbChart(all);
   renderFuelMonthly(all);
   renderFuelMap();
+  } catch(e) {
+    console.error('[Fuel]', e);
+    const tbody = el('fuel-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="color:var(--Rm);font-size:12px;padding:12px">Fuel tab error: ${esc(e.message)} — check browser console for details.</td></tr>`;
+    toast(e.message || 'Fuel tab error', 1);
+  }
 }
 
 // ── Price-per-litre trend line chart ─────────────────────────────────────────
