@@ -1540,6 +1540,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="bulk-bar" id="bulk-bar">
         <span id="bulk-count"></span>
+        <select onchange="bulkRecat(this.value);this.value=''" style="font-size:12px">
+          <option value="">Re-categorise…</option>
+          <option value="needs">→ Needs</option>
+          <option value="wants">→ Wants</option>
+          <option value="savings">→ Savings</option>
+          <option value="income">→ Income</option>
+        </select>
+        <input id="bulk-tag-in" type="text" placeholder="Add tag…" style="font-size:12px;width:110px" onkeydown="if(event.key==='Enter')bulkTag(this.value)">
+        <button class="btn xs ghost" onclick="bulkTag(el('bulk-tag-in').value)">Tag</button>
         <button class="btn xs danger" onclick="bulkDelete()">Delete selected</button>
         <button class="btn xs ghost" onclick="clearSelection()">Clear</button>
       </div>
@@ -2821,11 +2830,11 @@ function _debouncedRender() { clearTimeout(_debounceTimer); _debounceTimer = set
 // SCHEMA  v17  (app: Vault Finance V4)
 // ══════════════════════════════════════════
 const FRESH = () => ({
-  v: 17,
+  v: SCHEMA_VERSION,
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
-  splits:        { needs: 50, wants: 30, savings: 20 },
+  splits:        { needs: 50, wants: 30, savings: 20, rollover: { needs: false, wants: false, savings: true } },
   goals:         { needs: null, wants: null, savings: null },
   savingsGoals:  [],
   accounts:      [],
@@ -2841,6 +2850,7 @@ const FRESH = () => ({
   auditLog:      [],   // { ts, action, summary }
   notifFired:    {},   // { 'YYYY-MM:needs:80': true } — syncs across devices
   cashLog:       [],   // { id, date, name, amount, category, note } — off-ledger cash purchases
+  nwHistory:     [],   // { date: 'YYYY-MM-DD', nw: number } — snapshot on each save
   meta:          { sha: null, lastSync: null },
   vars:          {},         // { name: { value, desc, type } } — named variables for formulas
   housing:       { type: 'rent', amount: 0 },  // 'rent' | 'mortgage'
@@ -3457,8 +3467,7 @@ async function confirmPitRestore() {
   try {
     const backupKey = `vault_backup_${ymd()}`;
     localStorage.setItem(backupKey, localStorage.getItem('vault_local') || '');
-    console.log(`[PIT] Backup saved to localStorage key: ${backupKey}`);
-  } catch(e) { console.warn('[PIT] Could not save backup:', e.message); }
+  } catch(e) { /* backup is best-effort */ }
 
   DATA = _pitPreviewData;
   DATA.meta = DATA.meta || {};
@@ -3574,6 +3583,27 @@ let _st;
 async function saveLocalNow() {
   if (!DATA) return;
   if (!PASS) return; // no passphrase set — don't overwrite local cache until migrated
+
+  // ── Net worth snapshot ────────────────────────────────────────────────────
+  // Record current net worth once per day. Deduplicated by date so repeated saves
+  // during the same day just update the existing entry rather than appending.
+  try {
+    const acctNw    = (DATA.accounts||[]).reduce((s,a) => s + computeAcctBalance(a), 0);
+    const stocksNw  = (DATA.stocks||[]).reduce((s,st) => {
+      if (st.currency === 'EUR') return s + fifoTotalShares(st) * (st.currentPrice||0);
+      return s; // skip non-EUR without live rate — avoid stale FX inflation
+    }, 0);
+    const goalsNw   = (DATA.savingsGoals||[]).reduce((s,g) => s + (+g.saved||0), 0);
+    const nw        = +((acctNw + stocksNw + goalsNw).toFixed(2));
+    const today     = ymd();
+    if (!DATA.nwHistory) DATA.nwHistory = [];
+    const existing  = DATA.nwHistory.find(p => p.date === today);
+    if (existing) existing.nw = nw;
+    else DATA.nwHistory.push({ date: today, nw });
+    // Keep last 5 years of daily snapshots (≈1825 entries)
+    if (DATA.nwHistory.length > 1825) DATA.nwHistory.splice(0, DATA.nwHistory.length - 1825);
+  } catch(_) { /* snapshot is best-effort, never block the save */ }
+
   try {
     const { b64, salt } = await CX.seal(DATA, PASS, SALT);
     SALT = salt;
@@ -3596,7 +3626,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 19; // current target version
+const SCHEMA_VERSION = 20; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3749,6 +3779,12 @@ const MIGRATIONS = [
       }
       if (!s.realizedPnL) s.realizedPnL = [];
     });
+    return d;
+  },
+  // v19 → v20 : net worth history array + per-category rollover flags
+  d => {
+    if (!d.nwHistory) d.nwHistory = [];
+    if (!d.splits.rollover) d.splits.rollover = { needs: false, wants: false, savings: true };
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -4202,21 +4238,6 @@ function renderDashBanners(month, act, totalInc) {
   el('d-banners').innerHTML = banners.join('');
 }
 
-// Mid-month alerts are separate from the goal-based banners above — they fire
-// based on pace (actual / budget) rather than absolute overspend, and only when
-// there are >10 days left so there's still time to course-correct.
-function renderMidMonthAlerts(month, act, totalInc) {
-  const alerts = getMidMonthAlerts(month, act, totalInc);
-  if (!alerts.length) return;
-  alerts.forEach(a => {
-    const projectedOver = a.projected > a.budget;
-    toast(
-      `${a.cat.charAt(0).toUpperCase()+a.cat.slice(1)}: ${a.pct}% of budget used with ${a.daysLeft} days left${projectedOver ? ` — on pace for ${fmt(a.projected)} (budget ${fmt(a.budget)})` : ''}`,
-      projectedOver ? 1 : 0
-    );
-  });
-}
-
 // ══════════════════════════════════════════
 // ANOMALY DETECTION
 // Flags a category if current spend > avg + 1.5×stddev AND ratio ≥ 1.5
@@ -4300,7 +4321,7 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     // Carry-forward: unspent surplus from last month flows to Savings only.
     // Needs and Wants get no carry — underspend there doesn't increase next
     // month's budget ceiling; instead it accumulates into Savings.
-    const carry = key === 'savings' ? getSavingsCarry(curMonth()) : 0;
+    const carry = getCategoryCarry(key, curMonth());
     const target = totalInc * pct / 100 + carry;
     const carryBadge = carry > 0
       ? `<span class="carry-badge" style="background:var(--Gbg);color:var(--Gm)" title="Unspent surplus carried from last month">+${fmt(carry)} carried</span>`
@@ -5293,18 +5314,15 @@ function updateBulkBar() {
 function clearSelection() { _selEntries.clear(); renderEntries(); }
 function bulkRecat(cat) {
   if (!_selEntries.size) return;
-  DATA.entries.forEach(e => { if (_selEntries.has(e.id)) { e.category=cat; e.type=cat==='income'?'income':cat==='savings'?'savings':'expense'; } });
+  DATA.entries.forEach(e => { if (_selEntries.has(e.id)) { e.category=cat; e.type=entryTypeFor(cat, cat==='income'?'income':'expense'); } });
   saveLocal(); renderEntries(); toast(`Re-categorised ${_selEntries.size} entries → ${cat}`);
 }
-
 function bulkTag(tag) {
   if (!_selEntries.size) return;
   tag = tag.trim().toLowerCase(); if (!tag) return;
   DATA.entries.forEach(e => { if (_selEntries.has(e.id)) { if (!e.tags) e.tags=[]; if (!e.tags.includes(tag)) e.tags.push(tag); } });
-  const inp = el('bulk-tag-in'); if (inp) inp.value = '';
-  saveLocal(); renderEntries(); toast(`Tagged ${_selEntries.size} entries with "${tag}"`);
+  saveLocal(); renderEntries(); toast(`Tagged ${_selEntries.size} entries`);
 }
-
 function bulkDelete() {
   if (!_selEntries.size) return;
   showConfirm(`Delete ${_selEntries.size} entries?`, 'This cannot be undone.', () => {
@@ -6103,6 +6121,7 @@ function updateHousingHelper() {
 // ══════════════════════════════════════════
 function renderSplitsUI() {
   const { splits, goals } = DATA;
+  const rollover = splits.rollover || { needs: false, wants: false, savings: true };
   const defs=[
     { key:'needs',   label:'Needs',   color:'var(--Bm)' },
     { key:'wants',   label:'Wants',   color:'var(--Am)' },
@@ -6121,7 +6140,11 @@ function renderSplitsUI() {
       <input type="number" id="goal-${key}" min="0" step="10" value="${goals[key]||''}" placeholder="optional" style="width:100px" oninput="updateGoalBar('${key}','${color}')">
       <span style="font-size:11px;color:var(--ink3);flex:1">Monthly spending target — alerts at 80%+</span>
     </div>
-    <hr class="sep" style="margin:8px 0 12px">
+    <div style="display:flex;align-items:center;gap:6px;margin:4px 0 12px">
+      <input type="checkbox" id="rollover-${key}" ${rollover[key]?'checked':''} onchange="updateRolloverPreview()">
+      <label for="rollover-${key}" style="font-size:12px;color:var(--ink3);cursor:pointer">Carry unspent ${label.toLowerCase()} budget forward to next month</label>
+    </div>
+    <hr class="sep" style="margin:0 0 12px">
   `).join('');
 }
 function updateSplitBar(key,color) {
@@ -6131,13 +6154,21 @@ function updateSplitBar(key,color) {
   el('split-err').style.display=sum!==100?'inline':'none';
 }
 function updateGoalBar(key,color) { /* visual feedback optional */ }
+function updateRolloverPreview() { /* preview is minimal — toggles just update on Save */ }
 async function saveSplits() {
   try {
     const n=parseInt(el('split-needs').value)||0;
     const w=parseInt(el('split-wants').value)||0;
     const s=parseInt(el('split-savings').value)||0;
     if (n+w+s!==100) return toast('Splits must add up to 100%.',1);
-    DATA.splits={needs:n,wants:w,savings:s};
+    DATA.splits={
+      needs:n, wants:w, savings:s,
+      rollover: {
+        needs:   !!(el('rollover-needs')?.checked),
+        wants:   !!(el('rollover-wants')?.checked),
+        savings: !!(el('rollover-savings')?.checked)
+      }
+    };
     DATA.goals={
       needs:parseFloat(el('goal-needs').value)||null,
       wants:parseFloat(el('goal-wants').value)||null,
@@ -6406,18 +6437,25 @@ function saveSurplus(month) {
 // CARRY-FORWARD
 // Previous-month surplus (income − all expenses) flows to Savings only.
 // ══════════════════════════════════════════
-function getSavingsCarry(month) {
+// General carry-forward: returns last month's unspent surplus for a budget category,
+// but only if that category has rollover enabled in DATA.splits.rollover.
+// Savings defaults to true (original behaviour); Needs and Wants default to false.
+function getCategoryCarry(key, month) {
+  const rollover = DATA.splits.rollover || { needs: false, wants: false, savings: true };
+  if (!rollover[key]) return 0;
   const prevMon   = prevMonStr(month);
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return 0;
-  const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
-  // Use salary-only for carry (same as budgetInc logic) so one-off income entries
-  // logged in a past month don't inflate the carry-forward into this month's savings target.
   const prevInc   = prevSaved.amount;
-  // savings-type entries count as "spent" (money intentionally allocated) — reduces available surplus
-  const prevSpent = prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
-  return Math.max(0, +(prevInc - prevSpent).toFixed(2));
+  const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
+  const prevCatSpent = prevMes.filter(e => isInCategoryBucket(e, key)).reduce((s,e)=>s+e.amount,0);
+  const prevCatBudget = prevInc * (DATA.splits[key]||0) / 100;
+  return Math.max(0, +(prevCatBudget - prevCatSpent).toFixed(2));
 }
+
+// Legacy alias — kept for backward compat with any serialised calls; delegates to getCategoryCarry.
+// Do not remove: getSavingsCarry may still appear in older vault data via recurring entry formulas.
+function getSavingsCarry(month) { return getCategoryCarry('savings', month); }
 
 // ══════════════════════════════════════════
 // SAVINGS STREAK
@@ -7213,19 +7251,6 @@ function deleteLot(stockId, lotId) {
   });
 }
 
-function updateStockShares(id, shares) {
-  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
-  s.shares = shares;
-  s.nativeValue = shares * (s.currentPrice || 0);
-  saveLocal(); renderStocks();
-}
-
-function updateStockBuyPrice(id, price) {
-  const s = DATA.stocks.find(x => x.id === id); if (!s) return;
-  s.avgBuyPrice = price;
-  saveLocal(); renderStocks();
-}
-
 // ── Wealth Calculator ─────────────────────────────────────────────────────────
 function wcSyncFromSlider(sliderId, numId) {
   el(numId).value = el(sliderId).value;
@@ -7429,29 +7454,22 @@ async function renderWealth() {
     }
     fetchFxRates().then(() => renderStocks());
     const _wCalls = [
-      ['renderStocks',          () => renderStocks()],
-      ['wcUpdate',              () => wcUpdate()],
-      ['fireUpdate',            () => fireUpdate()],
-      ['renderKeSt',            () => renderKeSt()],
-      ['renderNwTrajectory',    () => renderNwTrajectory()],
-      ['renderPortfolioAlloc',  () => renderPortfolioAlloc()],
-      ['renderFxAccounts',      () => renderFxAccounts()],
-      ['amCalc',                () => amCalc()],
-      ['renderSubscriptions',   () => renderSubscriptions()],
-      ['renderAnnualGrid',      () => renderAnnualGrid()],
+      ['renderStocks',           () => renderStocks()],
+      ['wcUpdate',               () => wcUpdate()],
+      ['fireUpdate',             () => fireUpdate()],
+      ['renderKeSt',             () => renderKeSt()],
+      ['renderNwTrajectory',     () => renderNwTrajectory()],
+      ['renderPortfolioAlloc',   () => renderPortfolioAlloc()],
+      ['renderFxAccounts',       () => renderFxAccounts()],
+      ['amCalc',                 () => amCalc()],
+      ['renderSubscriptions',    () => renderSubscriptions()],
+      ['renderAnnualGrid',       () => renderAnnualGrid()],
       ['renderRateResetCalendar',() => renderRateResetCalendar()],
     ];
-    const _wErrs = [];
     for (const [name, fn] of _wCalls) {
-      try { fn(); } catch(e) { _wErrs.push(`${name}: ${e.message}`); console.error('[Wealth]', name, e); }
+      try { fn(); } catch(e) { toast(`Wealth / ${name}: ${e.message}`, 1); console.error('[Wealth]', name, e); }
     }
-    if (_wErrs.length) {
-      const dbg = el('kest-result') || el('stock-list');
-      if (dbg) dbg.innerHTML = `<div style="background:var(--Rbg);border:.5px solid var(--Rm);border-radius:var(--rs);padding:12px;font-size:12px;font-family:var(--mono);color:var(--Rm)">`
-        + `<strong>Wealth tab errors (${_wErrs.length}):</strong><br>` + _wErrs.map(e=>`• ${esc(e)}`).join('<br>') + `</div>`;
-      toast(`Wealth: ${_wErrs[0]}`, 1);
-    }
-  } catch(e) { toast(e.message || 'Wealth tab error.', 1); console.error('[Wealth boot]', e); }
+  } catch(e) { toast(e.message || 'Wealth tab error', 1); console.error('[Wealth boot]', e); }
 }
 
 function renderSettings() {
@@ -8501,75 +8519,104 @@ function exportFirefly() {
 function renderWeeklySummary() {
   const container = el('d-week'); if (!container) return;
   const now = new Date();
-  // Monday = day 0 of the week
-  const dow  = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+  const dow  = (now.getDay() + 6) % 7;
   const mon  = new Date(now); mon.setDate(now.getDate() - dow); mon.setHours(0,0,0,0);
   const sun  = new Date(mon); sun.setDate(mon.getDate() + 6);
 
-  const pad  = n => String(n).padStart(2,'0');
-  const toYMD = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const monStr = toYMD(mon), sunStr = toYMD(sun);
+  const pad    = n => String(n).padStart(2,'0');
+  const toYMD  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const monStr = toYMD(mon), sunStr = toYMD(sun), todayStr = toYMD(now);
 
-  // Weekly budget pace = monthly income / days-in-month * 7
+  const lMon = new Date(mon); lMon.setDate(mon.getDate() - 7);
+  const lSun = new Date(sun); lSun.setDate(sun.getDate() - 7);
+  const lMonStr = toYMD(lMon), lSunStr = toYMD(lSun);
+
   const month    = curMonStr();
   const savedInc = DATA.incomes[month];
   const monthInc = savedInc ? savedInc.amount : 0;
   const daysInMo = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const weekBudget = monthInc > 0 ? +(monthInc * DATA.splits.wants / 100 / daysInMo * 7).toFixed(2) : 0;
+  const weekBudget = monthInc > 0 ? +(monthInc * (DATA.splits.wants||30) / 100 / daysInMo * 7).toFixed(2) : 0;
 
   const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const days = Array.from({length:7}, (_,i) => {
     const d = new Date(mon); d.setDate(mon.getDate() + i);
-    return { date: toYMD(d), name: DAY_NAMES[i], d };
+    return { date: toYMD(d), name: DAY_NAMES[i] };
   });
 
-  // Sum expenses per day
-  const byDay = {};
-  DATA.entries
-    .filter(e => e.type==='expense' && e.date >= monStr && e.date <= sunStr)
-    .forEach(e => { byDay[e.date] = (byDay[e.date]||0) + e.amount; });
+  const sumByDay = (minD, maxD) => {
+    const m = {};
+    DATA.entries.filter(e => isSpendEntry(e) && e.date >= minD && e.date <= maxD)
+      .forEach(e => { m[e.date] = (m[e.date]||0) + e.amount; });
+    return m;
+  };
+  const sumByCat = (minD, maxD) => {
+    const m = {};
+    DATA.entries.filter(e => isSpendEntry(e) && e.date >= minD && e.date <= maxD)
+      .forEach(e => { m[e.category] = (m[e.category]||0) + e.amount; });
+    return m;
+  };
 
-  const weekTotal = Object.values(byDay).reduce((s,v)=>s+v,0);
-  const todayStr  = toYMD(now);
-  const maxDay    = Math.max(...Object.values(byDay), weekBudget/7, 1);
+  const byDay   = sumByDay(monStr,  sunStr);
+  const lByDay  = sumByDay(lMonStr, lSunStr);
+  const byCat   = sumByCat(monStr,  sunStr);
+  const lByCat  = sumByCat(lMonStr, lSunStr);
 
-  const onTrack = weekBudget === 0 || weekTotal <= weekBudget;
+  const weekTotal   = Object.values(byDay).reduce((s,v)=>s+v,0);
+  const lWeekTotal  = Object.values(lByDay).reduce((s,v)=>s+v,0);
+  const daysElapsed = Math.min(dow+1, 7);
+  const dailyAvg    = daysElapsed > 0 ? weekTotal / daysElapsed : 0;
+  const projected   = dailyAvg * 7;
+  const onTrack     = weekBudget === 0 || weekTotal <= weekBudget;
+  const vsLast      = lWeekTotal > 0 ? weekTotal - lWeekTotal : null;
 
-  // Badge label
-  el('week-lbl').textContent =
-    `${monStr.slice(5)} – ${sunStr.slice(5)} · ${fmt(weekTotal)}${weekBudget>0?' / '+fmt(weekBudget):''}`;
+  const allVals = [...Object.values(byDay), ...Object.values(lByDay), weekBudget/7];
+  const maxDay  = Math.max(...allVals.filter(v=>v>0), 1);
 
-  // Day grid
-  const grid = days.map(({date, name, d}) => {
+  const grid = days.map(({date, name}) => {
     const amt   = byDay[date] || 0;
-    const isPast = date < todayStr;
-    const isToday = date === todayStr;
+    const lDate = toYMD(new Date(new Date(date+'T00:00:00').getTime() - 7*86400000));
+    const lAmt  = lByDay[lDate] || 0;
+    const isToday  = date === todayStr;
     const isFuture = date > todayStr;
-    const barH  = amt > 0 ? Math.round(amt/maxDay*100) : 0;
+    const barH  = amt  > 0 ? Math.max(3, Math.round(amt /maxDay*52)) : 0;
+    const lBarH = lAmt > 0 ? Math.max(2, Math.round(lAmt/maxDay*52)) : 0;
     return `<div class="week-day${isToday?' today':''}">
       <div class="week-day-name">${name}</div>
-      <div style="height:32px;display:flex;align-items:flex-end;justify-content:center;margin:3px 0">
-        ${amt > 0
-          ? `<div style="width:80%;border-radius:3px 3px 0 0;height:${barH}%;background:${isFuture?'var(--s2)':'var(--Bm)'};opacity:${isPast?'.7':'1'};transition:height .4s;min-height:3px"></div>`
-          : `<div style="width:80%;height:2px;background:var(--s2);border-radius:1px;margin-bottom:1px"></div>`}
+      <div style="height:52px;display:flex;align-items:flex-end;justify-content:center;gap:2px;margin:3px 0">
+        ${lBarH>0?`<div style="width:35%;border-radius:2px 2px 0 0;height:${lBarH}px;background:var(--s2);opacity:.8" title="Last week: ${fmt(lAmt)}"></div>`:'<div style="width:35%"></div>'}
+        ${amt>0
+          ?`<div style="width:45%;border-radius:2px 2px 0 0;height:${barH}px;background:${isFuture?'var(--s2)':'var(--Bm)'};min-height:3px" title="${fmt(amt)}"></div>`
+          :`<div style="width:45%;height:2px;background:var(--s2);border-radius:1px;margin-bottom:1px"></div>`}
       </div>
       <div class="week-day-amt${amt===0?' zero':''}">${amt>0?fmt(amt).replace('€',''):'—'}</div>
     </div>`;
   }).join('');
 
-  // Stats row
-  const daysElapsed = Math.min(dow+1, 7);
-  const dailyAvg    = daysElapsed > 0 ? weekTotal / daysElapsed : 0;
-  const projected   = dailyAvg * 7;
+  const topCats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const catPills = topCats.map(([cat,amt]) => {
+    const prev  = lByCat[cat] || 0;
+    const delta = prev > 0 ? amt - prev : null;
+    const dStr  = delta !== null
+      ? ` <span style="font-size:10px;color:${delta>0?'var(--Rm)':'var(--Gm)'}">${delta>0?'▲':'▼'}${fmt(Math.abs(delta)).replace('€','')}</span>`
+      : '';
+    return `<span style="background:var(--s1);border:.5px solid var(--bdr);border-radius:4px;padding:2px 8px;font-size:11px">${esc(cat)} ${fmt(amt).replace('€','')}${dStr}</span>`;
+  }).join(' ');
+
+  el('week-lbl').innerHTML =
+    `${monStr.slice(5)} – ${sunStr.slice(5)}&nbsp;·&nbsp;<strong>${fmt(weekTotal)}</strong>${weekBudget>0?` / ${fmt(weekBudget)}`:''}`;
 
   container.innerHTML = `
-    <div class="week-grid">${grid}</div>
-    <div style="display:flex;gap:16px;font-size:12px;color:var(--ink2);flex-wrap:wrap;font-family:var(--mono)">
-      <span>Daily avg: <strong>${fmt(dailyAvg)}</strong></span>
-      ${weekBudget>0?`<span>Projected week: <strong style="color:${projected<=weekBudget?'var(--Gm)':'var(--Rm)'}">${fmt(projected)}</strong></span>`:''}
+    <div class="week-grid" style="margin-bottom:10px">${grid}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;align-items:center">
+      ${vsLast!==null?`<span style="color:${vsLast<=0?'var(--Gm)':'var(--Rm)'};font-weight:600">${vsLast<=0?'▼':'▲'} ${fmt(Math.abs(vsLast)).replace('€','')} vs last week</span>`:''}
+      <span style="color:var(--ink3)">Daily avg: <strong>${fmt(dailyAvg)}</strong></span>
+      ${weekBudget>0?`<span style="color:var(--ink3)">Projected: <strong style="color:${projected<=weekBudget?'var(--Gm)':'var(--Rm)'}">${fmt(projected)}</strong></span>`:''}
       ${weekBudget>0?`<span style="color:${onTrack?'var(--Gm)':'var(--Rm)'};font-weight:600">${onTrack?'✓ on track':'⚠ over pace'}</span>`:''}
-    </div>`;
+    </div>
+    ${catPills?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${catPills}</div>`:''}
+    <div style="font-size:10px;color:var(--ink3)">Grey = last week · coloured = this week</div>`;
 }
+
 
 // ══════════════════════════════════════════
 // MORTGAGE RATE CHECKER  —  Euribor + ECB countdown
@@ -9369,32 +9416,10 @@ function onFuelOdoInput() {
   // Auto-fill trip km if we have a previous reading
   if (odo > 0 && last != null) {
     const trip = odo - last;
-    const tripEl = el('fuel-trip-km');
-    if (tripEl && !tripEl.dataset.userEdited) tripEl.value = trip > 0 ? trip : '';
     const th = el('fuel-trip-helper');
     if (th) th.textContent = trip > 0 ? '' : '';
   }
   updateOdoHelper();
-}
-
-function onFuelTripKmInput() {
-  const trip = parseFloat(el('fuel-trip-km')?.value);
-  const last = _lastRecordedOdo();
-  const tripEl = el('fuel-trip-km');
-  if (tripEl) tripEl.dataset.userEdited = '1';
-
-  const th = el('fuel-trip-helper');
-  if (!trip || trip <= 0) { if (th) th.textContent = ''; return; }
-
-  if (last != null) {
-    const newOdo = last + trip;
-    const odoEl  = el('fuel-odo');
-    if (odoEl) odoEl.value = newOdo;
-    if (th) th.innerHTML = `Odometer → <strong>${newOdo.toLocaleString('de-AT')} km</strong> <span style="color:var(--ink3)">(${last.toLocaleString('de-AT')} + ${trip.toLocaleString('de-AT')})</span>`;
-    updateOdoHelper();
-  } else {
-    if (th) th.textContent = 'No previous odometer — fill full odometer instead';
-  }
 }
 
 
