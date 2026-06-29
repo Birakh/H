@@ -891,6 +891,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <span class="auto-theme-badge" id="auto-theme-badge" onclick="toggleAutoTheme()" title="Scheduled dark/light mode" style="display:none">auto</span>
       <button class="btn xs" onclick="ghPull()">↓ Pull</button>
       <button class="btn xs primary" onclick="ghPush()">↑ Push</button>
+      <span id="selftest-badge" title="Self-test found issues — open Settings → Self-test for details" style="display:none;cursor:pointer;font-size:11px;font-weight:600;padding:3px 7px;background:var(--Rbg);color:var(--Rm);border-radius:5px;border:.5px solid var(--Rm)" onclick="nav('settings');setTimeout(()=>runSelfTest(),100)">⚠ self-test</span>
       <button class="theme-btn" id="theme-btn" onclick="manualToggleTheme()" title="Toggle dark mode">
         <svg id="theme-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3.5"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.11" y2="4.11"/><line x1="11.89" y1="11.89" x2="12.95" y2="12.95"/><line x1="12.95" y1="3.05" x2="11.89" y2="4.11"/><line x1="4.11" y1="11.89" x2="3.05" y2="12.95"/></svg>
       </button>
@@ -3382,7 +3383,11 @@ async function ghPush() {
     async () => {
       _isSyncing = true;
       setSyncBadge('pushing…');
-      try { await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); markClean(); updateLastSync(); }
+      try {
+        await doPush(); toast('Pushed to GitHub'); setSyncBadge(''); markClean(); updateLastSync();
+        // Run self-test silently after every successful push and surface failures as a header badge
+        setTimeout(silentSelfTest, 400);
+      }
       catch(e) {
         if (e.message.includes('Conflict')) {
           toast('Conflict detected — merging with remote…', 0);
@@ -3398,6 +3403,68 @@ function setSyncBadge(s) { el('sync-badge').textContent = s||'idle'; }
 function updateLastSync() {
   const ls = DATA?.meta?.lastSync;
   el('last-sync').textContent = ls ? `Last synced ${new Date(ls).toLocaleTimeString()}` : '';
+}
+
+// ── Silent post-push self-test ────────────────────────────────────────────────
+// Runs the same integrity checks as runSelfTest() but silently — no DOM writes
+// to the Settings panel. Only updates the header badge if issues are found.
+function silentSelfTest() {
+  try {
+    const failures = [];
+
+    // 1. Duplicate element ids
+    const idCounts = {};
+    document.querySelectorAll('[id]').forEach(n => { idCounts[n.id] = (idCounts[n.id]||0)+1; });
+    const dupIds = Object.entries(idCounts).filter(([,c])=>c>1);
+    if (dupIds.length) failures.push(`${dupIds.length} duplicate id(s): ${dupIds.map(([id])=>id).join(', ')}`);
+
+    // 2. Duplicate top-level function declarations
+    const scriptSrc = [...document.querySelectorAll('script')].map(s=>s.textContent).join('\n');
+    const fnCounts = {};
+    for (const m of scriptSrc.matchAll(/^function\s+([a-zA-Z0-9_$]+)\s*\(/gm))
+      fnCounts[m[1]] = (fnCounts[m[1]]||0)+1;
+    const dupFns = Object.entries(fnCounts).filter(([,c])=>c>1);
+    if (dupFns.length) failures.push(`${dupFns.length} duplicate function(s): ${dupFns.map(([n])=>n).join(', ')}`);
+
+    // 3. Inline handler → function resolution
+    const ATTRS = ['onclick','onchange','oninput','onkeydown','onkeyup','ondblclick','onmousedown','onblur','onfocus','onsubmit'];
+    const JS_KW = new Set(['if','for','while','switch','catch','return','typeof','new','function']);
+    const HELPERS = { el, esc, fmt, ym, ymd, uid, isDark, isSavingsEntry, isSpendEntry, isOutflowEntry, isInCategoryBucket, entryTypeFor, fifoAvgCost, fifoTotalShares };
+    const missingFns = new Set();
+    document.querySelectorAll(ATTRS.map(a=>`[${a}]`).join(',')).forEach(node => {
+      ATTRS.forEach(attr => {
+        const code = node.getAttribute(attr); if (!code) return;
+        for (const m of code.matchAll(/(?<![.\w])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g)) {
+          const name = m[1]; if (JS_KW.has(name)) continue;
+          if (typeof window[name] !== 'function' && typeof HELPERS[name] !== 'function') missingFns.add(name);
+        }
+      });
+    });
+    if (missingFns.size) failures.push(`${missingFns.size} unresolved handler(s): ${[...missingFns].join(', ')}`);
+
+    // 4. Schema migration idempotency
+    try {
+      const once  = migrate(JSON.parse(JSON.stringify(DATA)));
+      const twice = migrate(JSON.parse(JSON.stringify(once)));
+      if (once.v !== SCHEMA_VERSION) failures.push(`Migration landed on v${once.v}, expected v${SCHEMA_VERSION}`);
+      else if (JSON.stringify(once) !== JSON.stringify(twice)) failures.push('A migration step is not idempotent');
+    } catch(e) { failures.push(`Migration threw: ${e.message}`); }
+
+    // Update the header badge
+    const badge = el('selftest-badge');
+    if (!badge) return;
+    if (failures.length) {
+      badge.title = `Self-test: ${failures.length} issue(s) after push — click for details\n${failures.join('\n')}`;
+      badge.style.display = '';
+      // Also update the Settings badge if it's visible
+      const stBadge = el('st-badge');
+      if (stBadge) stBadge.innerHTML = `<span style="color:var(--Rm);font-weight:600">${failures.length} issue(s)</span>`;
+    } else {
+      badge.style.display = 'none';
+      const stBadge = el('st-badge');
+      if (stBadge && stBadge.innerHTML) stBadge.innerHTML = `<span style="color:var(--Gm)">✓ all clear</span>`;
+    }
+  } catch(_) { /* silent — never interrupt normal flow */ }
 }
 
 // ══════════════════════════════════════════
@@ -6446,9 +6513,14 @@ function getCategoryCarry(key, month) {
   const prevMon   = prevMonStr(month);
   const prevSaved = DATA.incomes[prevMon];
   if (!prevSaved || !prevSaved.amount) return 0;
-  const prevInc   = prevSaved.amount;
   const prevMes   = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevCatSpent = prevMes.filter(e => isInCategoryBucket(e, key)).reduce((s,e)=>s+e.amount,0);
+  // Mirror renderDash budgetInc logic exactly: salary is the baseline, income
+  // entries are additive only when no salary is set.  This keeps carry targets
+  // consistent with what the split bars show for the same month.
+  const base      = prevSaved.amount;
+  const addInc    = prevMes.filter(e => e.type === 'income').reduce((s,e) => s+e.amount, 0);
+  const prevInc   = base > 0 ? base : (addInc || 0);
+  const prevCatSpent  = prevMes.filter(e => isInCategoryBucket(e, key)).reduce((s,e) => s+e.amount, 0);
   const prevCatBudget = prevInc * (DATA.splits[key]||0) / 100;
   return Math.max(0, +(prevCatBudget - prevCatSpent).toFixed(2));
 }
@@ -8083,7 +8155,22 @@ function srHideTip() { ['sr-tipbg','sr-tiptxt'].forEach(id=>{const e=el(id);if(e
 function renderNwTrajectory() {
   const wrap = el('nw-trajectory'); if (!wrap) return;
 
-  // Current net worth = accounts + stocks + FX + goals
+  const now = new Date();
+
+  // ── Real history from nwHistory snapshots ─────────────────────────────
+  // Keep last 24 months of snapshots, one per month (last snapshot per month-key)
+  const hist = (DATA.nwHistory||[])
+    .slice()
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  // Deduplicate to one point per month (latest in that month)
+  const histByMonth = {};
+  hist.forEach(p => { histByMonth[p.date.slice(0,7)] = p; });
+  const histPts = Object.values(histByMonth)
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .slice(-24); // last 24 months
+
+  // ── Current net worth ──────────────────────────────────────────────────
   const acctNw    = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
   const stocksEur = (DATA.stocks||[]).reduce((s,st) => {
     const rate = (typeof _fxRates!=='undefined'&&_fxRates[st.currency])||null;
@@ -8091,10 +8178,9 @@ function renderNwTrajectory() {
     return s + (st.currency==='EUR'?native:(rate?native*rate:0));
   }, 0);
   const goalsSaved = (DATA.savingsGoals||[]).reduce((s,g)=>s+(+g.saved||0),0);
-  const currentNW = acctNw + stocksEur + goalsSaved;
+  const currentNW  = acctNw + stocksEur + goalsSaved;
 
-  // Average monthly savings over last 6 months with data
-  const now = new Date();
+  // ── Projection parameters ──────────────────────────────────────────────
   const recentMonths = [];
   for (let i=1;i<=6;i++) {
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
@@ -8106,110 +8192,171 @@ function renderNwTrajectory() {
     return nonZero.length ? nonZero.reduce((a,b)=>a+b,0)/nonZero.length : 0;
   })();
 
-  // Pull real return from FIRE calc if visible, else default 5%
-  const ret  = parseFloat(el('fire-ret')?.value) || 5;
-  const exp  = parseFloat(el('fire-exp')?.value) || 0;
-  const swr  = parseFloat(el('fire-swr')?.value) || 3.5;
+  const ret     = parseFloat(el('fire-ret')?.value)    || 5;
+  const exp     = parseFloat(el('fire-exp')?.value)    || 0;
+  const swr     = parseFloat(el('fire-swr')?.value)    || 3.5;
   const pension = parseFloat(el('fire-pension')?.value) || 0;
-  const annualExp = (exp - pension) * 12;
+  const annualExp  = (exp - pension) * 12;
   const fireNumber = annualExp > 0 ? annualExp / (swr/100) : 0;
 
-  if (avgMonthlySavings <= 0 && currentNW <= 0) {
+  const hasData = avgMonthlySavings > 0 || currentNW > 0 || histPts.length > 0;
+  if (!hasData) {
     wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Add savings entries and account balances to see your trajectory.</div>';
     return;
   }
 
-  // Project 30 years monthly
-  const r = (ret/100)/12;
-  const N = 360;
-  const pts = [];
+  // ── Build combined point series ────────────────────────────────────────
+  // Left side: real nwHistory snapshots (grey, solid)
+  // Divider: today
+  // Right side: projection from currentNW (blue, dashed area)
+  const r  = (ret/100)/12;
+  const N  = 240; // 20 years forward
+  const projPts = [];
   let portfolio = currentNW;
   for (let i=0;i<=N;i++) {
-    pts.push({ i, v: portfolio });
+    projPts.push({ i, v: portfolio, proj: true });
     if (i<N) portfolio = portfolio*(1+r) + avgMonthlySavings;
   }
 
-  // Find FIRE crossing
+  // Find FIRE crossing in projection
   let fireMonth = null;
   if (fireNumber > currentNW) {
-    const idx = pts.findIndex(p => p.v >= fireNumber);
-    fireMonth = idx >= 0 ? idx : null; // null = not reachable within 30 years
+    const idx = projPts.findIndex(p => p.v >= fireNumber);
+    fireMonth = idx >= 0 ? idx : null;
   } else if (fireNumber > 0 && currentNW >= fireNumber) {
     fireMonth = 0;
   }
 
-  // Thin out to ~60 points for SVG
-  const step = Math.max(1, Math.floor(N/60));
-  const sparse = pts.filter((_,i) => i%step===0 || i===N);
-
-  const W=600,H=140,padL=60,padR=16,padT=12,padB=28;
+  // ── SVG layout ─────────────────────────────────────────────────────────
+  const W=600, H=150, padL=58, padR=14, padT=12, padB=26;
   const cW=W-padL-padR, cH=H-padT-padB;
-  const vals = sparse.map(p=>p.v);
-  const minV = Math.min(0,...vals), maxV = Math.max(...vals,1);
-  const range = maxV-minV||1;
-  const xS = i => padL+(i/(sparse.length-1))*cW;
-  const yS = v => padT+cH-((v-minV)/range)*cH;
 
-  const fmtAx = v => { const a=Math.abs(v),s=v<0?'-':''; if(a>=1e6) return s+'€'+(a/1e6).toFixed(1)+'M'; if(a>=1000) return s+'€'+Math.round(a/1000)+'k'; return s+'€'+Math.round(a); };
+  // Axis range covers both history and projection
+  const histVals = histPts.map(p=>p.nw);
+  const projVals = projPts.filter((_,i)=>i%12===0).map(p=>p.v);
+  const minV = Math.min(0, ...histVals, ...projVals);
+  const maxV = Math.max(...histVals, ...projVals, 1);
+  const range = maxV - minV || 1;
 
-  const polyPts = sparse.map((p,i)=>`${xS(i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ');
-  const lineClr = 'var(--Bm)';
-  const areaD = `M${xS(0).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} `+sparse.map((p,i)=>`L${xS(i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ')+` L${xS(sparse.length-1).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} Z`;
+  const fmtAx = v => {
+    const a=Math.abs(v), s=v<0?'-':'';
+    if (a>=1e6) return s+'€'+(a/1e6).toFixed(1)+'M';
+    if (a>=1000) return s+'€'+Math.round(a/1000)+'k';
+    return s+'€'+Math.round(a);
+  };
 
-  // FIRE dot
-  const fireDot = fireMonth !== null && fireMonth <= N && fireMonth >= 0 ? (() => {
-    const fi = sparse.findIndex(p=>p.i>=fireMonth);
-    if (fi<0) return '';
-    const fx=xS(fi).toFixed(1), fy=yS(fireNumber).toFixed(1);
-    const yr = Math.floor(fireMonth/12);
-    const fireDate = new Date(now.getFullYear(),now.getMonth()+fireMonth);
-    const label = `FIRE ${fireDate.toLocaleDateString('de-AT',{month:'short',year:'numeric'})}`;
+  // History occupies left portion of chart; projection occupies right.
+  // Total "months" = histPts.length (past) + N (future)
+  const totalMo = histPts.length + N;
+  const histFrac = histPts.length / totalMo;
+  const todayX   = padL + histFrac * cW;
+
+  const xForHist = i => padL + (i / Math.max(histPts.length-1,1)) * (histFrac * cW);
+  const xForProj = i => todayX + (i / N) * ((1-histFrac) * cW);
+  const yS = v => padT + cH - ((v-minV)/range)*cH;
+
+  // History polyline
+  const histLine = histPts.length >= 2
+    ? `<polyline points="${histPts.map((p,i)=>`${xForHist(i).toFixed(1)},${yS(p.nw).toFixed(1)}`).join(' ')}"
+        fill="none" stroke="var(--ink3)" stroke-width="1.5" stroke-linejoin="round" opacity=".7"/>`
+    : '';
+  // Dot at each history point
+  const histDots = histPts.map((p,i) =>
+    `<circle cx="${xForHist(i).toFixed(1)}" cy="${yS(p.nw).toFixed(1)}" r="2.5"
+      fill="var(--ink3)" opacity=".6" title="${p.date}: ${fmtAx(p.nw)}"/>`
+  ).join('');
+
+  // Projection line + area
+  const sparseProjStep = Math.max(1, Math.floor(N/80));
+  const sparseProj = projPts.filter((_,i) => i%sparseProjStep===0 || i===N);
+  const projPolyPts = sparseProj.map((p,i)=>`${xForProj(p.i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ');
+  const projAreaD = `M${xForProj(0).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} `
+    + sparseProj.map(p=>`L${xForProj(p.i).toFixed(1)},${yS(p.v).toFixed(1)}`).join(' ')
+    + ` L${xForProj(N).toFixed(1)},${yS(Math.max(0,minV)).toFixed(1)} Z`;
+
+  // Today divider line
+  const todayLine = histPts.length > 0
+    ? `<line x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${padT+cH}"
+        stroke="var(--ink3)" stroke-width="1" stroke-dasharray="3,3" opacity=".4"/>
+       <text x="${todayX.toFixed(1)}" y="${padT-2}" text-anchor="middle" font-size="8" fill="var(--ink3)">today</text>`
+    : '';
+
+  // FIRE dot + line
+  const fireLineY = fireNumber>0 && fireNumber>=minV && fireNumber<=maxV ? yS(fireNumber) : null;
+  const fireLine = fireLineY
+    ? `<line x1="${padL}" y1="${fireLineY.toFixed(1)}" x2="${W-padR}" y2="${fireLineY.toFixed(1)}"
+        stroke="var(--Gm)" stroke-width="1" stroke-dasharray="5,3" opacity=".6"/>
+       <text x="${padL-3}" y="${fireLineY.toFixed(1)}" text-anchor="end" font-size="8" fill="var(--Gm)" dominant-baseline="middle">FIRE</text>`
+    : '';
+  const fireDot = fireMonth!==null && fireMonth<=N && fireMonth>=0 ? (() => {
+    const fx = xForProj(fireMonth).toFixed(1);
+    const fy = yS(fireNumber).toFixed(1);
+    const fireDate = new Date(now.getFullYear(), now.getMonth()+fireMonth);
+    const lbl = `FIRE ${fireDate.toLocaleDateString('de-AT',{month:'short',year:'numeric'})}`;
     return `<circle cx="${fx}" cy="${fy}" r="6" fill="var(--Gm)" stroke="var(--s0)" stroke-width="2"/>
-      <text x="${fx}" y="${(+fy-10).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--Gm)" font-weight="600">${label}</text>`;
+      <text x="${fx}" y="${(+fy-10).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--Gm)" font-weight="600">${lbl}</text>`;
   })() : '';
 
-  // FIRE horizontal target line
-  const fireLineY = fireNumber>0 && fireNumber>=minV && fireNumber<=maxV ? yS(fireNumber) : null;
-  const fireLine = fireLineY ? `<line x1="${padL}" y1="${fireLineY.toFixed(1)}" x2="${W-padR}" y2="${fireLineY.toFixed(1)}" stroke="var(--Gm)" stroke-width="1" stroke-dasharray="5,3" opacity=".6"/>
-    <text x="${padL-3}" y="${fireLineY.toFixed(1)}" text-anchor="end" font-size="8" fill="var(--Gm)" dominant-baseline="middle">FIRE</text>` : '';
+  // X-axis labels: key history dates + future years
+  const xLabels = [];
+  if (histPts.length > 0) {
+    // First and last history point
+    [0, histPts.length-1].forEach(i => {
+      if (!histPts[i]) return;
+      xLabels.push(`<text x="${xForHist(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${histPts[i].date.slice(0,7)}</text>`);
+    });
+  }
+  // Future year labels every 5 years
+  for (let mo=60; mo<=N; mo+=60) {
+    const d = new Date(now.getFullYear(), now.getMonth()+mo);
+    xLabels.push(`<text x="${xForProj(mo).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="var(--chart-txt)">${d.getFullYear()}</text>`);
+  }
 
-  const xLabels = sparse.map((p,i) => {
-    if (i%(Math.ceil(sparse.length/6))!==0 && i!==sparse.length-1) return '';
-    const d=new Date(now.getFullYear(),now.getMonth()+p.i); const lbl=`${d.getFullYear()}`;
-    return `<text x="${xS(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="var(--chart-txt)">${lbl}</text>`;
-  }).join('');
-  const yTicks=[minV,(minV+maxV)/2,maxV].map(v=>`<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`).join('');
+  // Y ticks
+  const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`
+  ).join('');
 
-  const fireYrStr = fireMonth === null   ? '> 30 years'
-                  : fireMonth === 0     ? 'already reached 🎉'
-                  : `${Math.floor(fireMonth/12)}y ${fireMonth%12}m`;
+  const fireYrStr = fireMonth===null ? '> 20 years'
+    : fireMonth===0 ? 'already reached 🎉'
+    : `${Math.floor(fireMonth/12)}y ${fireMonth%12}m`;
 
   wrap.innerHTML = `
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
       <span style="color:var(--ink3)">Current NW: <strong>${fmtAx(currentNW)}</strong></span>
       <span style="color:var(--ink3)">Avg monthly savings: <strong>${fmt(avgMonthlySavings)}</strong></span>
-      <span style="color:var(--ink3)">Real return: <strong>${ret}%</strong></span>
-      ${fireNumber>0?`<span style="color:var(--ink3)">FIRE number: <strong style="color:var(--Gm)">${fmtAx(fireNumber)}</strong></span>`:''}
+      <span style="color:var(--ink3)">Return: <strong>${ret}%</strong></span>
+      ${fireNumber>0?`<span style="color:var(--ink3)">FIRE: <strong style="color:var(--Gm)">${fmtAx(fireNumber)}</strong></span>`:''}
       ${fireMonth===0?`<span style="color:var(--Gm);font-weight:600">🎉 FIRE already reached!</span>`
         :fireMonth!==null?`<span style="color:var(--Gm);font-weight:600">📅 FIRE in ${fireYrStr}</span>`
         :fireNumber>0?`<span style="color:var(--Am);font-weight:500">📅 FIRE in ${fireYrStr} at current rate</span>`:''}
     </div>
-    <div style="position:relative">
-      <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-        <defs><linearGradient id="trajGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${lineClr}" stop-opacity=".2"/>
-          <stop offset="100%" stop-color="${lineClr}" stop-opacity="0"/>
-        </linearGradient></defs>
-        ${fireLine}
-        <path d="${areaD}" fill="url(#trajGrad)"/>
-        <polyline points="${polyPts}" fill="none" stroke="${lineClr}" stroke-width="2" stroke-linejoin="round"/>
-        ${fireDot}
-        ${yTicks}
-        ${xLabels}
-      </svg>
-    </div>
-    <div style="font-size:11px;color:var(--ink3);margin-top:6px">Based on avg monthly savings from last 6 months with data · ${ret}% real return (from FIRE calc) · Stocks valued at current prices</div>`;
+    <svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="trajGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--Bm)" stop-opacity=".18"/>
+          <stop offset="100%" stop-color="var(--Bm)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${fireLine}
+      ${todayLine}
+      <path d="${projAreaD}" fill="url(#trajGrad)"/>
+      <polyline points="${projPolyPts}" fill="none" stroke="var(--Bm)" stroke-width="2"
+        stroke-dasharray="${histPts.length>0?'6,3':'none'}" stroke-linejoin="round"/>
+      ${histLine}
+      ${histDots}
+      ${fireDot}
+      ${yTicks}
+      ${xLabels.join('')}
+    </svg>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap">
+      ${histPts.length>0
+        ?`<span>── Real history (${histPts.length} snapshots)</span><span style="opacity:.6">╌╌ Projection</span>`
+        :`<span>No history yet — snapshots recorded on each save. Showing projection only.</span>`}
+      <span>20-year forward view · ${ret}% real return</span>
+    </div>`;
 }
+
 
 // ══════════════════════════════════════════
 // SUBSCRIPTION DETECTOR
