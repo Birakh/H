@@ -3926,7 +3926,12 @@ function setMonthIncome(month, amount, formula) {
 // ══════════════════════════════════════════
 function boot() {
   buildMonthSelects();
-  const savedMonth = localStorage.getItem(LS_MONTH) || new Date().toISOString().slice(0,7);
+  // Overview should always open on the real current month/day — a stale month left
+  // over from a previous session (e.g. app was last viewed in June, reopened in July)
+  // used to persist via localStorage and silently desync both the dashboard and the
+  // Entries tab's default entry date. Always start on today's month; in-session
+  // navigation still works and is remembered only for the duration of this load.
+  const savedMonth = curMonStr();
   setMonthSelects(savedMonth);
   _entryMonthVal = savedMonth;
   el('ef-date').value = defaultEntryDate();
