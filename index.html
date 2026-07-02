@@ -68,6 +68,7 @@ input[type=date],input[type=month]{width:auto}
 input[type=range]{padding:0;border:none;background:var(--s2);box-shadow:none;border-radius:100px}
 textarea{resize:vertical;min-height:52px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g2-span{grid-column:1/-1}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 
@@ -912,12 +913,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <!-- Recurring entry edit modal -->
   <div id="recur-modal-overlay" onclick="if(event.target===this)closeRecurModal()">
     <div id="recur-modal">
-      <h3>Edit recurring entry</h3>
+      <h3 id="rm-title">Edit recurring entry</h3>
       <div class="g2" style="margin-bottom:10px">
         <div class="fg" style="margin:0"><label>Description</label>
           <input type="text" id="rm-desc" style="width:100%"></div>
         <div class="fg" style="margin:0"><label>Amount (or =formula)</label>
-          <input type="text" id="rm-amt" style="font-family:var(--mono);width:100%"></div>
+          <input type="text" id="rm-amt" style="font-family:var(--mono);width:100%" oninput="rmPreviewAmt()">
+          <div id="rm-prev-amt" style="font-size:11px;color:var(--ink3);margin-top:3px;min-height:16px"></div></div>
         <div class="fg" style="margin:0"><label>Category</label>
           <select id="rm-cat" style="width:100%">
             <option value="needs">Needs</option>
@@ -940,7 +942,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="fg" style="margin:0"><label>Day of month</label>
           <input type="number" id="rm-day" min="1" max="28" step="1"
             style="font-family:var(--mono);width:100%"></div>
+        <div class="fg g2-span" style="margin:4px 0 0"><label>Note <span style="font-weight:400;color:var(--ink3)">(reason for change, optional)</span></label>
+          <input type="text" id="rm-note" placeholder="e.g. Price increase July 2026" style="width:100%"></div>
       </div>
+      <div id="rm-price-history" style="margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn ghost" onclick="closeRecurModal()">Cancel</button>
         <button class="btn primary" onclick="saveRecurModal()">Save changes</button>
@@ -4866,15 +4871,32 @@ function editRecurEntry(id) {
   const r = DATA.recurring.find(r=>r.id===id); if (!r) return;
   _editRecurId = id;
 
-  // Populate modal fields
   const set = (elId, val) => { const e=el(elId); if(e&&val!=null) e.value=val; };
   set('rm-desc', r.desc||'');
   set('rm-amt',  r.formula || r.amount || '');
   set('rm-cat',  r.category||'needs');
   set('rm-freq', r.freq||'monthly');
   set('rm-day',  r.dayOfMonth||r.day||1);
+  set('rm-note', '');
 
-  // Populate account selector from vault accounts
+  // Show "was X" hint when user types a different amount
+  const prevEl = el('rm-prev-amt');
+  if (prevEl) prevEl.textContent = r.amount ? `Current: ${fmt(r.amount)}` : '';
+
+  // Price history — last 10 changes, newest first
+  const phEl = el('rm-price-history');
+  if (phEl) {
+    const hist = (r.priceHistory||[]).slice().reverse().slice(0,8);
+    phEl.innerHTML = hist.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Price history</div>
+      ${hist.map(h=>`<div style="display:flex;gap:10px;font-size:11px;padding:3px 0;border-bottom:.5px solid var(--bdr)">
+        <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${h.date}</span>
+        <span style="font-family:var(--mono);color:${h.dir==='up'?'var(--Rm)':h.dir==='down'?'var(--Gm)':'var(--ink2)'}">${h.dir==='up'?'▲':h.dir==='down'?'▼':''}${fmt(h.amount)}</span>
+        ${h.note?`<span style="color:var(--ink3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.note)}</span>`:''}
+      </div>`).join('')}` : '';
+  }
+
+  // Account selector
   const acctSel = el('rm-acct');
   if (acctSel) {
     acctSel.innerHTML = '<option value="">No account / cash</option>'
@@ -4882,6 +4904,21 @@ function editRecurEntry(id) {
   }
 
   el('recur-modal-overlay')?.classList.add('open');
+}
+
+// Live "was X → now Y" preview as user types new amount
+function rmPreviewAmt() {
+  const r = DATA.recurring.find(r=>r.id===_editRecurId); if (!r) return;
+  const raw = el('rm-amt')?.value || '';
+  const { amount } = parseAmt(raw);
+  const prevEl = el('rm-prev-amt'); if (!prevEl) return;
+  if (amount > 0 && Math.abs(amount - r.amount) > 0.001) {
+    const dir = amount > r.amount ? '▲' : '▼';
+    const col = amount > r.amount ? 'var(--Rm)' : 'var(--Gm)';
+    prevEl.innerHTML = `Was ${fmt(r.amount)} → <strong style="color:${col}">${dir} ${fmt(amount)}</strong>`;
+  } else {
+    prevEl.textContent = r.amount ? `Current: ${fmt(r.amount)}` : '';
+  }
 }
 
 function closeRecurModal() {
@@ -4894,6 +4931,21 @@ function saveRecurModal() {
   const amtRaw = el('rm-amt')?.value || '';
   const { amount, formula } = parseAmt(amtRaw);
   if (!amount || amount <= 0) return toast('Invalid amount.', 1);
+
+  // Record price history if amount changed
+  if (Math.abs(amount - r.amount) > 0.001) {
+    if (!r.priceHistory) r.priceHistory = [];
+    const note = el('rm-note')?.value?.trim() || '';
+    r.priceHistory.push({
+      date:   ymd(),
+      amount: r.amount,           // the OLD amount being replaced
+      note,
+      dir:    amount > r.amount ? 'up' : 'down'
+    });
+    // Keep last 50 price history entries
+    if (r.priceHistory.length > 50) r.priceHistory.splice(0, r.priceHistory.length - 50);
+  }
+
   r.desc       = (el('rm-desc')?.value||'').trim();
   r.amount     = amount;
   r.formula    = formula || null;
@@ -4906,23 +4958,34 @@ function saveRecurModal() {
   toast(`"${r.desc}" updated`);
 }
 
-function applyPendingRecur() {
-  const month  = curMonth();
-  const today  = ymd();
-  const applied= [];
-  (DATA.recurring||[]).filter(r=>r.active!==false).forEach(r => {
-    const already = DATA.entries.some(e => e.recurId===r.id && ym(e.date)===month);
-    if (already) return;
-    const dayTarget = r.dayOfMonth || 1;
-    const [y,m] = month.split('-').map(Number);
-    const maxDay= new Date(y,m,0).getDate();
-    const date  = `${month}-${String(Math.min(dayTarget,maxDay)).padStart(2,'0')}`;
-    DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula||null,
-      type:r.type||'expense', category:r.category||'needs', tags:r.tags||[], accountId:r.accountId||null, recurId:r.id });
-    applied.push(r.desc);
-  });
-  if (!applied.length) return toast('No pending recurring entries for this month.');
-  saveLocal(); render(); toast(`Applied ${applied.length} recurring entr${applied.length===1?'y':'ies'}: ${applied.join(', ')}`);
+function applyPendingRecur() { applyRecurring(curMonth()); }
+
+// Inline quick-edit: double-click the amount in the list → becomes an input.
+// Saves on Enter or blur; Escape cancels. Records price history just like the modal.
+function quickEditRecurAmt(id, span) {
+  const r = DATA.recurring.find(x=>x.id===id); if (!r) return;
+  const oldAmt = r.amount;
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = r.formula || r.amount;
+  inp.style.cssText = 'font-family:var(--mono);font-size:12px;width:90px;padding:1px 4px;border:1px solid var(--Bm);border-radius:3px;background:var(--s0);color:var(--ink)';
+  span.replaceWith(inp);
+  inp.select();
+
+  const commit = () => {
+    const { amount, formula } = parseAmt(inp.value);
+    if (!amount || amount <= 0) { renderRecurList(); return; }
+    if (Math.abs(amount - oldAmt) > 0.001) {
+      if (!r.priceHistory) r.priceHistory = [];
+      r.priceHistory.push({ date: ymd(), amount: oldAmt, note: '', dir: amount > oldAmt ? 'up' : 'down' });
+      if (r.priceHistory.length > 50) r.priceHistory.splice(0, r.priceHistory.length - 50);
+      r.amount = amount; r.formula = formula || null;
+      saveLocal();
+      toast(`${r.desc}: ${fmt(oldAmt)} → ${fmt(amount)}`);
+    }
+    renderRecurList();
+  };
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); commit(); } if (e.key==='Escape') renderRecurList(); });
+  inp.addEventListener('blur', () => setTimeout(commit, 100));
 }
 
 function renderRecurList() {
@@ -4942,7 +5005,10 @@ function renderRecurList() {
     const dueDate = `${month}-${String(dueDay).padStart(2,'0')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
       <span style="flex:1;font-size:13px;min-width:120px">${esc(r.desc)||'—'}</span>
-      <span class="${r.type==='income'||r.type==='savings'?'amt-p':'amt-n'} num">${r.type==='income'||r.type==='savings'?'+':'−'}${fmt(r.amount)}</span>
+      <span class="${r.type==='income'||r.type==='savings'?'amt-p':'amt-n'} num"
+        title="Double-click to quick-edit price"
+        ondblclick="quickEditRecurAmt('${r.id}',this)"
+        style="cursor:pointer">${r.type==='income'||r.type==='savings'?'+':'−'}${fmt(r.amount)}${(r.priceHistory||[]).length?` <span style="font-size:9px;opacity:.6" title="${(r.priceHistory||[]).length} price change(s)">↕</span>`:''}</span>
       <span class="badge ${esc(r.category)}">${esc(r.category)}</span>
       <span class="recur-badge">↻ ${freqLabel[r.freq||'monthly']}</span>
       <span class="muted" style="font-size:10px">day ${dueDay}</span>
@@ -4950,7 +5016,7 @@ function renderRecurList() {
         ${alreadyApplied?'✓ applied':'pending '+dueDate}
       </span>
       ${(()=>{const acct=DATA.accounts?.find(a=>a.id===r.accountId);return acct?`<span style="font-size:10px;color:var(--ink3);padding:1px 5px;border-radius:3px;background:var(--s2)">${esc(acct.name)}</span>`:r.accountId?'':'';})()}
-      <button class="btn xs ghost" onclick="editRecurEntry('${r.id}')" title="Edit">✎</button>
+      <button class="btn xs ghost" onclick="editRecurEntry('${r.id}')" title="Edit all fields">✎</button>
       <button class="btn xs danger" onclick="deleteRecur('${r.id}')">✕</button>
     </div>`;
   }).join('');
