@@ -4859,7 +4859,7 @@ async function applyRecurring(month) {
 
     toAdd.forEach(date => {
       DATA.entries.unshift({ id:uid(), date, desc:r.desc, amount:r.amount, formula:r.formula,
-        type:r.type, category:r.category, tags:[], recurId:r.id });
+        type:r.type, category:r.category, tags:[], recurId:r.id, accountId:r.accountId||null });
       added++;
     });
   });
@@ -5290,17 +5290,17 @@ function makeAcctEditable(td, entryId) {
   sel.addEventListener('change', () => {
     if (committed) return;
     committed = true;
-    commitAcctEdit(entryId, sel.value);
+    commitAcctEdit(entryId, sel.value, td);
   });
 
   sel.addEventListener('blur', () => {
-    // If change already committed, render() already ran — nothing to do.
-    // If user clicked away without selecting, just restore the cell.
-    if (!committed) render();
+    // If change already committed, the cell was already restored — nothing to do.
+    // If user clicked away without selecting, just restore the cell display.
+    if (!committed) restoreAcctCell(td, entryId);
   });
 
   sel.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { committed = true; render(); }
+    if (e.key === 'Escape') { committed = true; restoreAcctCell(td, entryId); }
   });
 
   td.textContent = '';
@@ -5309,15 +5309,33 @@ function makeAcctEditable(td, entryId) {
   sel.focus();
 }
 
-async function commitAcctEdit(entryId, acctId) {
+// Rebuilds just the account cell's display (name or —) and re-attaches the click handler.
+// Used instead of a full render() so editing an entry's account doesn't blow away the
+// rest of the Entries table — a full re-render destroys the just-used <select> while it
+// still has focus, which makes most browsers snap scroll position back to the top.
+function restoreAcctCell(td, entryId) {
+  const entry = DATA.entries.find(e => e.id === entryId);
+  if (!entry || !td) return;
+  const acct = DATA.accounts.find(a => a.id === entry.accountId);
+  td.innerHTML = acct
+    ? `<span style="font-size:11px;color:var(--ink2)">${esc(acct.name)}</span>`
+    : `<span class="muted" style="font-size:11px">—</span>`;
+  td.style.cursor = 'pointer';
+  td.onclick = () => makeAcctEditable(td, entryId);
+}
+
+async function commitAcctEdit(entryId, acctId, td) {
   try {
     const e = DATA.entries.find(x => x.id === entryId); if (!e) return;
     e.accountId = acctId || null;
     saveLocal();
-    // Refresh account cards + net worth — account balance totals changed
+    // Update just this cell — avoids a full renderEntries() re-render, which would
+    // destroy the <select> mid-interaction and jump scroll to the top of the page.
+    restoreAcctCell(td, entryId);
+    // Account balances changed — refresh the cards/timeline that show totals, but
+    // these live in the Dashboard section and don't touch the Entries table.
     renderAccountCards();
     if (VIEW === 'dash') renderNetWorthTimeline();
-    render();
   } catch(err) { toast(err.message || 'Failed to update account.', 1); }
 }
 
