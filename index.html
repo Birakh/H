@@ -3433,14 +3433,13 @@ function silentSelfTest() {
 
     // 3. Inline handler → function resolution
     const ATTRS = ['onclick','onchange','oninput','onkeydown','onkeyup','ondblclick','onmousedown','onblur','onfocus','onsubmit'];
-    const JS_KW = new Set(['if','for','while','switch','catch','return','typeof','new','function']);
     const HELPERS = { el, esc, fmt, ym, ymd, uid, isDark, isSavingsEntry, isSpendEntry, isOutflowEntry, isInCategoryBucket, entryTypeFor, fifoAvgCost, fifoTotalShares };
     const missingFns = new Set();
     document.querySelectorAll(ATTRS.map(a=>`[${a}]`).join(',')).forEach(node => {
       ATTRS.forEach(attr => {
         const code = node.getAttribute(attr); if (!code) return;
         for (const m of code.matchAll(/(?<![.\w])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g)) {
-          const name = m[1]; if (JS_KW.has(name)) continue;
+          const name = m[1]; if (_SELFTEST_JS_KEYWORDS.has(name)) continue;
           if (typeof window[name] !== 'function' && typeof HELPERS[name] !== 'function') missingFns.add(name);
         }
       });
@@ -12498,7 +12497,10 @@ function vhJumpToEntry(id) {
 // not — they only exist in this script's own lexical scope. Since this self-test
 // runs inside that same <script> block it can reference them directly here.
 const _SELFTEST_HELPERS = { el, esc, fmt, ym, ymd, uid, isDark, isSavingsEntry, isSpendEntry, isOutflowEntry, isInCategoryBucket, entryTypeFor, fifoAvgCost, fifoTotalShares };
-const _SELFTEST_JS_KEYWORDS = new Set(['if','for','while','switch','catch','function','return','typeof','new']);
+const _SELFTEST_JS_KEYWORDS = new Set(['if','for','while','switch','catch','function','return','typeof','new',
+  'var','let','const','else','do','in','of','instanceof','void','delete','this','true','false','null',
+  'undefined','await','async','yield','class','extends','super','throw','try','finally','break','continue',
+  'case','default','with','debugger','export','import']);
 
 function runSelfTest() {
   const out = [];
