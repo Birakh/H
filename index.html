@@ -3266,8 +3266,13 @@ async function enterApp() {
           } catch { /* will handle below */ }
         }
         if (localData) {
+          const _wasOld = (localData.v||0) < SCHEMA_VERSION;
           DATA = migrate(localData); SALT = localSalt;
           toast(_legacyVault ? 'Loaded from local cache (legacy format — migrate in Settings)' : 'Loaded from local cache');
+          // A real schema migration just ran — verify it didn't break anything, same
+          // check that runs after every push, so upgrade issues surface immediately
+          // rather than waiting for the next manual sync.
+          if (_wasOld) setTimeout(silentSelfTest, 600);
         } else {
           DATA = FRESH(); SALT = null;
           toast('Could not decrypt local cache — starting fresh', 1);
@@ -3336,12 +3341,16 @@ async function doPull(silent=false) {
       throw new Error('Wrong passphrase — could not decrypt vault. If you just added a passphrase, the vault may still use your old token as the key. Enter your token as the passphrase to open it, then migrate.');
     }
   }
+  const _wasOld = (data.v||0) < SCHEMA_VERSION;
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
   auditRecord('pull', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
   renderDash._cacheKey = null; // force expensive re-renders on next dash visit
   await saveLocalNow();
   if (!silent) toast('Pulled from GitHub');
+  // Same reasoning as the local-cache path above — pulled data may be from an older
+  // schema version; verify the migration landed cleanly right away.
+  if (_wasOld) setTimeout(silentSelfTest, 600);
   return true;
 }
 
@@ -3434,17 +3443,20 @@ function silentSelfTest() {
     // 3. Inline handler → function resolution
     const ATTRS = ['onclick','onchange','oninput','onkeydown','onkeyup','ondblclick','onmousedown','onblur','onfocus','onsubmit'];
     const HELPERS = { el, esc, fmt, ym, ymd, uid, isDark, isSavingsEntry, isSpendEntry, isOutflowEntry, isInCategoryBucket, entryTypeFor, fifoAvgCost, fifoTotalShares };
-    const missingFns = new Set();
+    const missingFns = new Map();
     document.querySelectorAll(ATTRS.map(a=>`[${a}]`).join(',')).forEach(node => {
       ATTRS.forEach(attr => {
         const code = node.getAttribute(attr); if (!code) return;
         for (const m of code.matchAll(/(?<![.\w])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g)) {
           const name = m[1]; if (_SELFTEST_JS_KEYWORDS.has(name)) continue;
-          if (typeof window[name] !== 'function' && typeof HELPERS[name] !== 'function') missingFns.add(name);
+          if (typeof window[name] !== 'function' && typeof HELPERS[name] !== 'function') {
+            const label = node.id ? `#${node.id}` : (node.textContent||'').trim().slice(0,20) || node.tagName.toLowerCase();
+            if (!missingFns.has(name)) missingFns.set(name, `<${node.tagName.toLowerCase()} ${attr}> "${label}"`);
+          }
         }
       });
     });
-    if (missingFns.size) failures.push(`${missingFns.size} unresolved handler(s): ${[...missingFns].join(', ')}`);
+    if (missingFns.size) failures.push(`${missingFns.size} unresolved handler(s): ${[...missingFns.entries()].map(([n,l])=>`${n} (${l})`).join(', ')}`);
 
     // 4. Schema migration idempotency
     try {
@@ -12527,7 +12539,7 @@ function runSelfTest() {
 
   // 3. Inline event handlers calling a function that doesn't actually exist
   const HANDLER_ATTRS = ['onclick','onchange','oninput','onkeydown','onkeyup','ondblclick','onmousedown','onblur','onfocus','onsubmit'];
-  const missingHandlerFns = new Set();
+  const missingHandlerFns = new Map(); // name -> up to 3 short location strings, for pinpointing false positives fast
   let handlerCount = 0;
   document.querySelectorAll(HANDLER_ATTRS.map(a=>`[${a}]`).join(',')).forEach(node => {
     HANDLER_ATTRS.forEach(attr => {
@@ -12538,12 +12550,19 @@ function runSelfTest() {
         const name = m[1];
         if (_SELFTEST_JS_KEYWORDS.has(name)) continue;
         const exists = typeof window[name] === 'function' || typeof _SELFTEST_HELPERS[name] === 'function';
-        if (!exists) missingHandlerFns.add(name);
+        if (!exists) {
+          const label = node.id ? `#${node.id}` : (node.textContent||'').trim().slice(0,24) || node.tagName.toLowerCase();
+          const loc = `<${node.tagName.toLowerCase()} ${attr}> "${label}"`;
+          if (!missingHandlerFns.has(name)) missingHandlerFns.set(name, []);
+          const locs = missingHandlerFns.get(name);
+          if (locs.length < 3 && !locs.includes(loc)) locs.push(loc);
+        }
       }
     });
   });
   missingHandlerFns.size
-    ? fail(`${missingHandlerFns.size} handler function${missingHandlerFns.size===1?'':'s'} not found`, [...missingHandlerFns].join(', '))
+    ? fail(`${missingHandlerFns.size} handler function${missingHandlerFns.size===1?'':'s'} not found`,
+        [...missingHandlerFns.entries()].map(([name,locs]) => `${name} — ${locs.join(', ')}`).join(' · '))
     : pass(`All inline event handlers resolve (${handlerCount} scanned)`);
 
   // 4. Schema migrations run cleanly and are idempotent — running migrate() twice
