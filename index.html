@@ -2843,7 +2843,7 @@ const FRESH = () => ({
   splits:        { needs: 50, wants: 30, savings: 20, rollover: { needs: false, wants: false, savings: true } },
   goals:         { needs: null, wants: null, savings: null },
   savingsGoals:  [],
-  accounts:      [],
+  accounts:      [{ id: 'cash_default', name: 'Cash', bank: 'Cash', balance: 0 }],
   entries:       [],
   recurring:     [],
   installments:  [],
@@ -3709,7 +3709,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 20; // current target version
+const SCHEMA_VERSION = 21; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -3868,6 +3868,18 @@ const MIGRATIONS = [
   d => {
     if (!d.nwHistory) d.nwHistory = [];
     if (!d.splits.rollover) d.splits.rollover = { needs: false, wants: false, savings: true };
+    return d;
+  },
+  // v20 → v21 : seed a default "Cash" account. Entries with no bank account
+  // (cash purchases) had no way to be marked as intentionally cash-only —
+  // they showed up as "missing account" in Vault Health's completeness score.
+  // Giving every vault a real Cash account fixes that with zero special-casing:
+  // it behaves exactly like any other account (selectable, editable, balance-tracked).
+  // Idempotent: skipped if the vault already has an account named "Cash".
+  d => {
+    if (!d.accounts) d.accounts = [];
+    const hasCash = d.accounts.some(a => (a.name||'').trim().toLowerCase() === 'cash');
+    if (!hasCash) d.accounts.push({ id: 'cash_default', name: 'Cash', bank: 'Cash', balance: 0 });
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
