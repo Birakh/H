@@ -6931,12 +6931,12 @@ async function fetchFxRates(force = false) {
           got = true;
         }
       });
-      if (got) { _fxFailed = false; renderStocks(); return; }
+      if (got) { _fxFailed = false; renderStocks(); renderPortfolioAlloc(); return; }
     } catch { /* try next */ }
   }
 
   _fxFailed = true;
-  renderStocks();
+  renderStocks(); renderPortfolioAlloc();
 }
 
 function applyManualRate(ccy) {
@@ -6947,7 +6947,7 @@ function applyManualRate(ccy) {
     _fxFetched[ccy] = Date.now();
     const anyMissing = ['USD','ILS'].some(c => !_fxRates[c]);
     if (!anyMissing) { _fxFailed = false; el('stock-rate-row').style.display = 'none'; }
-    renderStocks();
+    renderStocks(); renderPortfolioAlloc();
   }
 }
 
@@ -7010,7 +7010,7 @@ async function addStock() {
     el('sk-name').value=''; el('sk-shares').value=''; el('sk-buy').value='';
     el('sk-native').value=''; if(el('sk-close')) el('sk-close').value='';
     el('sk-eur-preview').textContent=''; el('sk-total-preview').textContent='—';
-    saveLocal(); renderStocks();
+    saveLocal(); renderStocks(); renderPortfolioAlloc();
     toast(`${name} added`);
   } catch(e) { toast(e.message || 'Failed to add position.', 1); }
 }
@@ -7032,7 +7032,7 @@ function updateStockCurrentPrice(id, newPrice) {
   if (legExist) legExist.value = s.nativeValue;
   else s.history.push({ date: today, value: s.nativeValue });
   if (s.history.length > 90) s.history.shift();
-  saveLocal(); renderStocks();
+  saveLocal(); renderStocks(); renderPortfolioAlloc();
 }
 
 function updateStockClosePrice(id, closePrice) {
@@ -7061,7 +7061,7 @@ function logStockClose(id) {
 
 function deleteStock(id) {
   DATA.stocks = DATA.stocks.filter(s => s.id !== id);
-  saveLocal(); renderStocks(); toast('Position removed');
+  saveLocal(); renderStocks(); renderPortfolioAlloc(); toast('Position removed');
 }
 
 let _stockHistOpen = new Set();
@@ -7377,7 +7377,7 @@ function addLot(stockId) {
   s.shares      = fifoTotalShares(s);
   s.avgBuyPrice = fifoAvgCost(s);
   s.nativeValue = s.shares * (s.currentPrice || 0);
-  saveLocal(); renderStocks();
+  saveLocal(); renderStocks(); renderPortfolioAlloc();
   toast(`Lot added · ${shares} sh @ ${el('sk-currency')?.value||s.currency} ${buyPrice}`);
 }
 
@@ -7418,7 +7418,7 @@ function sellLot(stockId) {
   s.avgBuyPrice = fifoAvgCost(s);
   s.nativeValue = s.shares * (s.currentPrice || 0);
 
-  saveLocal(); renderStocks();
+  saveLocal(); renderStocks(); renderPortfolioAlloc();
   const sym = currencySymbol(s.currency);
   toast(`Sold ${sharesToSell} sh · realized ${realizedPnL >= 0 ? '+' : ''}${sym}${Math.abs(realizedPnL).toLocaleString('de-AT',{maximumFractionDigits:2})}`);
 }
@@ -7431,7 +7431,7 @@ function deleteLot(stockId, lotId) {
     s.shares      = fifoTotalShares(s);
     s.avgBuyPrice = fifoAvgCost(s);
     s.nativeValue = s.shares * (s.currentPrice || 0);
-    saveLocal(); renderStocks();
+    saveLocal(); renderStocks(); renderPortfolioAlloc();
   });
 }
 
