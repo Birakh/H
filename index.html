@@ -7266,8 +7266,8 @@ function renderStocks() {
             const pnlCls = unrealPnl === null ? '' : (unrealPnl >= 0 ? 'stock-pnl-pos' : 'stock-pnl-neg');
             return `<tr>
               <td style="font-family:var(--mono);font-size:11px">${l.date}</td>
-              <td style="font-family:var(--mono)">${l.shares.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
-              <td style="font-family:var(--mono)">${sym}${l.buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono);cursor:pointer" title="Double-click to fix" ondblclick="editLotField('${s.id}','${l.id}','shares',this)">${l.shares.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
+              <td style="font-family:var(--mono);cursor:pointer" title="Double-click to fix" ondblclick="editLotField('${s.id}','${l.id}','buyPrice',this)">${sym}${l.buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4})}</td>
               <td class="${pnlCls}" style="font-family:var(--mono)">${unrealPnl !== null ? (unrealPnl>=0?'+':'')+sym+Math.abs(unrealPnl).toLocaleString('de-AT',{maximumFractionDigits:2}) : '—'}</td>
               <td style="font-size:11px;color:var(--ink3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.note||'')}">${esc(l.note||'')}</td>
               <td><button class="btn xs danger" onclick="event.stopPropagation();deleteLot('${s.id}','${l.id}')">✕</button></td>
@@ -7287,7 +7287,7 @@ function renderStocks() {
 
           return `<div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:12px">
             <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">FIFO Lots · avg cost ${sym}${buyPrice > 0 ? buyPrice.toLocaleString('de-AT',{maximumFractionDigits:4}) : '—'}</div>
-            <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Each purchase is a separate lot. Selling uses FIFO order (oldest lots first) and records realised P&amp;L — used by the KeSt calculator. <strong>Add lot</strong> = record a buy. <strong>Record sell</strong> = FIFO-drain shares and log the gain/loss.</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Each purchase is a separate lot. Selling uses FIFO order (oldest lots first) and records realised P&amp;L — used by the KeSt calculator. <strong>Add lot</strong> = record a buy. <strong>Record sell</strong> = FIFO-drain shares and log the gain/loss. Double-click a shares or price value below to fix a typo.</div>
             ${lots.length ? `<div style="overflow-x:auto;margin-bottom:10px"><table class="stock-hist-tbl">
               <thead><tr><th>Date</th><th>Shares</th><th>Buy price</th><th>Unrealised P&L</th><th>Note</th><th></th></tr></thead>
               <tbody>${lotRows}</tbody>
@@ -7433,6 +7433,47 @@ function deleteLot(stockId, lotId) {
     s.nativeValue = s.shares * (s.currentPrice || 0);
     saveLocal(); renderStocks(); renderPortfolioAlloc();
   });
+}
+
+// Inline fix for a data-entry mistake on an existing lot — double-click the shares
+// or buy price cell to correct it directly, instead of deleting and re-adding the
+// whole lot. Does NOT touch realizedPnL history: if shares from this lot were
+// already sold via FIFO, correcting the lot after the fact won't retroactively
+// change a past sale's recorded cost basis — only future FIFO draws are affected.
+function editLotField(stockId, lotId, field, td) {
+  const s = DATA.stocks.find(x => x.id === stockId); if (!s) return;
+  const l = (s.lots||[]).find(x => x.id === lotId); if (!l) return;
+  const oldVal = l[field];
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = oldVal;
+  inp.style.cssText = 'font-family:var(--mono);font-size:12px;width:80px;padding:1px 4px;border:1px solid var(--Bm);border-radius:3px;background:var(--s0);color:var(--ink)';
+  td.replaceWith(inp);
+  inp.select();
+
+  let done = false;
+  const commit = () => {
+    if (done) return; done = true;
+    const val = parseFloat(inp.value.replace(',', '.'));
+    if (!val || val <= 0) { renderStocks(); return; }
+    if (Math.abs(val - oldVal) > 0.00001) {
+      l[field] = val;
+      s.shares      = fifoTotalShares(s);
+      s.avgBuyPrice = fifoAvgCost(s);
+      s.nativeValue = s.shares * (s.currentPrice || 0);
+      saveLocal();
+      toast(field === 'shares'
+        ? `Shares corrected: ${oldVal} → ${val}`
+        : `Buy price corrected: ${fmt(oldVal)} → ${fmt(val)}`);
+    }
+    renderStocks(); renderPortfolioAlloc();
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { done = true; renderStocks(); }
+  });
+  inp.addEventListener('blur', () => setTimeout(commit, 100));
 }
 
 // ── Wealth Calculator ─────────────────────────────────────────────────────────
