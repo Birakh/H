@@ -2426,6 +2426,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="stat"><div class="stat-lbl">Last odometer</div><div class="stat-val" id="fs-odo">—</div></div>
       </div>
 
+      <!-- ── Hybrid / EV assist (only shows once any fill-up logs EV time or fuel saved) ── -->
+      <div id="fuel-hybrid-card" style="display:none">
+        <div class="card">
+          <div class="card-title">🔋 Hybrid assist</div>
+          <div id="fuel-hybrid-stats"></div>
+        </div>
+      </div>
+
       <!-- ── Price trend chart ── -->
       <div class="card">
         <div class="card-title">Price per litre — trend
@@ -2499,6 +2507,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <label>Trip B <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">monthly km — reset each month</span></label>
             <input type="number" id="fuel-trip-b" min="0" step="1" placeholder="1 240" style="font-family:var(--mono)" oninput="onFuelTripBInput()">
             <div id="fuel-trip-b-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:14px;color:var(--ink3)"></div>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>EV time <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">hybrid — H:MM:SS from dash, or plain minutes</span></label>
+            <input type="text" id="fuel-ev-min" placeholder="0:42:15" style="font-family:var(--mono)" oninput="onFuelEvMinInput()">
+            <div id="fuel-ev-min-helper" style="font-size:11px;font-family:var(--mono);margin-top:3px;min-height:14px;color:var(--ink3)"></div>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Fuel saved (L) <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">hybrid — from trip computer</span></label>
+            <input type="number" id="fuel-saved-l" min="0" step="0.1" placeholder="1.8" style="font-family:var(--mono)">
           </div>
           <div class="fg" style="margin:0">
             <label>Notes <span style="color:var(--ink3);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">optional</span></label>
@@ -2935,6 +2952,18 @@ const fmt  = n  => '€' + Math.abs(+n||0).toLocaleString('de-AT', { minimumFrac
 const fmtS = n  => (n >= 0 ? '+' : '') + n.toLocaleString('de-AT', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const MS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const isDark = () => document.documentElement.dataset.theme === 'dark';
+
+// Wraps a re-render call that replaces a large chunk of the DOM (e.g. a full
+// list's innerHTML) so it doesn't visibly jump the page to the top. Destroying
+// a focused input mid-interaction (e.g. after committing an inline edit) makes
+// most browsers snap scroll position back to the top of the document — this
+// captures scrollY beforehand and restores it on the next two frames, after
+// the new DOM has actually been laid out.
+function preserveScroll(renderFn) {
+  const y = window.scrollY;
+  renderFn();
+  requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+}
 
 // Single source of truth for "is this entry savings?" — an entry counts as savings
 // if it's the dedicated type, OR the legacy combo (type='expense', category='savings')
@@ -5001,7 +5030,7 @@ function quickEditRecurAmt(id, span) {
 
   const commit = () => {
     const { amount, formula } = parseAmt(inp.value);
-    if (!amount || amount <= 0) { renderRecurList(); return; }
+    if (!amount || amount <= 0) { preserveScroll(renderRecurList); return; }
     if (Math.abs(amount - oldAmt) > 0.001) {
       if (!r.priceHistory) r.priceHistory = [];
       r.priceHistory.push({ date: ymd(), amount: oldAmt, note: '', dir: amount > oldAmt ? 'up' : 'down' });
@@ -5010,9 +5039,9 @@ function quickEditRecurAmt(id, span) {
       saveLocal();
       toast(`${r.desc}: ${fmt(oldAmt)} → ${fmt(amount)}`);
     }
-    renderRecurList();
+    preserveScroll(renderRecurList);
   };
-  inp.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); commit(); } if (e.key==='Escape') renderRecurList(); });
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); commit(); } if (e.key==='Escape') preserveScroll(renderRecurList); });
   inp.addEventListener('blur', () => setTimeout(commit, 100));
 }
 
@@ -7456,7 +7485,7 @@ function editLotField(stockId, lotId, field, td) {
   const commit = () => {
     if (done) return; done = true;
     const val = parseFloat(inp.value.replace(',', '.'));
-    if (!val || val <= 0) { renderStocks(); return; }
+    if (!val || val <= 0) { preserveScroll(renderStocks); return; }
     if (Math.abs(val - oldVal) > 0.00001) {
       l[field] = val;
       s.shares      = fifoTotalShares(s);
@@ -7467,11 +7496,11 @@ function editLotField(stockId, lotId, field, td) {
         ? `Shares corrected: ${oldVal} → ${val}`
         : `Buy price corrected: ${fmt(oldVal)} → ${fmt(val)}`);
     }
-    renderStocks(); renderPortfolioAlloc();
+    preserveScroll(() => { renderStocks(); renderPortfolioAlloc(); });
   };
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { done = true; renderStocks(); }
+    if (e.key === 'Escape') { done = true; preserveScroll(renderStocks); }
   });
   inp.addEventListener('blur', () => setTimeout(commit, 100));
 }
@@ -9931,6 +9960,41 @@ function renderFuelSmartStats(records) {
   </div>`;
 }
 
+// Hybrid / mild-hybrid vehicles (e.g. Subaru e-Boxer) show electric-only drive
+// time and fuel saved on the trip computer since the last fill-up. This card
+// only appears once at least one fill-up has logged either value — otherwise
+// it stays hidden so non-hybrid vehicles see no trace of it.
+function renderHybridStats(records) {
+  const card = el('fuel-hybrid-card');
+  const wrap = el('fuel-hybrid-stats');
+  if (!card || !wrap) return;
+
+  const withEv    = records.filter(f => f.evMinutes != null && f.evMinutes > 0);
+  const withSaved = records.filter(f => f.fuelSaved  != null && f.fuelSaved > 0);
+
+  if (!withEv.length && !withSaved.length) { card.style.display = 'none'; wrap.innerHTML = ''; return; }
+  card.style.display = '';
+
+  const totalEvMin  = withEv.reduce((s,f) => s + f.evMinutes, 0);
+  const totalSavedL = withSaved.reduce((s,f) => s + f.fuelSaved, 0);
+  const withPpl     = records.filter(f => f.ppl > 0);
+  const avgPpl      = withPpl.length ? withPpl.reduce((s,f) => s + f.ppl, 0) / withPpl.length : 0;
+  const savedEur    = avgPpl > 0 ? totalSavedL * avgPpl : null;
+
+  const hrs  = Math.floor(totalEvMin / 60);
+  const mins = Math.round(totalEvMin % 60);
+  const evTimeStr = totalEvMin > 0 ? `${hrs}h ${mins}m` : '—';
+
+  const stat = (lbl,val,sub='') =>
+    `<div class="stat"><div class="stat-lbl">${lbl}</div><div class="stat-val">${val}</div>${sub?`<div style="font-size:10px;color:var(--ink3)">${sub}</div>`:''}</div>`;
+
+  wrap.innerHTML = `<div class="stat-grid">
+    ${withEv.length ? stat('Total EV time', evTimeStr, `across ${withEv.length} fill-up${withEv.length!==1?'s':''}`) : ''}
+    ${withSaved.length ? stat('Fuel saved', totalSavedL.toFixed(1)+' L', savedEur!=null ? `≈ ${fmt(savedEur)} at avg price/L` : `across ${withSaved.length} fill-up${withSaved.length!==1?'s':''}`) : ''}
+  </div>
+  <div style="font-size:11px;color:var(--ink3);margin-top:8px">Logged from your car's trip computer at each fill-up — since-last-fill values, not lifetime totals.</div>`;
+}
+
 // ══════════════════════════════════════════
 // PRICE VS ECB OVERLAY CHART
 // ══════════════════════════════════════════
@@ -10828,6 +10892,36 @@ function onFuelTripBInput() {
   const dailyKm  = (tripB / daysIn).toFixed(1);
   const projKm   = Math.round(tripB / daysIn * daysInMo);
   helper.textContent = `${tripB} km this month · ${dailyKm} km/day · proj. ${projKm.toLocaleString('de-AT')} km/month`;
+}
+
+// Accepts the EV time field as either H:MM:SS / MM:SS (straight off the car's
+// trip computer) or a plain number of minutes — whichever is easier to read off
+// the dash. Returns minutes (1 decimal place), or null if the input is empty/invalid.
+function parseEvTime(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+  if (s.includes(':')) {
+    const parts = s.split(':').map(p => parseInt(p, 10));
+    if (parts.some(p => isNaN(p))) return null;
+    let mins;
+    if (parts.length === 3) mins = parts[0]*60 + parts[1] + parts[2]/60;       // H:MM:SS
+    else if (parts.length === 2) mins = parts[0] + parts[1]/60;                // MM:SS
+    else return null;
+    return Math.round(mins * 10) / 10;
+  }
+  const n = parseFloat(s.replace(',', '.'));
+  return isNaN(n) ? null : Math.round(n * 10) / 10;
+}
+
+function onFuelEvMinInput() {
+  const raw    = el('fuel-ev-min')?.value;
+  const helper = el('fuel-ev-min-helper'); if (!helper) return;
+  const mins   = parseEvTime(raw);
+  if (mins === null) { helper.textContent = raw?.trim() ? 'Unrecognised format' : ''; helper.style.color = raw?.trim() ? 'var(--Rm)' : 'var(--ink3)'; return; }
+  helper.style.color = 'var(--ink3)';
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  helper.textContent = h > 0 ? `= ${h}h ${m}m (${mins} min)` : `= ${mins} min`;
 }
 
 
@@ -11760,11 +11854,13 @@ async function addFuel() {
     const levelBefore  = parseFloat(el('fuel-level-before')?.value) || null; // % 0-99
     const tripA        = parseFloat(el('fuel-trip-a')?.value) || null;  // km since last fill
     const tripB        = parseFloat(el('fuel-trip-b')?.value) || null;  // monthly km
+    const evMinutes    = parseEvTime(el('fuel-ev-min')?.value);          // hybrid: electric-only minutes since last fill — accepts H:MM:SS or plain minutes
+    const fuelSaved    = parseFloat(el('fuel-saved-l')?.value) || null; // hybrid: liters saved since last fill
     // Legacy fullTank boolean mapped from fillType
     const fullTank     = fillType === 'full' || fillType === 'brim';
     const record = { id: uid(), date, type, station, liters: +liters.toFixed(3),
                      ppl: +finalPpl.toFixed(4), total, odo, note,
-                     fullTank, fillType, levelBefore, tripA, tripB };
+                     fullTank, fillType, levelBefore, tripA, tripB, evMinutes, fuelSaved };
     if (!DATA.fuel) DATA.fuel = [];
     DATA.fuel.push(record);
     DATA.fuel.sort((a,b) => a.date.localeCompare(b.date));
@@ -11787,10 +11883,13 @@ async function addFuel() {
     const _lb = el('fuel-level-before');   if (_lb) _lb.value = '';
     const _ta = el('fuel-trip-a');         if (_ta) _ta.value = '';
     const _tb = el('fuel-trip-b');         if (_tb) _tb.value = '';
+    const _ev = el('fuel-ev-min');         if (_ev) _ev.value = '';
+    const _fs = el('fuel-saved-l');        if (_fs) _fs.value = '';
     const _tlw= el('fuel-level-wrap');     if (_tlw) _tlw.style.display = 'none';
     const _alh= el('fuel-level-hint');     if (_alh) _alh.textContent = '';
     const _tah= el('fuel-trip-a-helper'); if (_tah) _tah.textContent = '';
     const _tbh= el('fuel-trip-b-helper'); if (_tbh) _tbh.textContent = '';
+    const _evh= el('fuel-ev-min-helper'); if (_evh) _evh.textContent = '';
     const _tk = el('fuel-trip-km'); if (_tk) { _tk.value=''; delete _tk.dataset.userEdited; }
     const _th = el('fuel-trip-helper'); if (_th) _th.textContent = '';
     el('fuel-note').value   = ''; el('fuel-station').value = '';
@@ -11858,6 +11957,7 @@ function renderFuel() {
 
   // ── Predictions + seasonal + charts ─────────────────────────────────────────
   renderFuelSmartStats(all);
+  renderHybridStats(all);
   renderFuelPredictor();
   renderTransitComparison();
   renderFuelSeasonal();
