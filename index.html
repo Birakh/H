@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vault Finance V4</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#18170f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vault">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -1367,11 +1373,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </select>
           </div>
         </div>
+        <div id="fg-dividend" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--s1);border-radius:var(--rs)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <input type="checkbox" id="ef-is-dividend" onchange="onDividendToggle()">
+            <label for="ef-is-dividend" style="font-size:12px;color:var(--ink2);cursor:pointer">This is a dividend payout</label>
+          </div>
+          <div id="ef-dividend-stock-wrap" style="display:none">
+            <label style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">From position</label>
+            <select id="ef-dividend-stock" style="width:100%;margin-top:4px"></select>
+            <div style="font-size:11px;color:var(--ink3);margin-top:6px">Tracked separately from capital gains — shown in the Wealth tab's KeSt card. Austrian brokers usually withhold KESt on dividends automatically; foreign/US brokers often don't, so you may owe this yourself.</div>
+          </div>
+        </div>
         <div class="g2" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
             <label>Description</label>
             <div class="sw">
-              <input type="text" id="ef-desc" placeholder="Start typing to search catalog…"
+              <input type="text" id="ef-desc" placeholder="Start typing — catalog + past entries…"
                 oninput="checkDuplicate();descSearch()" onblur="setTimeout(closeDescDD,200)" autocomplete="off">
               <span class="sw-icon">⌕</span>
               <div class="dd" id="desc-dd"></div>
@@ -1530,9 +1547,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           Recurring entries
           <span id="recur-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
           <button class="btn xs success" onclick="applyPendingRecur()" title="Add all pending recurring entries for this month">▶ Apply this month</button>
+          <button class="btn xs ghost" onclick="backfillRecurAccounts()" title="Fill in missing account on past entries created from recurring templates before this fix existed">🔧 Backfill accounts</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">
           Click <strong>▶ Apply this month</strong> to automatically create entries for all recurring items not yet logged this month.
+          <strong>🔧 Backfill accounts</strong> fixes past entries (e.g. mortgage, subscriptions) that were created before recurring entries carried their linked account — safe to run any time, only touches entries with no account set.
         </div>
         <div id="recur-list"></div>
       </div>
@@ -2981,6 +3000,10 @@ const isOutflowEntry  = e => e.type === 'expense' || e.type === 'savings';
 // Does this entry belong to a given needs/wants/savings budget bucket? Handles the
 // savings type living outside the normal type==='expense'+category match.
 const isInCategoryBucket = (e, key) => (e.type === 'expense' && e.category === key) || (e.type === 'savings' && key === 'savings');
+// Dividend payouts are stored as normal income entries (so they count correctly
+// in every income total everywhere) but tagged 'dividend' and linked to a stock
+// via stockId, so they can also be reported on separately (e.g. in the KeSt card).
+const isDividendEntry = e => e.type === 'income' && Array.isArray(e.tags) && e.tags.includes('dividend');
 
 // Safe arithmetic expression parser — supports + - * / ( ) and numeric literals only.
 // No eval / new Function — immune to formula-injection from tampered vault data.
@@ -5017,6 +5040,35 @@ function saveRecurModal() {
 
 function applyPendingRecur() { applyRecurring(curMonth()); }
 
+// One-time (repeatable, idempotent) fix for entries created from a recurring
+// template before that template's accountId was carried into applied entries.
+// Matches by recurId, only touches entries that currently have no account set,
+// and only fills in an account if the originating template actually has one.
+function backfillRecurAccounts() {
+  const candidates = DATA.entries.filter(e => e.recurId && !e.accountId);
+  if (!candidates.length) return toast('Nothing to backfill — every recurring-derived entry already has an account (or none is set on its template).');
+
+  const fixable = candidates.filter(e => {
+    const tmpl = DATA.recurring.find(r => r.id === e.recurId);
+    return tmpl && tmpl.accountId;
+  });
+  if (!fixable.length) return toast(`Found ${candidates.length} entr${candidates.length===1?'y':'ies'} with no account, but none of their recurring templates have an account set either — nothing to backfill.`, 1);
+
+  showConfirm(
+    'Backfill accounts',
+    `${fixable.length} entr${fixable.length===1?'y':'ies'} created from a recurring template (mortgage, subscriptions, etc.) ${fixable.length===1?'has':'have'} no account set. Fill ${fixable.length===1?'it':'them'} in from the template's current account?`,
+    () => {
+      let fixed = 0;
+      fixable.forEach(e => {
+        const tmpl = DATA.recurring.find(r => r.id === e.recurId);
+        if (tmpl && tmpl.accountId) { e.accountId = tmpl.accountId; fixed++; }
+      });
+      saveLocal(); renderEntries();
+      toast(`Backfilled account on ${fixed} entr${fixed===1?'y':'ies'}`);
+    }
+  );
+}
+
 // Inline quick-edit: double-click the amount in the list → becomes an input.
 // Saves on Enter or blur; Escape cancels. Records price history just like the modal.
 function quickEditRecurAmt(id, span) {
@@ -5148,6 +5200,27 @@ function onTypeChange() {
   el('fg-cat').style.display    = type==='expense' ? '' : 'none';
   el('fg-acct-to').style.display = type==='transfer' ? '' : 'none';
   if (type==='transfer') refreshAccountSelect(); // ensure to-account is up to date
+  const divWrap = el('fg-dividend');
+  if (divWrap) {
+    divWrap.style.display = type==='income' ? '' : 'none';
+    if (type !== 'income') {
+      const cb = el('ef-is-dividend'); if (cb) cb.checked = false;
+      const sw = el('ef-dividend-stock-wrap'); if (sw) sw.style.display = 'none';
+    }
+  }
+}
+
+// Toggling "This is a dividend" reveals a stock picker populated from current positions.
+function onDividendToggle() {
+  const on = el('ef-is-dividend')?.checked;
+  const wrap = el('ef-dividend-stock-wrap'); if (!wrap) return;
+  wrap.style.display = on ? '' : 'none';
+  if (on) {
+    const sel = el('ef-dividend-stock');
+    sel.innerHTML = (DATA.stocks||[]).length
+      ? DATA.stocks.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')
+      : '<option value="">No positions yet — add one in Wealth</option>';
+  }
 }
 
 function refreshAccountSelect() {
@@ -5159,20 +5232,51 @@ function refreshAccountSelect() {
   toggleAcctEditBtn();
 }
 
+// Finds past entries whose description matches the query, deduped to the most
+// recent use of each distinct description. Powers both the autocomplete
+// suggestions and the auto-categorize-on-pick behavior below. Transfers are
+// excluded — their category/account shape doesn't map cleanly onto a simple
+// re-fill and they're rarely worth autocompleting anyway.
+function getEntryDescMatches(query) {
+  const seen = new Map();
+  DATA.entries.forEach(e => {
+    if (e.type === 'transfer') return;
+    const desc = (e.desc||'').trim();
+    const key  = desc.toLowerCase();
+    if (!key || !key.includes(query)) return;
+    const existing = seen.get(key);
+    if (!existing || e.date > existing.date) {
+      seen.set(key, { desc, date: e.date, type: e.type, category: e.category, accountId: e.accountId });
+    }
+  });
+  return [...seen.values()].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 8);
+}
+
 function descSearch() {
   const q = el('ef-desc').value.toLowerCase(), dd = el('desc-dd');
-  if (!q||!DATA.catalog.length) { dd.classList.remove('open'); return; }
-  const hits = DATA.catalog.filter(c=>c.name.toLowerCase().includes(q)).slice(0,10);
-  if (!hits.length) { dd.classList.remove('open'); return; }
+  if (!q) { dd.classList.remove('open'); return; }
+  const catalogHits = (DATA.catalog||[]).filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
+  const catalogNames = new Set(catalogHits.map(c => c.name.toLowerCase()));
+  const entryHits = getEntryDescMatches(q).filter(h => !catalogNames.has(h.desc.toLowerCase()));
+  if (!catalogHits.length && !entryHits.length) { dd.classList.remove('open'); return; }
   // use module-scoped cache — avoids JSON.stringify in attribute (breaks if name has quotes)
   _cache = {};
-  dd.innerHTML = hits.map((h,i) => {
-    _cache['d'+i] = h;
-    return `<div class="ddi" onmousedown="pickDesc('d${i}')">
-      <span>${h.name}</span>
-      <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span><span class="ddi-s">${h.store||''}</span></div>
+  let html = catalogHits.map((h,i) => {
+    _cache['c'+i] = h;
+    return `<div class="ddi" onmousedown="pickDesc('c${i}')">
+      <span>${esc(h.name)}</span>
+      <div class="ddi-r"><span class="ddi-p">${h.price?fmt(h.price):''}</span><span class="ddi-s">${esc(h.store||'')}</span></div>
     </div>`;
   }).join('');
+  html += entryHits.map((h,i) => {
+    _cache['e'+i] = h;
+    const label = h.type==='income' ? 'income' : h.type==='savings' ? 'savings' : (h.category||'');
+    return `<div class="ddi" onmousedown="pickDescEntry('e${i}')">
+      <span>${esc(h.desc)}</span>
+      <div class="ddi-r"><span class="ddi-s" style="text-transform:capitalize">${esc(label)}</span></div>
+    </div>`;
+  }).join('');
+  dd.innerHTML = html;
   dd.classList.add('open');
 }
 function closeDescDD() { el('desc-dd').classList.remove('open'); }
@@ -5181,6 +5285,24 @@ function pickDesc(key) {
   el('ef-desc').value = h.name;
   if (h.price) el('ef-amt').value = h.price;
   closeDescDD();
+}
+// Picking a past-entry suggestion also auto-fills type/category/account from
+// the most recent time that description was used — one click instead of four.
+function pickDescEntry(key) {
+  const h = _cache[key]; if (!h) return;
+  el('ef-desc').value = h.desc;
+  closeDescDD();
+  if (h.type === 'income') {
+    el('ef-type').value = 'income';
+  } else {
+    el('ef-type').value = 'expense';
+    if (el('ef-cat')) el('ef-cat').value = h.type === 'savings' ? 'savings' : (h.category || 'needs');
+  }
+  onTypeChange();
+  if (h.accountId && el('ef-acct') && [...el('ef-acct').options].some(o=>o.value===h.accountId)) {
+    el('ef-acct').value = h.accountId;
+  }
+  toast(`Auto-filled from last use (${h.date})`);
 }
 
 async function addEntry() {
@@ -5238,6 +5360,19 @@ async function addEntry() {
     tags: [..._curTags],
     accountId: acctId
   };
+  // Dividend payouts: tag + link to the stock position, tracked separately from
+  // capital gains in the KeSt card (dividend KESt withholding varies by broker).
+  if (type === 'income' && el('ef-is-dividend')?.checked) {
+    const stockId = el('ef-dividend-stock')?.value;
+    if (stockId) {
+      if (!entry.tags.includes('dividend')) entry.tags.push('dividend');
+      entry.stockId = stockId;
+      if (!entry.desc) {
+        const s = DATA.stocks.find(x => x.id === stockId);
+        if (s) entry.desc = `Dividend — ${s.name}`;
+      }
+    }
+  }
   DATA.entries.unshift(entry);
 
   // Save as recurring
@@ -5279,6 +5414,8 @@ async function addEntry() {
   el('ef-amt').value=''; el('ef-desc').value='';
   _curTags=[]; renderTagChips();
   el('acct-balance-preview').style.display = 'none';
+  const _divCb = el('ef-is-dividend'); if (_divCb) _divCb.checked = false;
+  const _divSw = el('ef-dividend-stock-wrap'); if (_divSw) _divSw.style.display = 'none';
   render();
   el('ef-date').value = _savedDate;          // restore after render resets it
   } catch(e) { toast(e.message || 'Failed to save entry.', 1); }
@@ -5301,7 +5438,7 @@ async function deleteEntry(id) {
 function makeEditable(td, id, field, cur) {
   const safe = String(cur||'').replace(/"/g,'&quot;');
   td.innerHTML = `<input class="edit-in" value="${safe}"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')render();"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')preserveScroll(render);"
     onblur="commitEdit('${id}','${field}',this.value)">`;
   td.querySelector('input').select();
 }
@@ -5310,7 +5447,7 @@ async function commitEdit(id, field, val) {
     const e = DATA.entries.find(x=>x.id===id); if(!e) return;
     if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
     else e[field]=val;
-    saveLocal(); render();
+    saveLocal(); preserveScroll(render);
   } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
 
@@ -8163,8 +8300,13 @@ function renderKeSt() {
     });
   });
 
-  if (!records.length) {
-    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No realised gains/losses yet. Use the FIFO lot panel in the Stock Portfolio to record sells.</div>';
+  // Dividend payouts — tracked separately since KESt withholding on dividends
+  // varies by broker (Austrian brokers usually withhold automatically at payout;
+  // foreign/US brokers often don't, leaving it to be self-reported).
+  const dividends = (DATA.entries||[]).filter(isDividendEntry);
+
+  if (!records.length && !dividends.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No realised gains/losses or dividends yet. Use the FIFO lot panel to record sells, or tag an income entry as a dividend.</div>';
     return;
   }
 
@@ -8176,6 +8318,13 @@ function renderKeSt() {
     if (!byYear[yr]) byYear[yr] = { gains:[], losses:[] };
     if (r.pnl >= 0) byYear[yr].gains.push(r);
     else            byYear[yr].losses.push(r);
+  });
+  const divByYear = {};
+  dividends.forEach(d => {
+    const yr = (d.date||'').slice(0,4);
+    if (!yr) return;
+    if (!divByYear[yr]) divByYear[yr] = [];
+    divByYear[yr].push(d);
   });
 
   const KEST_RATE = 0.275;
@@ -8232,14 +8381,43 @@ function renderKeSt() {
     return net > 0 ? net * KEST_RATE : 0;
   })();
 
+  // Dividends section — deliberately kept separate from the capital-gains total
+  // above rather than merged into "amount owed", since dividend KESt is often
+  // already withheld by the broker before the money ever lands in the account.
+  const divRows = Object.keys(divByYear).sort().reverse().map(yr => {
+    const list = divByYear[yr];
+    const total = list.reduce((s,d) => s+d.amount, 0);
+    const potentialKest = total * KEST_RATE;
+    const byStock = {};
+    list.forEach(d => { const k = d.stockId ? (DATA.stocks.find(s=>s.id===d.stockId)?.name || 'Unknown') : (d.desc||'Dividend'); if (!byStock[k]) byStock[k] = 0; byStock[k] += d.amount; });
+    const stockLines = Object.entries(byStock).sort((a,b)=>b[1]-a[1])
+      .map(([name,amt]) => `<div style="display:flex;gap:8px;font-size:11px;padding:2px 0;color:var(--ink2)"><span style="flex:1">${esc(name)}</span><span style="font-family:var(--mono);color:var(--Gm)">+${fmt(amt)}</span></div>`).join('');
+    return `<div style="margin-bottom:10px;padding:10px 14px;background:var(--s1);border-radius:var(--rs);border:.5px solid var(--bdr)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-weight:600;font-size:13px">${yr}</div>
+        <div style="flex:1"></div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--ink3)">Dividends received</div>
+          <div style="font-weight:600;color:var(--Gm)">${fmt(total)}</div>
+        </div>
+        <div style="text-align:right;min-width:90px">
+          <div style="font-size:11px;color:var(--ink3)">≈27.5% if not withheld</div>
+          <div style="font-weight:700;font-size:14px;color:var(--Am)">${fmt(potentialKest)}</div>
+        </div>
+      </div>
+      ${stockLines ? `<details style="font-size:11px;margin-top:6px"><summary style="cursor:pointer;color:var(--ink3)">By position (${list.length})</summary>${stockLines}</details>` : ''}
+    </div>`;
+  }).join('');
+
   wrap.innerHTML = `
     ${totalCurrentKest > 0 ? `<div style="padding:10px 14px;background:var(--Rbg);border:.5px solid var(--Rm);border-radius:var(--rs);margin-bottom:12px;font-size:13px;color:var(--Rm)">
-      ⚠ Estimated ${currentYr} KeSt liability: <strong>${fmt(totalCurrentKest)}</strong> — set aside if not yet withheld at source
-    </div>` : `<div style="padding:10px 14px;background:var(--Gbg);border:.5px solid var(--Gm);border-radius:var(--rs);margin-bottom:12px;font-size:13px;color:var(--Gm)">
-      ✓ No KeSt liability for ${currentYr} (no net realised gains)
-    </div>`}
+      ⚠ Estimated ${currentYr} KeSt liability (capital gains only): <strong>${fmt(totalCurrentKest)}</strong> — set aside if not yet withheld at source
+    </div>` : records.length ? `<div style="padding:10px 14px;background:var(--Gbg);border:.5px solid var(--Gm);border-radius:var(--rs);margin-bottom:12px;font-size:13px;color:var(--Gm)">
+      ✓ No capital-gains KeSt liability for ${currentYr} (no net realised gains)
+    </div>` : ''}
     ${rows.join('')}
-    <div style="font-size:11px;color:var(--ink3);margin-top:8px">Rate: 27.5% flat (§ 27a EStG) · Losses offset gains within the same year · Does not include interest income or dividends · Consult a Steuerberater for your filing.</div>`;
+    ${divRows ? `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin:${rows.length?'16px':'0'} 0 8px">Dividends</div>${divRows}` : ''}
+    <div style="font-size:11px;color:var(--ink3);margin-top:8px">Rate: 27.5% flat (§ 27a EStG) · Capital-gains losses offset gains within the same year · Dividend KESt is often already withheld by the broker at payout — the dividend figures above are shown separately and are <strong>not</strong> added to the total owed above · Consult a Steuerberater for your filing.</div>`;
 }
 
 // ══════════════════════════════════════════
@@ -10257,7 +10435,7 @@ function updateFuelRecord(id, field, rawVal) {
     }
   }
   saveLocal();
-  renderFuel();
+  preserveScroll(renderFuel);
 }
 
 function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
@@ -10282,7 +10460,7 @@ function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
   inp.addEventListener('click', e => e.stopPropagation());
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter')  { committed=true; updateFuelRecord(id, field, inp.value); }
-    if (e.key === 'Escape') { committed=true; renderFuel(); }
+    if (e.key === 'Escape') { committed=true; preserveScroll(renderFuel); }
   });
   inp.addEventListener('change', () => {
     if (opts.isSelect) { committed=true; updateFuelRecord(id, field, inp.value); }
@@ -13492,6 +13670,19 @@ document.addEventListener('keydown', e => {
   if (e.key==='d' && e.metaKey) { e.preventDefault(); manualToggleTheme(); }
   if (e.key==='s' && e.metaKey && VIEW==='dash') { e.preventDefault(); saveMonthIncome(); }
 });
+
+// ══════════════════════════════════════════
+// PWA — service worker registration
+// Enables installing the app to a phone/desktop home screen and basic offline
+// use. Safe no-op if the browser doesn't support service workers, or if the
+// page is opened via file:// (registration silently fails — GitHub Pages
+// serves over https:// so this works normally there).
+// ══════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
