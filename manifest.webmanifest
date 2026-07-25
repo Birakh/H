@@ -33,5 +33,19 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Entry",
+      "short_name": "Add Entry",
+      "description": "Log a new income or expense",
+      "url": "./index.html?shortcut=add-entry"
+    },
+    {
+      "name": "Add Fuel",
+      "short_name": "Add Fuel",
+      "description": "Log a refuel",
+      "url": "./index.html?shortcut=add-fuel"
+    }
   ]
 }
