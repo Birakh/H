@@ -1881,6 +1881,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Smoke test
+          <span id="smoke-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
+          <button class="btn xs ghost" onclick="runSmokeTest()">Run tests</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Functional checks — actually runs the app's calculations (currency formatting, budget carry, FIFO cost basis, account balances, schema migration) against a small built-in test dataset and verifies the results are mathematically correct. Different from Self-test above: Self-test checks the code is <em>wired correctly</em>, this checks the <em>math is right</em>.
+          <div style="margin-top:4px;color:var(--Gm)">🔒 Runs entirely on a temporary, isolated dataset — your real vault is never read or modified by this test.</div>
+        </div>
+        <div id="smoke-list"><div style="font-size:13px;color:var(--ink3)">Click "Run tests" to verify core calculations are correct.</div></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Sync &amp; auto-push</div>
         <div style="font-size:13px;color:var(--ink2);margin-bottom:4px">
           Vault file: <strong id="cfg-label"></strong> / <code style="font-family:var(--mono);font-size:12px">budget.enc</code>
@@ -2566,8 +2577,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </div>
           </div>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
-            <input type="checkbox" id="fuel-add-entry"> Also add as expense entry
+            <input type="checkbox" id="fuel-add-entry" onchange="onFuelAddEntryToggle()"> Also add as expense entry
           </label>
+          <div id="fuel-entry-acct-wrap" style="display:none;margin-top:8px">
+            <label style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">Account</label>
+            <select id="fuel-entry-acct" style="width:100%;margin-top:4px"><option value="">No account</option></select>
+          </div>
         </div>
       </div>
 
@@ -3337,6 +3352,18 @@ async function enterApp() {
     el('screen-connect').style.display = 'none';
     el('screen-app').style.display = 'flex';
     boot(); nav(VIEW);
+    // Manifest shortcuts (long-press the app icon on Android) land here via a
+    // query param — route to the right tab and focus the first useful field,
+    // then clean the URL so a later refresh doesn't re-trigger the shortcut.
+    const _shortcut = new URLSearchParams(location.search).get('shortcut');
+    if (_shortcut === 'add-entry') {
+      nav('entries');
+      setTimeout(() => el('ef-desc')?.focus(), 150);
+    } else if (_shortcut === 'add-fuel') {
+      nav('fuel');
+      setTimeout(() => el('fuel-station')?.focus(), 150);
+    }
+    if (_shortcut) history.replaceState(null, '', location.pathname);
     // Run vault health silently on open so it's ready when user visits Settings
     setTimeout(runVaultHealth, 500);
   } catch(e) { cStatus('err', e.message || 'Failed to open vault'); PAT = PASS = null; }
@@ -11102,6 +11129,20 @@ function onFuelEvMinInput() {
   helper.textContent = h > 0 ? `= ${h}h ${m}m (${mins} min)` : `= ${mins} min`;
 }
 
+// Reveals the account selector once "Also add as expense entry" is checked,
+// so the fuel purchase can be correctly deducted from the right account
+// instead of always landing with no account attached.
+function onFuelAddEntryToggle() {
+  const on   = el('fuel-add-entry')?.checked;
+  const wrap = el('fuel-entry-acct-wrap'); if (!wrap) return;
+  wrap.style.display = on ? '' : 'none';
+  if (on) {
+    const sel = el('fuel-entry-acct');
+    sel.innerHTML = '<option value="">No account</option>' +
+      (DATA.accounts||[]).map(a => `<option value="${a.id}">${esc(a.name)}${a.bank?' ('+esc(a.bank)+')':''}</option>`).join('');
+  }
+}
+
 
 // ══════════════════════════════════════════
 // GOAL AUTO-FILL
@@ -12049,7 +12090,7 @@ async function addFuel() {
     if (el('fuel-add-entry')?.checked) {
       DATA.entries.unshift({ id: uid(), date, desc: station || FUEL_LABELS[type] + ' fuel',
         amount: total, formula: null, type: 'expense', category: 'needs',
-        tags: ['fuel', type], accountId: null, recurId: null });
+        tags: ['fuel', type], accountId: el('fuel-entry-acct')?.value || null, recurId: null });
     }
 
     saveLocal();
@@ -12951,6 +12992,131 @@ function runSelfTest() {
 }
 
 // ══════════════════════════════════════════
+// SMOKE TEST — functional correctness, not just structural wiring
+// ══════════════════════════════════════════
+// Unlike runSelfTest (checks the code is wired correctly), this actually
+// exercises the app's core calculations against known inputs and verifies the
+// output is mathematically correct — the same category of check done by hand
+// via Node before every deploy this session, now available as a button.
+//
+// SAFETY: this swaps the global DATA out for a small synthetic dataset, runs
+// every check, then restores the real DATA — all in one fully synchronous
+// block (no await/promise anywhere in between). That's deliberate: saveLocal()
+// debounces writes via setTimeout, and JS guarantees a pending timer can never
+// fire in the middle of a running synchronous function. So even if a save was
+// already queued from something you did moments before clicking "Run tests",
+// it cannot possibly fire while DATA is swapped, and the real vault is never
+// read from or written to at any point during this test.
+function runSmokeTest() {
+  const wrap = el('smoke-list'); if (!wrap) return;
+  const results = [];
+  const test = (name, fn) => {
+    try { fn(); results.push({ ok:true, name }); }
+    catch(e) { results.push({ ok:false, name, err: e.message }); }
+  };
+  const expect      = (v,e,l) => { if (v!==e) throw new Error(`${l}: expected ${JSON.stringify(e)}, got ${JSON.stringify(v)}`); };
+  const expectClose = (v,e,tol,l) => { if (Math.abs(v-e) > tol) throw new Error(`${l}: expected ~${e}, got ${v}`); };
+  const expectTrue  = (v,l) => { if (!v) throw new Error(`${l}: got ${JSON.stringify(v)}`); };
+
+  const _realData = DATA; // keep a reference so we can restore it below, no matter what happens
+  try {
+    // ── Build a small, fully synthetic dataset — never touches the real vault ──
+    DATA = FRESH();
+    DATA.v = SCHEMA_VERSION;
+    const THIS_MONTH = curMonStr();
+    const PREV_MONTH = prevMonStr(THIS_MONTH);
+    DATA.incomes[THIS_MONTH] = { amount: 3700, formula: null };
+    DATA.incomes[PREV_MONTH] = { amount: 3700, formula: null };
+    DATA.splits = { needs:50, wants:30, savings:20, rollover:{ needs:false, wants:false, savings:true } };
+
+    test('fmt() formats currency correctly', () => {
+      const r = fmt(1234.5);
+      expectTrue(r.startsWith('€'), 'missing € prefix');
+      expectTrue(r.replace(/[^\d]/g,'') === '123450', 'digit mismatch: '+r);
+    });
+    test('ym() extracts YYYY-MM', () => expect(ym('2026-06-15'), '2026-06', 'ym'));
+    test('evalExpr(=2+3*4) === 14', () => expect(evalExpr('=2+3*4'), 14, 'evalExpr'));
+    test('prevMonStr() handles year boundary', () => expect(prevMonStr('2026-01'), '2025-12', 'boundary'));
+
+    test('isSavingsEntry recognises new type', () => expectTrue(isSavingsEntry({type:'savings',category:'savings'}), 'new type'));
+    test('isSavingsEntry recognises legacy combo', () => expectTrue(isSavingsEntry({type:'expense',category:'savings'}), 'legacy combo'));
+    test('isSpendEntry excludes savings', () => expectTrue(!isSpendEntry({type:'savings',category:'savings'}), 'should exclude'));
+    test('entryTypeFor maps savings category correctly', () => expect(entryTypeFor('savings','expense'), 'savings', 'entryTypeFor'));
+
+    const today = ymd();
+    DATA.entries = [
+      { id:uid(), date:today, desc:'Test needs',   amount:45.20, type:'expense', category:'needs',   tags:[], accountId:null },
+      { id:uid(), date:today, desc:'Test savings', amount:200,   type:'savings', category:'savings', tags:[], accountId:null },
+    ];
+    test('budget category aggregation is correct', () => {
+      const mes = DATA.entries.filter(e => ym(e.date)===THIS_MONTH);
+      const act = { needs:0, wants:0, savings:0 };
+      mes.forEach(e => { if (isSpendEntry(e) && e.category in act) act[e.category]+=e.amount; if (isSavingsEntry(e)) act.savings+=e.amount; });
+      expect(act.needs, 45.20, 'needs total');
+      expect(act.savings, 200, 'savings total');
+    });
+
+    DATA.entries.push({ id:uid(), date:PREV_MONTH+'-15', desc:'ETF prev', amount:100, type:'savings', category:'savings', tags:[], accountId:null });
+    test('getCategoryCarry computes correct rollover', () => {
+      // prev month: savings budget = 3700*20% = 740, spent = 100 → carry = 640
+      expectClose(getCategoryCarry('savings', THIS_MONTH), 640, 0.02, 'carry amount');
+    });
+
+    const stock = { id:'smoke_s1', name:'TEST', currency:'EUR', currentPrice:120, lots:[
+      { id:'l1', date:'2024-01-10', shares:10, buyPrice:100, note:'' },
+      { id:'l2', date:'2024-06-01', shares:5,  buyPrice:110, note:'' },
+    ], realizedPnL:[] };
+    test('fifoTotalShares sums all lots', () => expect(fifoTotalShares(stock), 15, 'total shares'));
+    test('fifoAvgCost computes weighted average', () => expectClose(fifoAvgCost(stock), 103.333, 0.01, 'avg cost'));
+
+    DATA.accounts = [{ id:'smoke_a1', name:'Test', bank:'Test', balance:1000 }];
+    DATA.entries.push(
+      { id:uid(), date:today, desc:'Salary', amount:3700, type:'income',  category:'income', accountId:'smoke_a1', tags:[] },
+      { id:uid(), date:today, desc:'Rent',   amount:900,  type:'expense', category:'needs',  accountId:'smoke_a1', tags:[] },
+    );
+    test('computeAcctBalance applies income/expense deltas correctly', () => {
+      // base 1000 + income 3700 − expense 900 = 3800
+      expect(computeAcctBalance(DATA.accounts[0]), 3800, 'balance');
+    });
+
+    test('MIGRATIONS step count matches SCHEMA_VERSION', () => expect(MIGRATIONS.length, SCHEMA_VERSION, 'step count'));
+    test('migrate() is idempotent on current-version data', () => {
+      const once  = migrate(JSON.parse(JSON.stringify(DATA)));
+      const twice = migrate(JSON.parse(JSON.stringify(once)));
+      expectTrue(JSON.stringify(once) === JSON.stringify(twice), 'running migrate() twice produced different output');
+    });
+    test('a v0 vault migrates cleanly to the current version', () => {
+      const old = { v:0, entries:[], incomes:{}, splits:{needs:50,wants:30,savings:20} };
+      const r = migrate(old);
+      expect(r.v, SCHEMA_VERSION, 'final version');
+      expectTrue(Array.isArray(r.nwHistory), 'nwHistory array missing');
+      expectTrue(!!r.splits.rollover, 'rollover flags missing');
+      expectTrue(r.accounts.some(a => a.name === 'Cash'), 'default Cash account missing');
+    });
+  } finally {
+    DATA = _realData; // always restore, even if a test threw somewhere unexpected above
+  }
+
+  const passed = results.filter(r => r.ok).length;
+  const badge = el('smoke-badge');
+  if (badge) {
+    const allPass = passed === results.length;
+    badge.innerHTML = `<span style="color:${allPass?'var(--Gm)':'var(--Rm)'};font-weight:600">${passed}/${results.length} passed</span>`;
+  }
+  wrap.innerHTML = results.map(r => `
+    <div class="st-item">
+      <span class="st-icon ${r.ok?'pass':'fail'}">${r.ok?'✓':'✗'}</span>
+      <div class="st-body">
+        <div>${esc(r.name)}</div>
+        ${r.err ? `<div class="st-detail">${esc(r.err)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  toast(passed === results.length
+    ? `Smoke test: all ${results.length} checks passed (real vault untouched)`
+    : `Smoke test: ${results.length - passed} check(s) failed`, passed !== results.length);
+}
+
+// ══════════════════════════════════════════
 // CONFLICT MERGE
 // When doPush() fails with a SHA conflict, we fetch the remote,
 // decrypt it, merge the two vaults (union by ID, last-write-wins
@@ -13669,6 +13835,25 @@ document.addEventListener('keydown', e => {
   if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeCmdK(); closePit(); closeDupWarning(); closeWizard(); closeRecInt(); closeTax(); }
   if (e.key==='d' && e.metaKey) { e.preventDefault(); manualToggleTheme(); }
   if (e.key==='s' && e.metaKey && VIEW==='dash') { e.preventDefault(); saveMonthIncome(); }
+});
+
+// ══════════════════════════════════════════
+// GLOBAL ERROR HANDLING
+// A safety net for anything NOT already wrapped in a local try/catch — this is
+// exactly the class of bug that produced the blank-tab issues found earlier
+// this session (a render function threw, nothing caught it, the tab just
+// stayed empty with no indication why). Instead of failing silently, surface
+// it as a toast and log full details to the console for follow-up.
+// ══════════════════════════════════════════
+window.addEventListener('error', e => {
+  const msg = e.error?.message || e.message || 'Unknown error';
+  console.error('[Uncaught]', e.error || e);
+  toast(`Unexpected error: ${msg.slice(0,140)}`, 1);
+});
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || String(e.reason) || 'Unknown error';
+  console.error('[Unhandled rejection]', e.reason);
+  toast(`Unexpected error: ${msg.slice(0,140)}`, 1);
 });
 
 // ══════════════════════════════════════════
