@@ -4224,10 +4224,23 @@ function renderDash() {
   }
 
   const leftClass = left >= 0 ? 'highlight' : 'danger-hi';
+
+  // "Left in Needs" — pulled up from the tiny bar-foot text under the Needs
+  // split bar into its own stat card since users kept missing it there.
+  // Uses categoryTarget() so this can never drift from what renderSplitBars
+  // shows for the same category (same income baseline + rollover carry).
+  const needsTarget = budgetInc > 0 ? categoryTarget('needs', budgetInc, month) : 0;
+  const needsLeft   = needsTarget - act.needs;
+  const needsOver   = act.needs > needsTarget && needsTarget > 0;
+  const needsStat   = budgetInc > 0
+    ? `<div class="stat ${needsOver?'danger-hi':''}"><div class="stat-lbl">Left in Needs</div><div class="stat-val ${needsOver?'cr':'cg'}">${needsOver?'−':''}${fmt(Math.abs(needsLeft))}</div></div>`
+    : '';
+
   el('d-stats').innerHTML = `
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
     <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
+    ${needsStat}
     <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=20?'cg':savePct>=10?'ca':'cr'}">${budgetInc>0?savePct+'%':'—'}</div></div>
     <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : '€/day (budget)'}</div><div class="stat-val ${isCurrentMonth?(dailyLeft>=0?'cg':'cr'):(dailyBudget>0?'cb':'')}">${isCurrentMonth ? fmtBare(dailyLeft)+'/d' : dailyBudget>0 ? fmtBare(dailyBudget)+'/d' : '—'}</div></div>
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
@@ -4511,7 +4524,7 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     // Needs and Wants get no carry — underspend there doesn't increase next
     // month's budget ceiling; instead it accumulates into Savings.
     const carry = getCategoryCarry(key, curMonth());
-    const target = totalInc * pct / 100 + carry;
+    const target = categoryTarget(key, totalInc, curMonth());
     const carryBadge = carry > 0
       ? `<span class="carry-badge" style="background:var(--Gbg);color:var(--Gm)" title="Unspent surplus carried from last month">+${fmt(carry)} carried</span>`
       : '';
@@ -6873,6 +6886,15 @@ function getCategoryCarry(key, month) {
 // Legacy alias — kept for backward compat with any serialised calls; delegates to getCategoryCarry.
 // Do not remove: getSavingsCarry may still appear in older vault data via recurring entry formulas.
 function getSavingsCarry(month) { return getCategoryCarry('savings', month); }
+
+// Budget target for a 50/30/20 category (needs/wants/savings) for a given month:
+// the income-based split percentage plus any carried-forward surplus from last
+// month. Shared by renderDash's "Left in Needs" stat and renderSplitBars's bar
+// targets so the two can never drift apart — see architecture note on
+// accountOptionsHtml for why shared helpers matter here.
+function categoryTarget(key, totalInc, month) {
+  return totalInc * (DATA.splits[key] || 0) / 100 + getCategoryCarry(key, month);
+}
 
 // ══════════════════════════════════════════
 // SAVINGS STREAK
@@ -13131,6 +13153,15 @@ function runSmokeTest() {
       mes.forEach(e => { if (isSpendEntry(e) && e.category in act) act[e.category]+=e.amount; if (isSavingsEntry(e)) act.savings+=e.amount; });
       expect(act.needs, 45.20, 'needs total');
       expect(act.savings, 200, 'savings total');
+    });
+
+    test('categoryTarget/"Left in Needs" math is correct', () => {
+      // income 3700, needs split 50%, rollover.needs=false → no carry → target 1850
+      const target = categoryTarget('needs', 3700, THIS_MONTH);
+      expectClose(target, 1850, 0.01, 'needs target (no carry)');
+      const mes = DATA.entries.filter(e => ym(e.date)===THIS_MONTH);
+      const needsAct = mes.filter(e => isInCategoryBucket(e,'needs')).reduce((s,e)=>s+e.amount, 0);
+      expectClose(target - needsAct, 1804.80, 0.01, 'needs remaining (45.20 spent)');
     });
 
     DATA.entries.push({ id:uid(), date:PREV_MONTH+'-15', desc:'ETF prev', amount:100, type:'savings', category:'savings', tags:[], accountId:null });
