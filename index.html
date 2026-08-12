@@ -1550,6 +1550,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Recurring vs Actual — this month
+          <span id="recur-vs-actual-badge" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">
+          What was expected to fire this month vs what actually landed — catches a missed bill before it becomes a missed payment, and flags when a recurring amount drifted from its template.
+        </div>
+        <div id="recur-vs-actual"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">
           Recurring entries
           <span id="recur-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
@@ -1850,7 +1860,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Budget notifications
           <span class="notif-state default" id="notif-state-badge">—</span>
         </div>
-        <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Get a browser notification when you hit 80% or 100% of your Needs or Wants budget. No server — fires locally when the app is open.</div>
+        <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Get a browser notification when you hit your early-warning threshold or 100% of your Needs or Wants budget. No server — fires locally when the app is open.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn sm" onclick="requestNotifPermission()">Enable notifications</button>
           <button class="btn sm ghost" onclick="testBudgetNotif()">Send test</button>
@@ -1858,7 +1868,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <input type="checkbox" id="notif-enabled" onchange="saveNotifPref(this.checked)"> Send budget alerts
           </label>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Alerts fire at 80% and 100% of each category. Once per threshold per month to avoid spam.</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--ink2)">
+          <label for="notif-threshold" style="font-weight:400;text-transform:none;letter-spacing:0">Warn me at</label>
+          <input type="number" id="notif-threshold" min="50" max="95" step="5" style="width:60px" onchange="saveAlertThreshold(this.value)">
+          <span>% of Needs / Wants (100% always alerts too)</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Once per threshold per month to avoid spam.</div>
       </div>
 
       <div class="card">
@@ -2898,7 +2913,7 @@ const FRESH = () => ({
   income:        { amount: 0, formula: null },
   incomes:       {},
   plannedIncome: {},  // { 'YYYY-MM': number } — expected income before it arrives
-  splits:        { needs: 50, wants: 30, savings: 20, rollover: { needs: false, wants: false, savings: true } },
+  splits:        { needs: 50, wants: 30, savings: 20, rollover: { needs: false, wants: false, savings: true }, alertThreshold: 80 },
   goals:         { needs: null, wants: null, savings: null },
   savingsGoals:  [],
   accounts:      [{ id: 'cash_default', name: 'Cash', bank: 'Cash', balance: 0 }],
@@ -4370,23 +4385,7 @@ function renderDashBanners(month, act, totalInc) {
 
   // Recurring banner
   if (DATA.recurring.length) {
-    const [yr, mo] = month.split('-').map(Number);
-    const lastDay = new Date(yr, mo, 0).getDate();
-    const pending = DATA.recurring.filter(r => {
-      const freq = r.freq || 'monthly';
-      // Quarterly: skip if not this quarter's month
-      if (freq === 'quarterly') {
-        const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
-        const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
-        if ((mo - originMo + 12) % 3 !== 0) return false;
-      }
-      const expectedCount = freq === 'weekly'
-        ? [r.day||1,(r.day||1)+7,(r.day||1)+14,(r.day||1)+21].filter(d=>d<=lastDay).length
-        : freq === 'biweekly' ? [r.day||1,(r.day||1)+14].filter(d=>d<=lastDay).length
-        : 1;
-      const actualCount = DATA.entries.filter(e => ym(e.date)===month && e.recurId===r.id).length;
-      return actualCount < expectedCount;
-    });
+    const pending = getRecurringStatus(month).filter(s => s.status === 'missing' || s.status === 'partial');
     if (pending.length) {
       banners.push(`<div class="banner warn">
         <span><strong>${pending.length}</strong> recurring entr${pending.length===1?'y':'ies'} not fully applied for ${month}</span>
@@ -5605,6 +5604,47 @@ async function commitAcctEdit(entryId, acctId, td) {
   } catch(err) { toast(err.message || 'Failed to update account.', 1); }
 }
 
+function renderRecurVsActual() {
+  const container = el('recur-vs-actual'); if (!container) return;
+  const badge = el('recur-vs-actual-badge');
+  const month = curMonth();
+  const statuses = getRecurringStatus(month).filter(s => s.status !== 'not-due');
+
+  if (!statuses.length) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring items due this month.</div>';
+    if (badge) badge.textContent = '';
+    return;
+  }
+
+  const okCount = statuses.filter(s => s.status === 'ok').length;
+  if (badge) badge.textContent = `${okCount}/${statuses.length} on track`;
+
+  const statusMeta = {
+    ok:      { icon: '✓', label: 'on track',       color: 'var(--Gm)' },
+    missing: { icon: '✕', label: 'not logged',     color: 'var(--Rm)' },
+    partial: { icon: '⚠', label: 'partial',        color: 'var(--Am)' },
+    drift:   { icon: '↕', label: 'amount differs', color: 'var(--Am)' },
+  };
+
+  container.innerHTML = statuses.map(s => {
+    const meta = statusMeta[s.status];
+    const detail = s.status === 'partial'
+      ? `${s.actualCount}/${s.expectedCount} logged`
+      : s.status === 'drift'
+        ? `${s.amountDrift > 0 ? '+' : ''}${fmt(s.amountDrift)} vs template`
+        : s.status === 'missing'
+          ? `expected ${fmt(s.expectedTotal)}`
+          : fmt(s.actualTotal);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
+      <span style="color:${meta.color};font-weight:600;min-width:14px" title="${meta.label}">${meta.icon}</span>
+      <span style="flex:1;font-size:13px;min-width:120px">${esc(s.recur.desc)||'—'}</span>
+      <span class="badge ${esc(s.recur.category)}">${esc(s.recur.category)}</span>
+      <span style="font-size:11px;color:${meta.color}">${detail}</span>
+      ${s.status !== 'ok' ? `<button class="btn xs ghost" onclick="nav('entries');document.getElementById('recur-list')?.scrollIntoView({behavior:'smooth',block:'center'})" title="Jump to Recurring entries to apply">→</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
 function renderEntries() {
   // Sync entry date only when the viewed month doesn't match — preserve user edits
   const curDateVal = el('ef-date').value;
@@ -5614,6 +5654,7 @@ function renderEntries() {
   renderRecurList();
   renderInstallments();
   renderRecurring12();
+  renderRecurVsActual();
   renderDuplicates();
   refreshAccountSelect();
 
@@ -8321,24 +8362,14 @@ function renderMerchantAnalytics(month, mes) {
 // ══════════════════════════════════════════
 // FIRE CALCULATOR (EU — 3.5% SWR)
 // ══════════════════════════════════════════
-function fireUpdate() {
-  const nw      = parseFloat(el('fire-nw')?.value)     || 0;
-  const save    = parseFloat(el('fire-save')?.value)   || 0;
-  const ret     = parseFloat(el('fire-ret')?.value)    || 5;
-  const exp     = parseFloat(el('fire-exp')?.value)    || 2000;
-  const swr     = parseFloat(el('fire-swr')?.value)    || 3.5;
-  const pension = parseFloat(el('fire-pension')?.value)|| 0;
-  const container = el('fire-result'); if (!container) return;
-
-  // FIRE number: annual expenses / SWR — offset by pension income
+// Pure FIRE calculation, extracted so it's testable without touching the DOM.
+// Returns { alreadyFire: true } if pension alone covers expenses, otherwise
+// the full projection. `ret` and `swr` are percentages (e.g. 5 for 5%).
+function fireCalc({ nw, save, ret, exp, swr, pension }) {
   const annualExpenses = (exp - pension) * 12;
-  if (annualExpenses <= 0) {
-    container.innerHTML = `<div class="fire-result-box"><div class="fire-number" style="color:var(--Tm)">Already FIRE! 🎉</div><div class="fire-detail">Your pension/benefits cover all expenses.</div></div>`;
-    return;
-  }
-  const fireNumber = annualExpenses / (swr / 100);
+  if (annualExpenses <= 0) return { alreadyFire: true, annualExpenses };
 
-  // Years to reach FIRE: compound monthly
+  const fireNumber = annualExpenses / (swr / 100);
   const r = (ret / 100) / 12;
   let months = 0, portfolio = nw;
   const MAX_MONTHS = 600; // 50 years cap
@@ -8349,14 +8380,32 @@ function fireUpdate() {
   const years     = Math.floor(months / 12);
   const remMonths = months % 12;
   const reached   = months < MAX_MONTHS;
-  const fireDate  = new Date();
-  fireDate.setMonth(fireDate.getMonth() + months);
-  const fireDateStr = reached ? fireDate.toLocaleDateString('de-AT', {month:'long', year:'numeric'}) : 'Beyond 50 years';
 
-  // Coast FIRE: amount needed now so compound growth alone reaches FIRE
   const yearsToFire = months / 12;
   const coastFire   = yearsToFire > 0 ? fireNumber / Math.pow(1 + ret/100, yearsToFire) : fireNumber;
   const isCoasting  = nw >= coastFire;
+
+  return { alreadyFire: false, annualExpenses, fireNumber, months, years, remMonths, reached, coastFire, isCoasting };
+}
+
+function fireUpdate() {
+  const nw      = parseFloat(el('fire-nw')?.value)     || 0;
+  const save    = parseFloat(el('fire-save')?.value)   || 0;
+  const ret     = parseFloat(el('fire-ret')?.value)    || 5;
+  const exp     = parseFloat(el('fire-exp')?.value)    || 2000;
+  const swr     = parseFloat(el('fire-swr')?.value)    || 3.5;
+  const pension = parseFloat(el('fire-pension')?.value)|| 0;
+  const container = el('fire-result'); if (!container) return;
+
+  const f = fireCalc({ nw, save, ret, exp, swr, pension });
+  if (f.alreadyFire) {
+    container.innerHTML = `<div class="fire-result-box"><div class="fire-number" style="color:var(--Tm)">Already FIRE! 🎉</div><div class="fire-detail">Your pension/benefits cover all expenses.</div></div>`;
+    return;
+  }
+  const { annualExpenses, fireNumber, years, remMonths, reached, coastFire, isCoasting } = f;
+  const fireDate  = new Date();
+  fireDate.setMonth(fireDate.getMonth() + f.months);
+  const fireDateStr = reached ? fireDate.toLocaleDateString('de-AT', {month:'long', year:'numeric'}) : 'Beyond 50 years';
 
   container.innerHTML = `
     <div class="fire-result-box">
@@ -8378,6 +8427,22 @@ function fireUpdate() {
 // Uses realised P&L from FIFO lot ledger per calendar year.
 // Losses net against gains within the same year (§ 27 EStG).
 // ══════════════════════════════════════════
+const KEST_RATE = 0.275;
+
+// Pure per-year KeSt calc, extracted so it's testable without touching the
+// DOM. `records` is an array of realised-P&L rows with a numeric `.pnl`.
+// Losses net against gains within the same year (§ 27 EStG) — a net loss
+// year owes nothing (no negative tax / carry-forward modelled here).
+function kestForYear(records) {
+  const gains  = records.filter(r => r.pnl >= 0);
+  const losses = records.filter(r => r.pnl <  0);
+  const totalGains  = gains.reduce((s,r) => s+r.pnl, 0);
+  const totalLosses = losses.reduce((s,r) => s+Math.abs(r.pnl), 0);
+  const netGain      = totalGains - totalLosses;
+  const kest          = netGain > 0 ? netGain * KEST_RATE : 0;
+  return { gains, losses, totalGains, totalLosses, netGain, kest };
+}
+
 function renderKeSt() {
   const wrap = el('kest-result'); if (!wrap) return;
 
@@ -8416,15 +8481,11 @@ function renderKeSt() {
     divByYear[yr].push(d);
   });
 
-  const KEST_RATE = 0.275;
   const currentYr = String(new Date().getFullYear());
 
   const rows = Object.keys(byYear).sort().reverse().map(yr => {
     const { gains, losses } = byYear[yr];
-    const totalGains  = gains.reduce((s,r) => s+r.pnl, 0);
-    const totalLosses = losses.reduce((s,r) => s+Math.abs(r.pnl), 0);
-    const netGain     = totalGains - totalLosses;
-    const kest        = netGain > 0 ? netGain * KEST_RATE : 0;
+    const { totalGains, totalLosses, netGain, kest } = kestForYear([...gains, ...losses]);
     const isCurrent   = yr === currentYr;
 
     const gainRows = gains.map(r =>
@@ -8466,8 +8527,7 @@ function renderKeSt() {
 
   const totalCurrentKest = (() => {
     const y = byYear[currentYr]; if (!y) return 0;
-    const net = y.gains.reduce((s,r)=>s+r.pnl,0) - y.losses.reduce((s,r)=>s+Math.abs(r.pnl),0);
-    return net > 0 ? net * KEST_RATE : 0;
+    return kestForYear([...y.gains, ...y.losses]).kest;
   })();
 
   // Dividends section — deliberately kept separate from the capital-gains total
@@ -11827,6 +11887,49 @@ function bvaTip(e, cat, month, spent, budget, pct) {
 // RECURRING 12-MONTH CALENDAR
 // Shows recurring entries plotted across a full year
 // ══════════════════════════════════════════
+// Per-recurring-item status for a given month: how many times it was
+// expected to fire (frequency-aware: weekly/biweekly/quarterly/monthly), how
+// many times it actually did, and whether the amount that landed differs
+// from the template (e.g. a bill went up). Shared by the dashboard banner,
+// the month-close wizard, and the "Recurring vs Actual" card below so none
+// of them can disagree about what's still pending — this consolidates three
+// previously-separate, inconsistent "is it applied" checks into one.
+function getRecurringStatus(month) {
+  const [yr, mo] = month.split('-').map(Number);
+  const lastDay = new Date(yr, mo, 0).getDate();
+  return DATA.recurring.map(r => {
+    const freq = r.freq || 'monthly';
+    const actualEntries = DATA.entries.filter(e => ym(e.date) === month && e.recurId === r.id);
+
+    let expectedCount;
+    if (freq === 'quarterly') {
+      const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
+      const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
+      expectedCount = (mo - originMo + 12) % 3 !== 0 ? 0 : 1;
+    } else if (freq === 'weekly') {
+      expectedCount = [r.day||1, (r.day||1)+7, (r.day||1)+14, (r.day||1)+21].filter(d => d <= lastDay).length;
+    } else if (freq === 'biweekly') {
+      expectedCount = [r.day||1, (r.day||1)+14].filter(d => d <= lastDay).length;
+    } else {
+      expectedCount = 1;
+    }
+
+    const actualCount   = actualEntries.length;
+    const actualTotal   = actualEntries.reduce((s,e) => s+e.amount, 0);
+    const expectedTotal = (r.amount || 0) * expectedCount;
+    const amountDrift   = actualCount > 0 ? actualTotal - expectedTotal : 0;
+
+    let status;
+    if (expectedCount === 0)              status = 'not-due';  // e.g. quarterly, wrong month in the cycle
+    else if (actualCount === 0)           status = 'missing';
+    else if (actualCount < expectedCount) status = 'partial';
+    else if (Math.abs(amountDrift) >= 0.01) status = 'drift';
+    else                                   status = 'ok';
+
+    return { recur: r, freq, expectedCount, actualCount, actualEntries, actualTotal, expectedTotal, amountDrift, status };
+  });
+}
+
 function renderRecurring12() {
   const wrap = el('d-rc12'); if (!wrap) return;
   // Populate year selector
@@ -12591,31 +12694,40 @@ async function renderFxAccounts() {
 // AMORTISATION CALCULATOR
 // Standard annuity formula; yearly summary table.
 // ══════════════════════════════════════════
+// Pure calc, extracted so it's testable without touching the DOM.
+function amortize(P, annualRatePct, years) {
+  const r = (annualRatePct || 0) / 100 / 12;
+  const n = (years || 0) * 12;
+  if (P <= 0 || r <= 0 || n <= 0) return null;
+  const monthly   = P * (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+  const totalPaid = monthly * n;
+  const totalInt  = totalPaid - P;
+  return { monthly, totalPaid, totalInt, ratio: totalInt / P };
+}
+
 function amCalc() {
   const P = parseFloat(el('am-principal').value) || 0;
-  const r = (parseFloat(el('am-rate').value) || 0) / 100 / 12;
-  const n = (parseInt(el('am-years').value)   || 0) * 12;
+  const rate = parseFloat(el('am-rate').value) || 0;
+  const years = parseInt(el('am-years').value) || 0;
+  const result = amortize(P, rate, years);
 
-  if (P <= 0 || r <= 0 || n <= 0) {
+  if (!result) {
     ['am-monthly','am-total','am-interest','am-ratio'].forEach(id => { const e=el(id); if(e) e.textContent='—'; });
     if (el('am-body')) el('am-body').innerHTML = '';
     return;
   }
-
-  // Monthly annuity payment
-  const M = P * (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
-  const totalPaid = M * n;
-  const totalInt  = totalPaid - P;
+  const { monthly: M, totalPaid, totalInt, ratio } = result;
+  const r = rate / 100 / 12;
+  const n = years * 12;
 
   el('am-monthly').textContent  = fmt(M);
   el('am-total').textContent    = fmt(totalPaid);
   el('am-interest').textContent = fmt(totalInt);
-  el('am-ratio').textContent    = (totalInt / P * 100).toFixed(1) + '%';
+  el('am-ratio').textContent    = (ratio * 100).toFixed(1) + '%';
 
   // Yearly summary table
   const tbody = el('am-body'); if (!tbody) return;
   let balance = P;
-  const years = parseInt(el('am-years').value) || 0;
   const rows = [];
   for (let y = 1; y <= years; y++) {
     let yearPrincipal = 0, yearInterest = 0;
@@ -13201,6 +13313,131 @@ function runSmokeTest() {
       expectTrue(!!r.splits.rollover, 'rollover flags missing');
       expectTrue(r.accounts.some(a => a.name === 'Cash'), 'default Cash account missing');
     });
+
+    // ── evalExpr edge cases ──
+    test('evalExpr division by zero returns 0, not Infinity/NaN', () => expect(evalExpr('=5/0'), 0, 'div by zero'));
+    test('evalExpr malformed expression falls back to 0', () => expect(evalExpr('=abc+1'), 0, 'malformed'));
+    test('evalExpr handles parentheses and a trailing negative operand', () => expect(evalExpr('=(2+3)*-4'), -20, 'parens with trailing negative'));
+    test('evalExpr handles a leading negative number', () => expect(evalExpr('=-5+2'), -3, 'leading negative'));
+    test('evalExpr plain non-formula number', () => expect(evalExpr('42.5'), 42.5, 'plain number'));
+    test('evalExpr empty/garbage string returns 0', () => expect(evalExpr('not a formula'), 0, 'garbage'));
+
+    // ── findDuplicates (used by checkDuplicateBeforeSave) ──
+    test('findDuplicates flags a same-day, same-amount, similar-desc entry', () => {
+      const dupes = findDuplicates({ desc:'Test needs', amount:45.20, date:today, type:'expense' });
+      expectTrue(dupes.length >= 1, `expected a match, got ${dupes.length}`);
+    });
+    test('findDuplicates does not flag a different amount', () => {
+      const dupes = findDuplicates({ desc:'Test needs', amount:999, date:today, type:'expense' });
+      expect(dupes.length, 0, 'should not match differing amount');
+    });
+
+    // ── toEur (FX conversion for net worth / portfolio totals) ──
+    test('toEur converts EUR passthrough and USD via rate, returns null when rate missing', () => {
+      const savedUsd = _fxRates.USD, savedIls = _fxRates.ILS;
+      try {
+        expect(toEur(100, 'EUR'), 100, 'EUR passthrough');
+        _fxRates.USD = 0.92;
+        expect(toEur(100, 'USD'), 92, 'USD conversion');
+        _fxRates.ILS = null;
+        expect(toEur(100, 'ILS'), null, 'missing rate should return null, not a wrong number');
+      } finally { _fxRates.USD = savedUsd; _fxRates.ILS = savedIls; }
+    });
+
+    // ── amortize (loan amortisation calculator) ──
+    test('amortize computes correct monthly payment and total interest', () => {
+      // 200,000 @ 4% for 20 years — cross-checked independently
+      const r = amortize(200000, 4, 20);
+      expectClose(r.monthly, 1211.96, 0.5, 'monthly payment');
+      expectClose(r.totalPaid, 290870.56, 5, 'total paid');
+      expectClose(r.totalInt, 90870.56, 5, 'total interest');
+    });
+    test('amortize returns null for invalid inputs (no infinite loop / NaN leak)', () => {
+      expect(amortize(0, 4, 20), null, 'zero principal');
+      expect(amortize(1000, 0, 20), null, 'zero rate');
+      expect(amortize(1000, 4, 0), null, 'zero years');
+    });
+
+    // ── fireCalc (FIRE calculator) ──
+    test('fireCalc computes years-to-FIRE correctly at 0% return (linear case)', () => {
+      const f = fireCalc({ nw:0, save:1200, ret:0, exp:2000, swr:4, pension:0 });
+      expect(f.alreadyFire, false, 'should not be already-FIRE');
+      expectClose(f.annualExpenses, 24000, 0.01, 'annual expenses');
+      expectClose(f.fireNumber, 600000, 0.01, 'FIRE number');
+      expect(f.months, 500, 'months to FIRE (linear, no growth)');
+      expect(f.years, 41, 'years');
+      expect(f.remMonths, 8, 'remainder months');
+      expectTrue(f.reached, 'should be reached within cap');
+    });
+    test('fireCalc detects already-FIRE when pension covers expenses', () => {
+      const f = fireCalc({ nw:0, save:0, ret:5, exp:1500, swr:4, pension:1500 });
+      expectTrue(f.alreadyFire, 'pension equal to expenses should mean already FIRE');
+    });
+
+    // ── kestForYear (Austrian capital gains tax) ──
+    test('kestForYear nets gains against losses at 27.5%', () => {
+      const k = kestForYear([{pnl:1000},{pnl:-400},{pnl:200}]);
+      expectClose(k.totalGains, 1200, 0.01, 'total gains');
+      expectClose(k.totalLosses, 400, 0.01, 'total losses');
+      expectClose(k.netGain, 800, 0.01, 'net gain');
+      expectClose(k.kest, 220, 0.01, 'KeSt owed (27.5% of net)');
+    });
+    test('kestForYear owes nothing on a net-loss year', () => {
+      const k = kestForYear([{pnl:-500},{pnl:100}]);
+      expectTrue(k.netGain < 0, 'net should be negative');
+      expect(k.kest, 0, 'no tax owed on a net loss');
+    });
+
+    // ── mergeVaultData (GitHub sync conflict resolution) ──
+    test('mergeVaultData: local wins on id conflict, remote-only ids are kept', () => {
+      const local  = { entries:[{id:'a', date:'2026-01-01', amount:10}], incomes:{'2026-01':{amount:100}} };
+      const remote = { entries:[{id:'a', date:'2026-01-01', amount:99}, {id:'b', date:'2026-01-02', amount:20}], incomes:{'2026-01':{amount:50},'2025-12':{amount:40}} };
+      const merged = mergeVaultData(local, remote);
+      expect(merged.entries.length, 2, 'union should have 2 entries');
+      const a = merged.entries.find(e=>e.id==='a');
+      expect(a.amount, 10, 'local should win on id conflict');
+      expectTrue(!!merged.entries.find(e=>e.id==='b'), 'remote-only entry should survive the merge');
+      expect(merged.incomes['2026-01'].amount, 100, 'local should win on scalar per-month conflict');
+      expect(merged.incomes['2025-12'].amount, 40, 'remote-only month should survive the merge');
+    });
+    test('mergeVaultData: notifFired is unioned, not overwritten', () => {
+      const local  = { entries:[], notifFired: { 'A':true } };
+      const remote = { entries:[], notifFired: { 'B':true } };
+      const merged = mergeVaultData(local, remote);
+      expectTrue(merged.notifFired.A && merged.notifFired.B, 'fired-on-either-device should both survive');
+    });
+
+    // ── saveAlertThreshold (budget notification threshold, Settings) ──
+    test('saveAlertThreshold clamps to the 50–95% range', () => {
+      saveAlertThreshold(30);
+      expect(DATA.splits.alertThreshold, 50, 'should clamp a too-low value up to 50');
+      saveAlertThreshold(200);
+      expect(DATA.splits.alertThreshold, 95, 'should clamp a too-high value down to 95');
+      saveAlertThreshold(70);
+      expect(DATA.splits.alertThreshold, 70, 'should accept an in-range value unchanged');
+    });
+
+    // ── getRecurringStatus (Recurring vs Actual reconciliation) ──
+    test('getRecurringStatus classifies ok/missing/drift/partial correctly', () => {
+      DATA.recurring.push(
+        { id:'rec1', desc:'Monthly ok',      amount:50, freq:'monthly', category:'wants' },
+        { id:'rec2', desc:'Monthly missing', amount:30, freq:'monthly', category:'wants' },
+        { id:'rec3', desc:'Monthly drift',   amount:20, freq:'monthly', category:'wants' },
+        { id:'rec4', desc:'Weekly partial',  amount:10, freq:'weekly',  category:'wants', day:1 }
+      );
+      DATA.entries.push(
+        { id:uid(), date:today, desc:'Monthly ok',     amount:50, type:'expense', category:'wants', recurId:'rec1', tags:[], accountId:null },
+        { id:uid(), date:today, desc:'Monthly drift',  amount:25, type:'expense', category:'wants', recurId:'rec3', tags:[], accountId:null },
+        { id:uid(), date:today, desc:'Weekly partial', amount:10, type:'expense', category:'wants', recurId:'rec4', tags:[], accountId:null }
+      );
+      const statuses = getRecurringStatus(THIS_MONTH);
+      const byId = Object.fromEntries(statuses.map(s => [s.recur.id, s]));
+      expect(byId.rec1.status, 'ok', 'fully-applied monthly item');
+      expect(byId.rec2.status, 'missing', 'never-applied monthly item');
+      expect(byId.rec3.status, 'drift', 'wrong-amount monthly item');
+      expectClose(byId.rec3.amountDrift, 5, 0.01, 'drift amount (25 logged vs 20 template)');
+      expect(byId.rec4.status, 'partial', 'weekly item logged once of several expected');
+    });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
   }
@@ -13231,6 +13468,43 @@ function runSmokeTest() {
 // on edits), seal the merged result, and push again.
 // Called automatically from ghPush() on conflict.
 // ══════════════════════════════════════════
+// Pure vault-merge logic, extracted from mergeAndPush so it's testable
+// without touching the network. Union arrays by id (local wins on conflict),
+// local wins for scalar per-month maps, notifFired is unioned (fired on
+// either device = don't re-fire). Does not mutate either input.
+function mergeVaultData(local, remote) {
+  const mergeById = (l, r) => {
+    const map = new Map();
+    (r||[]).forEach(item => map.set(item.id, item));  // remote first (lower priority)
+    (l||[]).forEach(item  => map.set(item.id, item));  // local overwrites (higher priority)
+    return [...map.values()];
+  };
+  const mergedIncomes    = { ...remote.incomes,       ...local.incomes };
+  const mergedNotes      = { ...remote.notes,         ...local.notes };
+  const mergedPlanned    = { ...remote.plannedIncome, ...local.plannedIncome };
+  const mergedNotifFired = { ...(remote.notifFired||{}), ...(local.notifFired||{}) };
+
+  return {
+    ...local,
+    entries:      mergeById(local.entries,      remote.entries).sort((a,b) => b.date.localeCompare(a.date)),
+    accounts:     mergeById(local.accounts,     remote.accounts),
+    recurring:    mergeById(local.recurring,    remote.recurring),
+    installments: mergeById(local.installments, remote.installments),
+    savingsGoals: mergeById(local.savingsGoals, remote.savingsGoals),
+    stocks:       mergeById(local.stocks,       remote.stocks),
+    fuel:         mergeById(local.fuel,         remote.fuel).sort((a,b) => b.date.localeCompare(a.date)),
+    fxAccounts:   mergeById(local.fxAccounts,   remote.fxAccounts),
+    grocery:      mergeById(local.grocery,      remote.grocery),
+    cashLog:      mergeById(local.cashLog,      remote.cashLog).sort((a,b) => b.date.localeCompare(a.date)),
+    incomes:      mergedIncomes,
+    notes:        mergedNotes,
+    plannedIncome:mergedPlanned,
+    notifFired:   mergedNotifFired,
+    auditLog:     [...new Map([...(remote.auditLog||[]), ...(local.auditLog||[])].map(a=>[a.ts, a])).values()]
+                    .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
+  };
+}
+
 async function mergeAndPush() {
   setSyncBadge('merging…');
   try {
@@ -13245,52 +13519,11 @@ async function mergeAndPush() {
     catch { ({ data: remoteData } = await CX.openLegacy(b64str, PAT)); }
     remoteData = migrate(remoteData);
 
-    // 2. Merge arrays — union by ID, local wins on conflict
-    const mergeById = (local, remote) => {
-      const map = new Map();
-      remote.forEach(item => map.set(item.id, item));  // remote first (lower priority)
-      local.forEach(item  => map.set(item.id, item));  // local overwrites (higher priority)
-      return [...map.values()];
-    };
-
-    // 3. Merge scalar incomes — local wins per month
-    const mergedIncomes = { ...remoteData.incomes };
-    Object.entries(DATA.incomes || {}).forEach(([m, v]) => { mergedIncomes[m] = v; });
-
-    // 4. Merge notes — local wins per month
-    const mergedNotes = { ...remoteData.notes };
-    Object.entries(DATA.notes || {}).forEach(([m, v]) => { mergedNotes[m] = v; });
-
-    // 5. Merge plannedIncome — local wins
-    const mergedPlanned = { ...remoteData.plannedIncome, ...DATA.plannedIncome };
-
-    // 6. Merge notifFired — union both sets (fired on either device = don't re-fire)
-    const mergedNotifFired = { ...(remoteData.notifFired||{}), ...(DATA.notifFired||{}) };
-
-    // 7. Assemble merged vault — keep local meta (splits, goals, settings)
-    const merged = {
-      ...DATA,
-      entries:      mergeById(DATA.entries     || [], remoteData.entries     || []).sort((a,b) => b.date.localeCompare(a.date)),
-      accounts:     mergeById(DATA.accounts    || [], remoteData.accounts    || []),
-      recurring:    mergeById(DATA.recurring   || [], remoteData.recurring   || []),
-      installments: mergeById(DATA.installments|| [], remoteData.installments|| []),
-      savingsGoals: mergeById(DATA.savingsGoals|| [], remoteData.savingsGoals|| []),
-      stocks:       mergeById(DATA.stocks      || [], remoteData.stocks      || []),
-      fuel:         mergeById(DATA.fuel        || [], remoteData.fuel        || []).sort((a,b) => b.date.localeCompare(a.date)),
-      fxAccounts:   mergeById(DATA.fxAccounts  || [], remoteData.fxAccounts  || []),
-      grocery:      mergeById(DATA.grocery     || [], remoteData.grocery     || []),
-      cashLog:      mergeById(DATA.cashLog     || [], remoteData.cashLog     || []).sort((a,b) => b.date.localeCompare(a.date)),
-      incomes:      mergedIncomes,
-      notes:        mergedNotes,
-      plannedIncome:mergedPlanned,
-      notifFired:   mergedNotifFired,
-      // Merge audit logs (combined, deduped by ts)
-      auditLog:     [...new Map([...(remoteData.auditLog||[]), ...(DATA.auditLog||[])].map(a=>[a.ts, a])).values()]
-                      .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
-    };
+    // 2. Merge — union by ID (local wins on conflict), local wins on scalar maps
+    const merged = mergeVaultData(DATA, remoteData);
     merged.meta.sha = j.sha; // use remote SHA for the push
 
-    // 7. Push merged result
+    // 3. Push merged result
     DATA = merged;
     const { b64, salt } = await CX.seal(DATA, PASS, null);
     SALT = salt;
@@ -13401,6 +13634,8 @@ function updateNotifBadge() {
   b.className   = `notif-state ${perm}`;
   const chk = el('notif-enabled');
   if (chk) chk.checked = localStorage.getItem(LS_NOTIF_PREF) === '1' && perm === 'granted';
+  const thr = el('notif-threshold');
+  if (thr) thr.value = DATA?.splits?.alertThreshold || 80;
 }
 
 async function requestNotifPermission() {
@@ -13418,6 +13653,19 @@ function saveNotifPref(on) {
   updateNotifBadge();
 }
 
+// Configurable early-warning threshold for Needs/Wants budget alerts (both the
+// browser notification in maybeSendBudgetAlerts and the mid-month dashboard
+// banner in getMidMonthAlerts read this). Clamped to a sane 50–95% range —
+// 100% is always included as a separate "over budget" alert regardless.
+function saveAlertThreshold(v) {
+  const n = Math.min(95, Math.max(50, parseInt(v, 10) || 80));
+  DATA.splits.alertThreshold = n;
+  const thr = el('notif-threshold');
+  if (thr) thr.value = n; // reflect clamped value back into the field
+  saveLocal();
+  toast(`Alert threshold set to ${n}%`);
+}
+
 function testBudgetNotif() {
   if (Notification.permission !== 'granted') return toast('Enable notifications first.', 1);
   new Notification('Vault Finance V4 — test', {
@@ -13432,16 +13680,22 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
   if (localStorage.getItem(LS_NOTIF_PREF) !== '1') return;
   if (totalInc <= 0) return;
 
-  const { splits, goals } = DATA;
+  const { splits } = DATA;
   const fired = getNotifFired();
+  // User-configurable early-warning threshold (default 80%); 100% ("over budget")
+  // always fires too, regardless of what the early-warning threshold is set to.
+  const customThreshold = splits.alertThreshold || 80;
+  const thresholds = [...new Set([customThreshold, 100])].sort((a,b) => a-b);
 
   ['needs','wants'].forEach(key => {
-    const target = totalInc * splits[key] / 100;
+    // categoryTarget() — same rollover-aware target the dashboard shows, so a
+    // notification never disagrees with what's on screen.
+    const target = categoryTarget(key, totalInc, month);
     if (target <= 0) return;
     const pct = (act[key] || 0) / target * 100;
     const label = key === 'needs' ? 'Needs' : 'Wants';
 
-    [80, 100].forEach(threshold => {
+    thresholds.forEach(threshold => {
       if (pct < threshold) return;
       const fireKey = `${month}:${key}:${threshold}`;
       if (fired[fireKey]) return;
@@ -13718,11 +13972,14 @@ function getMidMonthAlerts(month, act, totalInc) {
   if (totalInc <= 0) return [];
 
   const splits = DATA.splits;
+  const threshold = (splits.alertThreshold || 80) / 100;
   return ['needs','wants'].map(cat => {
-    const budget = totalInc * (splits[cat]||0) / 100;
+    // categoryTarget() — same rollover-aware target the dashboard and browser
+    // notifications use, so this banner never disagrees with them.
+    const budget = categoryTarget(cat, totalInc, month);
     if (budget <= 0) return null;
     const pct = act[cat] / budget;
-    if (pct < 0.8) return null;
+    if (pct < threshold) return null;
     const pace = act[cat] / daysElapsed * daysInMonth; // projected end-of-month spend at this rate
     return { cat, pct: Math.round(pct*100), budget, actual: act[cat], projected: pace, daysLeft };
   }).filter(Boolean);
@@ -13788,10 +14045,7 @@ function buildWizardContent(month) {
     </div>
     ${prevLeft >= 10 ? `<div style="font-size:12px;color:var(--Gm);margin-bottom:12px">💰 ${prev} left over: <strong>${fmt(prevLeft)}</strong></div>` : ''}` : '';
 
-  const pendingRec = DATA.recurring.filter(r => {
-    const alreadyApplied = DATA.entries.some(e => ym(e.date) === month && e.recurId === r.id);
-    return !alreadyApplied;
-  });
+  const pendingRec = getRecurringStatus(month).filter(s => s.status === 'missing' || s.status === 'partial');
 
   return `
     <div style="margin-bottom:14px;font-size:12px;color:var(--ink3)">${month}</div>
