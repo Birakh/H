@@ -3194,6 +3194,16 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// Safely embed a JSON.stringify()'d JS value inside a double-quoted HTML
+// attribute (e.g. onclick="fn(VALUE)"). JSON.stringify's own quote characters
+// would otherwise terminate the HTML attribute early, breaking the handler
+// for ANY value, not just ones containing special characters — this exact
+// bug hit fuel station/note inline-edit and the Top Merchants click-through
+// before all three call sites were fixed to go through this helper.
+function jsAttr(value) {
+  return JSON.stringify(value).replace(/"/g, '&quot;');
+}
+
 // ── Shared utilities ──────────────────────────────────────────────────────────
 // Return YYYY-MM that is `n` months before `month`
 const prevMonStr = (month, n=1) => {
@@ -8385,7 +8395,7 @@ function renderMerchantAnalytics(month, mes) {
   const max   = sorted[0][1];
   const total = sorted.reduce((s,[,v]) => s+v, 0);
   container.innerHTML = sorted.map(([name, amt], i) =>
-    barRow(name, amt, max, { rank: i+1, pct: (amt/total*100).toFixed(0), onclick: `openMerchant(${JSON.stringify(name)})` })
+    barRow(name, amt, max, { rank: i+1, pct: (amt/total*100).toFixed(0), onclick: `openMerchant(${jsAttr(name)})` })
   ).join('');
 }
 
@@ -12476,7 +12486,7 @@ function renderFuel() {
           title="Double-click to edit">${esc(f.date)}</td>
         <td ondblclick="makeFuelCellEditable(this,'${f.id}','type','${f.type}',{isSelect:true,width:'90px',options:{petrol:'Petrol',diesel:'Diesel',lpg:'LPG',electric:'Electric'}})"
           title="Double-click to edit"><span class="fuel-type-badge ${f.type}">${FUEL_LABELS[f.type]||esc(f.type)}</span></td>
-        <td ondblclick="makeFuelCellEditable(this,'${f.id}','station',${JSON.stringify(f.station||'')},{width:'110px'})"
+        <td ondblclick="makeFuelCellEditable(this,'${f.id}','station',${jsAttr(f.station||'')},{width:'110px'})"
           title="Double-click to edit" style="cursor:text">${esc(f.station||'—')}</td>
         <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','liters',${f.liters},{type:'number',step:'0.001',min:'0',width:'70px'})"
           title="Double-click to edit · recalculates Total">${f.liters.toFixed(2)} L</td>
@@ -12491,7 +12501,7 @@ function renderFuel() {
         <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
         <td style="text-align:center;font-size:15px;cursor:pointer" title="${fullTitle}"
           onclick="updateFuelRecord('${f.id}','fullTank',${f.fullTank===false?'true':'false'})">${fullBadge}</td>
-        <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${JSON.stringify(f.note||'')},{width:'120px'})"
+        <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${jsAttr(f.note||'')},{width:'120px'})"
           title="Double-click to add note" style="cursor:text;font-size:11px;color:var(--ink3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${f.note ? esc(f.note) : '<span style="color:var(--bdr)">+ note</span>'}</td>
         <td><button class="btn xs danger" onclick="deleteFuel('${f.id}')">✕</button></td>
@@ -13486,6 +13496,28 @@ function runSmokeTest() {
       expect(DATA.aiModel, null, 'empty value should clear to null (falls back to AI_MODEL_DEFAULT)');
     });
 
+    // ── jsAttr (safe embedding of a JS value inside a double-quoted HTML attribute) ──
+    test('jsAttr never leaves a bare " that would break the enclosing HTML attribute', () => {
+      // Reproduces the exact bug: JSON.stringify("Shell") === '"Shell"' — embedding
+      // that raw inside onclick="fn(VALUE)" terminates the attribute at the first
+      // quote, breaking the handler for ANY non-empty value, not just special chars.
+      ['Shell', '', 'O\'Brien\'s Garage', 'has "quotes" inside', 42, {a:1}].forEach(v => {
+        const out = jsAttr(v);
+        expectTrue(!out.includes('"'), `jsAttr(${JSON.stringify(v)}) must not contain a raw " — got: ${out}`);
+        const simulatedAttr = `onclick="fn(${out})"`;
+        // A raw " inside the attribute value would end it early; the whole
+        // simulated attribute must still contain exactly the two real quotes
+        // that delimit it (an even, minimal count confirms nothing leaked out).
+        expect((simulatedAttr.match(/"/g)||[]).length, 2, `embedding jsAttr(${JSON.stringify(v)}) must not add stray " characters to the attribute`);
+      });
+    });
+    test('jsAttr round-trips back to the original value once the browser decodes &quot; and JSON-parses it', () => {
+      const original = 'Shell "Express" Station';
+      const encoded = jsAttr(original);
+      const decoded = encoded.replace(/&quot;/g, '"'); // what the HTML parser does automatically
+      expect(JSON.parse(decoded), original, 'value should survive the encode → HTML-decode → JSON.parse round trip intact');
+    });
+
     // ── getRecurringStatus (Recurring vs Actual reconciliation) ──
     test('getRecurringStatus classifies ok/missing/drift/partial correctly', () => {
       DATA.recurring.push(
@@ -14296,7 +14328,7 @@ function runRecurringIntelligence() {
         <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.desc)}</div>
         <div style="color:var(--ink3);font-size:11px">~${fmt(s.avgAmt)} · around day ${s.avgDay} · seen ${s.monthsHit} months · ${s.category}</div>
       </div>
-      <button class="btn xs success" onclick="recIntAdd(${i}, ${JSON.stringify(s).replace(/"/g,'&quot;')})">+ Add</button>
+      <button class="btn xs success" onclick="recIntAdd(${i}, ${jsAttr(s)})">+ Add</button>
       <button class="btn xs ghost" onclick="document.getElementById('recint-row-${i}').remove()">Skip</button>
     </div>`).join('');
   el('recint-overlay').classList.add('open');
