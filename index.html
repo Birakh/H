@@ -2094,7 +2094,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <!-- ── AI Financial Assistant ── -->
       <div class="card">
         <div class="card-title">AI Financial Assistant
-          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">powered by Claude · your data stays local</span>
+          <span style="font-weight:400;font-size:11px;color:var(--ink3);text-transform:none;letter-spacing:0">your data stays local</span>
         </div>
 
         <!-- Period selector -->
@@ -2103,34 +2103,54 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="fg" style="margin:0"><label>To</label><input type="month" id="ai-to" style="width:100%"></div>
         </div>
 
-        <!-- Quick-fire questions -->
-        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Ask Claude about your finances</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          <button class="btn xs ghost" onclick="askVaultAI('Why did I overspend this period? Which categories were the biggest culprits?')">Why did I overspend?</button>
-          <button class="btn xs ghost" onclick="askVaultAI('Am I on track with my savings goals? What should I adjust?')">Goals on track?</button>
-          <button class="btn xs ghost" onclick="askVaultAI('What are my top 5 spending patterns? Any surprises or trends?')">Spending patterns</button>
-          <button class="btn xs ghost" onclick="askVaultAI('Where can I cut spending without major lifestyle impact?')">Where to cut?</button>
-          <button class="btn xs ghost" onclick="askVaultAI('Give me a full financial health summary for this period with actionable recommendations.')">Full summary</button>
+        <!-- Primary path: export & paste into any AI, no API key needed -->
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Export & paste into any AI</div>
+        <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Builds a plain-text summary of the selected period (income/expenses by category, top spends, balances, portfolio) plus a ready-made analysis prompt. Paste it into claude.ai, ChatGPT, or wherever you like.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+          <button class="btn sm primary" onclick="exportAI()">📋 Copy prompt</button>
+          <button class="btn sm ghost" onclick="exportAIFile()">⬇ Download .txt</button>
         </div>
 
-        <!-- Custom question -->
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <input type="text" id="ai-question" placeholder="Ask anything about your finances…"
-            style="flex:1" onkeydown="if(event.key==='Enter')askVaultAI(this.value)">
-          <button class="btn sm primary" onclick="askVaultAI(el('ai-question').value)">Ask</button>
-        </div>
+        <!-- Optional: answer in-app directly, needs the user's own API key -->
+        <details style="margin-top:14px;padding-top:12px;border-top:.5px solid var(--bdr)">
+          <summary style="cursor:pointer;font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Or get answers right here in the app (optional)</summary>
+          <div style="margin-top:10px">
+            <!-- API key — session-only, never saved to the vault, GitHub, or localStorage.
+                 Bring-your-own-key pattern, same as api.anthropic.com's documented CORS
+                 support for client-side apps (anthropic-dangerous-direct-browser-access). -->
+            <div class="fg" style="margin-bottom:10px">
+              <label>Anthropic API key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink3)">— re-enter each session, never stored</span></label>
+              <input type="password" id="ai-apikey" placeholder="sk-ant-…" autocomplete="off" style="width:100%">
+              <div style="font-size:11px;color:var(--ink3);margin-top:4px">Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Kept in memory only for this browser tab — cleared on refresh, disconnect, or close. Uses real API credits on your account.</div>
+            </div>
 
-        <!-- Response area -->
-        <div id="ai-response" style="display:none;background:var(--s1);border-radius:var(--rs);padding:14px;font-size:13px;line-height:1.65;color:var(--ink);border:.5px solid var(--bdr);max-height:400px;overflow-y:auto;white-space:pre-wrap"></div>
-        <div id="ai-loading" style="display:none;font-size:13px;color:var(--ink3);padding:10px 0">Claude is analysing your vault…</div>
-        <div id="ai-error" style="display:none;font-size:12px;color:var(--Rm);padding:8px 0"></div>
+            <!-- Model name is editable, not hardcoded — model strings rotate over time and
+                 this file can't auto-update itself, so future-you shouldn't need to edit
+                 code to point at a newer model. Value persists in the vault (not a secret). -->
+            <div class="fg" style="margin-bottom:10px">
+              <label>Model <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink3)">— change if this becomes outdated</span></label>
+              <input type="text" id="ai-model" placeholder="claude-sonnet-5" autocomplete="off" style="width:100%" onchange="saveAiModel(this.value)">
+            </div>
 
-        <!-- Export fallback -->
-        <div style="margin-top:12px;padding-top:10px;border-top:.5px solid var(--bdr);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:11px;color:var(--ink3)">Or export context for external AI:</span>
-          <button class="btn xs ghost" onclick="exportAI()">📋 Copy prompt</button>
-          <button class="btn xs ghost" onclick="exportAIFile()">⬇ Download .txt</button>
-        </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn xs ghost" onclick="askVaultAI('Why did I overspend this period? Which categories were the biggest culprits?')">Why did I overspend?</button>
+              <button class="btn xs ghost" onclick="askVaultAI('Am I on track with my savings goals? What should I adjust?')">Goals on track?</button>
+              <button class="btn xs ghost" onclick="askVaultAI('What are my top 5 spending patterns? Any surprises or trends?')">Spending patterns</button>
+              <button class="btn xs ghost" onclick="askVaultAI('Where can I cut spending without major lifestyle impact?')">Where to cut?</button>
+              <button class="btn xs ghost" onclick="askVaultAI('Give me a full financial health summary for this period with actionable recommendations.')">Full summary</button>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input type="text" id="ai-question" placeholder="Ask anything about your finances…"
+                style="flex:1" onkeydown="if(event.key==='Enter')askVaultAI(this.value)">
+              <button class="btn sm primary" onclick="askVaultAI(el('ai-question').value)">Ask</button>
+            </div>
+
+            <div id="ai-response" style="display:none;background:var(--s1);border-radius:var(--rs);padding:14px;font-size:13px;line-height:1.65;color:var(--ink);border:.5px solid var(--bdr);max-height:400px;overflow-y:auto;white-space:pre-wrap"></div>
+            <div id="ai-loading" style="display:none;font-size:13px;color:var(--ink3);padding:10px 0">Claude is analysing your vault…</div>
+            <div id="ai-error" style="display:none;font-size:12px;color:var(--Rm);padding:8px 0"></div>
+          </div>
+        </details>
       </div>
 
       <!-- ── Portfolio Allocation ── -->
@@ -5984,16 +6004,24 @@ function showColPreview() {
   const p=_rawRows.slice(0,3).map(r=>`${ni>=0?r[ni]:'?'} · ${pi>=0?r[pi]:'—'}${si>=0?' · '+r[si]:''}`).join(' | ');
   el('col-preview').textContent='Preview: '+(p||'—');
 }
+// Pure CSV→catalog row mapping, extracted so it's testable without touching
+// the DOM. Price parsing handles the European decimal-comma format (e.g.
+// "1,99" → 1.99) since that's what most AT/DE grocery export CSVs use.
+// nameIdx/priceIdx/storeIdx of -1 mean "no such column selected".
+function mapCatalogRows(rawRows, nameIdx, priceIdx, storeIdx) {
+  return (rawRows || []).map(row => ({
+    name:  String(row[nameIdx] || '').trim(),
+    price: priceIdx >= 0 ? parseFloat(String(row[priceIdx]).replace(',', '.')) || 0 : 0,
+    store: storeIdx >= 0 ? String(row[storeIdx] || '').trim() : '',
+    lastPrice: null, lastDate: null, priceHistory: []
+  })).filter(r => r.name);
+}
+
 async function applyColMap() {
   try {
     const ni=+el('map-n').value,pi=+el('map-p').value,si=+el('map-s').value;
     if (ni<0) return toast('Select a name column.',1);
-    DATA.catalog=_rawRows.map(row=>({
-      name:String(row[ni]||'').trim(),
-      price:pi>=0?parseFloat(String(row[pi]).replace(',','.'))||0:0,
-      store:si>=0?String(row[si]||'').trim():'',
-      lastPrice:null, lastDate:null, priceHistory:[]
-    })).filter(r=>r.name);
+    DATA.catalog = mapCatalogRows(_rawRows, ni, pi, si);
     el('col-map-ui').style.display='none';
     updateCatalogInfo(); saveLocal();
     renderCatalogEditor();
@@ -7967,6 +7995,8 @@ async function renderWealth() {
       aiFrom.value = offsetMonStr(-5);
       aiTo.value   = curMonStr();
     }
+    const aiModelInp = el('ai-model');
+    if (aiModelInp && !aiModelInp.value) aiModelInp.value = DATA.aiModel || AI_MODEL_DEFAULT;
     const savedInc = DATA.incomes[curMonth()];
     if (savedInc?.amount > 0) {
       const slider = el('wc-inc');
@@ -11367,12 +11397,34 @@ function renderTransitComparison() {
 // ══════════════════════════════════════════
 // IN-APP AI FINANCIAL ASSISTANT
 // ══════════════════════════════════════════
+// Fallback if the vault has no saved model and the field is left empty.
+// Model names rotate over time — this file can't auto-update itself, so this
+// is the one spot to bump when it goes stale (or just edit the field in-app).
+const AI_MODEL_DEFAULT = 'claude-sonnet-5';
+
+// Not a secret — safe to persist in the vault so the user doesn't have to
+// re-type it every session, unlike the API key.
+function saveAiModel(v) {
+  DATA.aiModel = v?.trim() || null;
+  saveLocal();
+}
+
 async function askVaultAI(question) {
   if (!question?.trim()) return;
   const loadEl = el('ai-loading');
   const respEl = el('ai-response');
   const errEl  = el('ai-error');
   const qInp   = el('ai-question');
+  const apiKey = el('ai-apikey')?.value?.trim();
+  const model  = el('ai-model')?.value?.trim() || AI_MODEL_DEFAULT;
+
+  if (!apiKey) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.innerHTML = `⚠ Enter your Anthropic API key above first (get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>), or use the "Copy prompt" export below to paste into claude.ai instead.`;
+    }
+    return;
+  }
 
   // Build financial context from vault
   const r = _validateAIRange();
@@ -11383,11 +11435,21 @@ async function askVaultAI(question) {
   if (errEl)  { errEl.style.display='none'; }
 
   try {
+    // Bring-your-own-key, direct from the browser — this is Anthropic's own
+    // documented pattern for client-side apps (no server-side proxy needed),
+    // enabled via the anthropic-dangerous-direct-browser-access header. The
+    // key lives only in this input field for the current tab; it is never
+    // written to DATA, localStorage, or synced to GitHub.
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 1000,
         system: `You are a personal finance advisor analysing a user's encrypted Vault Finance V4 data.
 The user is from Austria. Use € for currency. Be specific with numbers from the data.
@@ -11417,8 +11479,8 @@ Do not make up numbers — only reference figures present in the data.`,
   } catch(e) {
     if (errEl) {
       errEl.style.display = 'block';
-      errEl.innerHTML = e.message.includes('401') || e.message.includes('403')
-        ? `⚠ API key not configured — Claude cannot be accessed from this browser context. Use the "Copy prompt" export below to paste into claude.ai instead.`
+      errEl.innerHTML = e.message.includes('401') || e.message.includes('authentication')
+        ? `⚠ That API key was rejected — double-check it's correct and active. Or use the "Copy prompt" export below to paste into claude.ai instead.`
         : `⚠ ${e.message}`;
     }
   } finally {
@@ -12941,7 +13003,7 @@ function runVaultHealth() {
 
   // ── 3. Future-dated entries (>1 year ahead) ───────────────────────────────
   const futureEntries = (DATA.entries||[]).filter(e => new Date(e.date+'T00:00:00') > oneYearFromNow);
-  if (futureEntries.length) issues.push({ icon:'⚠', text:`${futureEntries.length} entr${futureEntries.length===1?'y':'ies'} dated more than 1 year in the future`, fix:`Check for typos like 2204 instead of 2024.` });
+  if (futureEntries.length) { const ys = String(new Date().getFullYear()); const typo = ys[0]+ys[2]+ys[1]+ys[3]; issues.push({ icon:'⚠', text:`${futureEntries.length} entr${futureEntries.length===1?'y':'ies'} dated more than 1 year in the future`, fix:`Check for typos like ${typo} instead of ${ys}.` }); }
 
   // ── 4. Invalid category / type ────────────────────────────────────────────
   const badCat  = (DATA.entries||[]).filter(e => e.category && !VALID_CATS.has(e.category));
@@ -13417,6 +13479,13 @@ function runSmokeTest() {
       expect(DATA.splits.alertThreshold, 70, 'should accept an in-range value unchanged');
     });
 
+    test('saveAiModel persists a trimmed model string, empty clears to null', () => {
+      saveAiModel('  claude-opus-4-8  ');
+      expect(DATA.aiModel, 'claude-opus-4-8', 'should trim whitespace');
+      saveAiModel('');
+      expect(DATA.aiModel, null, 'empty value should clear to null (falls back to AI_MODEL_DEFAULT)');
+    });
+
     // ── getRecurringStatus (Recurring vs Actual reconciliation) ──
     test('getRecurringStatus classifies ok/missing/drift/partial correctly', () => {
       DATA.recurring.push(
@@ -13437,6 +13506,62 @@ function runSmokeTest() {
       expect(byId.rec3.status, 'drift', 'wrong-amount monthly item');
       expectClose(byId.rec3.amountDrift, 5, 0.01, 'drift amount (25 logged vs 20 template)');
       expect(byId.rec4.status, 'partial', 'weekly item logged once of several expected');
+    });
+
+    // ── detectAnomalies (dashboard "unusual spend" flag) ──
+    test('detectAnomalies flags a spend that is a big outlier vs history', () => {
+      const m1 = prevMonStr(THIS_MONTH,1), m2 = prevMonStr(THIS_MONTH,2), m3 = prevMonStr(THIS_MONTH,3);
+      DATA.entries.push(
+        { id:uid(), date:m1+'-05', desc:'Groceries', amount:100, type:'expense', category:'needs', tags:[], accountId:null },
+        { id:uid(), date:m2+'-05', desc:'Groceries', amount:110, type:'expense', category:'needs', tags:[], accountId:null },
+        { id:uid(), date:m3+'-05', desc:'Groceries', amount:90,  type:'expense', category:'needs', tags:[], accountId:null }
+      );
+      const flags = detectAnomalies(THIS_MONTH, { needs:500, wants:0, savings:0 });
+      expectTrue(flags.some(f => f.label==='Needs'), 'expected a Needs anomaly flag for a 5x-average spend');
+    });
+    test('detectAnomalies ignores tiny amounts and in-line-with-history spend', () => {
+      const tiny = detectAnomalies(THIS_MONTH, { needs:20, wants:0, savings:0 }); // below MIN_AMOUNT
+      expect(tiny.length, 0, 'amount under €30 threshold should never be flagged');
+      const normal = detectAnomalies(THIS_MONTH, { needs:105, wants:0, savings:0 }); // close to ~100 history avg
+      expectTrue(!normal.some(f=>f.label==='Needs'), 'spend close to historical average should not be flagged');
+    });
+
+    // ── detectRecurringPatterns (recurring-item auto-detector) ──
+    test('detectRecurringPatterns suggests a stable repeating charge', () => {
+      const m1 = THIS_MONTH, m2 = prevMonStr(THIS_MONTH,1);
+      DATA.entries.push(
+        { id:uid(), date:m1+'-10', desc:'Netflix', amount:15.99, type:'expense', category:'wants', tags:[], accountId:null },
+        { id:uid(), date:m2+'-10', desc:'Netflix', amount:15.99, type:'expense', category:'wants', tags:[], accountId:null }
+      );
+      const suggestions = detectRecurringPatterns([m1, m2]);
+      expectTrue(suggestions.some(s => s.desc==='Netflix'), 'expected a stable same-day, same-amount charge to be suggested');
+    });
+    test('detectRecurringPatterns excludes already-tracked items and irregular amounts', () => {
+      const m1 = THIS_MONTH, m2 = prevMonStr(THIS_MONTH,1);
+      DATA.recurring.push({ id:'existing-netflix', desc:'Netflix', amount:15.99, freq:'monthly', category:'wants' });
+      DATA.entries.push(
+        { id:uid(), date:m1+'-15', desc:'Variable bill', amount:50, type:'expense', category:'wants', tags:[], accountId:null },
+        { id:uid(), date:m2+'-15', desc:'Variable bill', amount:80, type:'expense', category:'wants', tags:[], accountId:null } // >5% deviation
+      );
+      const suggestions = detectRecurringPatterns([m1, m2]);
+      expectTrue(!suggestions.some(s=>s.desc==='Netflix'), 'already-tracked recurring item should be excluded');
+      expectTrue(!suggestions.some(s=>s.desc==='Variable bill'), 'amount varying >5% should not be suggested');
+    });
+
+    // ── mapCatalogRows (grocery CSV column-mapping import) ──
+    test('mapCatalogRows parses columns and European decimal-comma prices', () => {
+      const rows = [['Milk','1,99','REWE'], ['Bread','','SPAR'], ['','2,50','X']];
+      const catalog = mapCatalogRows(rows, 0, 1, 2);
+      expect(catalog.length, 2, 'row with empty name should be filtered out');
+      expect(catalog[0].name, 'Milk', 'name column');
+      expectClose(catalog[0].price, 1.99, 0.001, 'comma-decimal price should parse as 1.99, not 199 or NaN');
+      expect(catalog[0].store, 'REWE', 'store column');
+      expect(catalog[1].price, 0, 'blank price should default to 0, not NaN');
+    });
+    test('mapCatalogRows treats an unselected column index (-1) as absent', () => {
+      const catalog = mapCatalogRows([['Eggs','2,49']], 0, -1, -1);
+      expect(catalog[0].price, 0, 'no price column selected → 0');
+      expect(catalog[0].store, '', 'no store column selected → empty string');
     });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
@@ -14105,14 +14230,12 @@ function maybeShowWizard(month) {
 // Scans the last 6 months of entries for descriptions that appear with a similar
 // amount in at least 2 of those months, within ±5 days of the same day-of-month,
 // and aren't already tracked as a recurring entry.
-function runRecurringIntelligence() {
-  const now = new Date();
-  const months = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-  }
-
+// Pure repeating-pattern detection, extracted from runRecurringIntelligence
+// so it's testable without touching the DOM. Flags a description as a
+// recurring-item candidate if it appears in 2+ distinct months within the
+// given window, on a similar day-of-month (±10 days) and for a similar
+// amount (within 5%).
+function detectRecurringPatterns(months) {
   // Group non-recurring expense/savings entries by normalised description
   const groups = {};
   DATA.entries.forEach(e => {
@@ -14148,6 +14271,19 @@ function runRecurringIntelligence() {
     if (maxDeviation > 0.05) return;
     suggestions.push({ desc: entries[0].desc, avgAmt, avgDay, monthsHit: monthsHit.length, category: entries[0].category, type: entries[0].type, sampleId: entries[0].id });
   });
+
+  return suggestions;
+}
+
+function runRecurringIntelligence() {
+  const now = new Date();
+  const months = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+
+  const suggestions = detectRecurringPatterns(months);
 
   if (!suggestions.length) {
     toast('No new repeating patterns found');
