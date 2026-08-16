@@ -3,7 +3,7 @@
 // online (so a bug fix or new feature isn't hidden behind a stale cache), and
 // only fall back to whatever was last cached when there's no connection.
 // Bump CACHE_NAME whenever you want to force old caches to be evicted.
-const CACHE_NAME = 'vault-finance-v8';
+const CACHE_NAME = 'vault-finance-v9';
 const APP_SHELL  = ['./', './index.html', './manifest.webmanifest'];
 // Third-party libraries the app depends on at runtime (currently just the Excel
 // export library). Cached separately from APP_SHELL and best-effort per-file —
