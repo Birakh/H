@@ -3584,8 +3584,8 @@ function silentSelfTest() {
 
     // 4. Schema migration idempotency
     try {
-      const once  = migrate(JSON.parse(JSON.stringify(DATA)));
-      const twice = migrate(JSON.parse(JSON.stringify(once)));
+      const once  = migrate(structuredClone(DATA));
+      const twice = migrate(structuredClone(once));
       if (once.v !== SCHEMA_VERSION) failures.push(`Migration landed on v${once.v}, expected v${SCHEMA_VERSION}`);
       else if (JSON.stringify(once) !== JSON.stringify(twice)) failures.push('A migration step is not idempotent');
     } catch(e) { failures.push(`Migration threw: ${e.message}`); }
@@ -3734,7 +3734,7 @@ async function switchRepo() {
     if (!test.ok) throw new Error(`GitHub ${test.status} — check the repo name and token permissions.`);
     swSt.textContent = 'Re-encrypting and pushing to new repo…';
     // Deep-copy data, strip SHA — new repo has no existing file to update
-    const dataCopy = JSON.parse(JSON.stringify(DATA));
+    const dataCopy = structuredClone(DATA);
     if (dataCopy.meta) delete dataCopy.meta.sha;
     // Fresh salt + new key derived from PASS
     const { b64, salt } = await CX.seal(dataCopy, PASS, null);
@@ -13214,8 +13214,8 @@ function runSelfTest() {
   // on already-current data must be a no-op, since old vaults replay every step
   // they haven't seen yet and must land on identical output either way.
   try {
-    const once  = migrate(JSON.parse(JSON.stringify(DATA)));
-    const twice = migrate(JSON.parse(JSON.stringify(once)));
+    const once  = migrate(structuredClone(DATA));
+    const twice = migrate(structuredClone(once));
     if (once.v !== SCHEMA_VERSION) {
       fail('Migration did not reach the current schema version', `Expected v${SCHEMA_VERSION}, got v${once.v}`);
     } else if (JSON.stringify(once) !== JSON.stringify(twice)) {
@@ -13363,8 +13363,8 @@ function runSmokeTest() {
 
     test('MIGRATIONS step count matches SCHEMA_VERSION', () => expect(MIGRATIONS.length, SCHEMA_VERSION, 'step count'));
     test('migrate() is idempotent on current-version data', () => {
-      const once  = migrate(JSON.parse(JSON.stringify(DATA)));
-      const twice = migrate(JSON.parse(JSON.stringify(once)));
+      const once  = migrate(structuredClone(DATA));
+      const twice = migrate(structuredClone(once));
       expectTrue(JSON.stringify(once) === JSON.stringify(twice), 'running migrate() twice produced different output');
     });
     test('a v0 vault migrates cleanly to the current version', () => {
