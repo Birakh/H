@@ -1128,8 +1128,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <select id="d-mo" onchange="onMonthChange()" style="width:auto"></select>
-          <select id="d-yr" onchange="onMonthChange()" style="width:auto"></select>
+          <input type="month" id="d-month" onchange="onMonthChange()" style="width:auto">
           <button class="btn xs info" onclick="openWhatIf()" title="What-if planner">What-if</button>
         </div>
       </div>
@@ -1363,7 +1362,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="g3" style="margin-bottom:10px">
           <div class="fg" style="margin:0">
             <label>Date <span class="muted" style="text-transform:none;letter-spacing:0">(manual)</span></label>
-            <input type="date" id="ef-date">
+            <div style="display:flex;gap:4px">
+              <input type="date" id="ef-date" style="flex:1;min-width:0">
+              <button type="button" class="btn xs ghost" onclick="jumpEntryDateToToday()" title="Jump to today's date">Today</button>
+            </div>
           </div>
           <div class="fg" style="margin:0"><label>Type</label>
             <select id="ef-type" onchange="onTypeChange();updateBalancePreview()">
@@ -4045,25 +4047,13 @@ function migrate(d) {
 }
 
 // ══════════════════════════════════════════
-// MONTH / YEAR SELECTORS
+// CURRENT MONTH (Overview date picker)
 // ══════════════════════════════════════════
-function buildMonthSelects() {
-  const moSel = el('d-mo');
-  const yrSel = el('d-yr');
-  moSel.innerHTML = MS.map((m,i) =>
-    `<option value="${String(i+1).padStart(2,'0')}">${m}</option>`).join('');
-  const now = new Date();
-  const startYr = 2020, endYr = now.getFullYear() + 2;
-  yrSel.innerHTML = Array.from({length: endYr - startYr + 1}, (_,i) =>
-    `<option value="${startYr+i}">${startYr+i}</option>`).join('');
-}
 function curMonth() {
-  return `${el('d-yr').value}-${el('d-mo').value}`;
+  return el('d-month').value;
 }
-function setMonthSelects(ym) {
-  const [yr, mo] = ym.split('-');
-  el('d-yr').value = yr;
-  el('d-mo').value = mo;
+function setMonth(ym) {
+  el('d-month').value = ym;
 }
 
 // ══════════════════════════════════════════
@@ -4082,14 +4072,13 @@ function setMonthIncome(month, amount, formula) {
 // BOOT
 // ══════════════════════════════════════════
 function boot() {
-  buildMonthSelects();
   // Overview should always open on the real current month/day — a stale month left
   // over from a previous session (e.g. app was last viewed in June, reopened in July)
   // used to persist via localStorage and silently desync both the dashboard and the
   // Entries tab's default entry date. Always start on today's month; in-session
   // navigation still works and is remembered only for the duration of this load.
   const savedMonth = curMonStr();
-  setMonthSelects(savedMonth);
+  setMonth(savedMonth);
   _entryMonthVal = savedMonth;
   el('ef-date').value = defaultEntryDate();
   // Only pre-fill income if this month has an explicit saved value — blank for new months
@@ -4185,6 +4174,14 @@ function copyIncomeFromLastMonth() {
 
 function defaultEntryDate() {
   return curMonth() === curMonStr() ? ymd() : curMonth() + '-01';
+}
+
+// "Today" button next to the Add Entry date field — an explicit, unambiguous
+// jump to the real current date. Distinct from defaultEntryDate(), which is
+// month-aware (defaults to the 1st of whatever month the Overview happens to
+// be viewing) — this always means literally today, regardless of that.
+function jumpEntryDateToToday() {
+  el('ef-date').value = ymd();
 }
 
 function onMonthChange() {
