@@ -1128,7 +1128,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn xs ghost" onclick="shiftMonth(-1)" title="Previous month" style="padding:2px 8px">◀</button>
           <input type="month" id="d-month" onchange="onMonthChange()" style="width:auto">
+          <button type="button" class="btn xs ghost" onclick="shiftMonth(1)" title="Next month" style="padding:2px 8px">▶</button>
+          <button type="button" class="btn xs ghost" onclick="jumpMonthToToday()" title="Jump to current month">Today</button>
           <button class="btn xs info" onclick="openWhatIf()" title="What-if planner">What-if</button>
         </div>
       </div>
@@ -4055,6 +4058,23 @@ function curMonth() {
 function setMonth(ym) {
   el('d-month').value = ym;
 }
+// Prev/Next arrows next to the month picker — quicker than opening the
+// calendar and typing/spinning to an adjacent month every time.
+// Pure date-shift arithmetic, extracted so it's testable without triggering
+// the full dashboard re-render that shiftMonth() also does.
+function shiftMonthStr(ymStr, delta) {
+  const [yr, mo] = ymStr.split('-').map(Number);
+  const d = new Date(yr, mo - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function shiftMonth(delta) {
+  setMonth(shiftMonthStr(curMonth(), delta));
+  onMonthChange();
+}
+function jumpMonthToToday() {
+  setMonth(curMonStr());
+  onMonthChange();
+}
 
 // ══════════════════════════════════════════
 // PER-MONTH INCOME HELPERS
@@ -4267,10 +4287,11 @@ function renderDash() {
 
   const leftClass = left >= 0 ? 'highlight' : 'danger-hi';
 
-  // "Left in Needs" — pulled up from the tiny bar-foot text under the Needs
-  // split bar into its own stat card since users kept missing it there.
-  // Uses categoryTarget() so this can never drift from what renderSplitBars
-  // shows for the same category (same income baseline + rollover carry).
+  // "Left in Needs"/"Left in Wants" — pulled up from the tiny bar-foot text
+  // under each split bar into their own stat cards since users kept missing
+  // them there. Both use categoryTarget() so they can never drift from what
+  // renderSplitBars shows for the same category (same income baseline +
+  // rollover carry) — same helper, same math, two categories.
   const needsTarget = budgetInc > 0 ? categoryTarget('needs', budgetInc, month) : 0;
   const needsLeft   = needsTarget - act.needs;
   const needsOver   = act.needs > needsTarget && needsTarget > 0;
@@ -4278,11 +4299,19 @@ function renderDash() {
     ? `<div class="stat ${needsOver?'danger-hi':''}"><div class="stat-lbl">Left in Needs</div><div class="stat-val ${needsOver?'cr':'cg'}">${needsOver?'−':''}${fmt(Math.abs(needsLeft))}</div></div>`
     : '';
 
+  const wantsTarget = budgetInc > 0 ? categoryTarget('wants', budgetInc, month) : 0;
+  const wantsLeft   = wantsTarget - act.wants;
+  const wantsOver   = act.wants > wantsTarget && wantsTarget > 0;
+  const wantsStat   = budgetInc > 0
+    ? `<div class="stat ${wantsOver?'danger-hi':''}"><div class="stat-lbl">Left in Wants</div><div class="stat-val ${wantsOver?'cr':'cg'}">${wantsOver?'−':''}${fmt(Math.abs(wantsLeft))}</div></div>`
+    : '';
+
   el('d-stats').innerHTML = `
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
     <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
     <div class="stat ${leftClass}"><div class="stat-lbl">Left to spend</div><div class="stat-val">${fmt(left)}</div>${momDelta(left,prevLeft,false)}</div>
     ${needsStat}
+    ${wantsStat}
     <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=20?'cg':savePct>=10?'ca':'cr'}">${budgetInc>0?savePct+'%':'—'}</div></div>
     <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : '€/day (budget)'}</div><div class="stat-val ${isCurrentMonth?(dailyLeft>=0?'cg':'cr'):(dailyBudget>0?'cb':'')}">${isCurrentMonth ? fmtBare(dailyLeft)+'/d' : dailyBudget>0 ? fmtBare(dailyBudget)+'/d' : '—'}</div></div>
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
@@ -13317,6 +13346,11 @@ function runSmokeTest() {
     test('ym() extracts YYYY-MM', () => expect(ym('2026-06-15'), '2026-06', 'ym'));
     test('evalExpr(=2+3*4) === 14', () => expect(evalExpr('=2+3*4'), 14, 'evalExpr'));
     test('prevMonStr() handles year boundary', () => expect(prevMonStr('2026-01'), '2025-12', 'boundary'));
+    test('shiftMonthStr() handles year boundaries both directions', () => {
+      expect(shiftMonthStr('2026-12', 1), '2027-01', 'Dec + 1 should roll to next Jan');
+      expect(shiftMonthStr('2027-01', -1), '2026-12', 'Jan - 1 should roll back to prev Dec');
+      expect(shiftMonthStr('2026-06', 3), '2026-09', 'simple within-year forward shift');
+    });
 
     test('isSavingsEntry recognises new type', () => expectTrue(isSavingsEntry({type:'savings',category:'savings'}), 'new type'));
     test('isSavingsEntry recognises legacy combo', () => expectTrue(isSavingsEntry({type:'expense',category:'savings'}), 'legacy combo'));
@@ -13326,6 +13360,7 @@ function runSmokeTest() {
     const today = ymd();
     DATA.entries = [
       { id:uid(), date:today, desc:'Test needs',   amount:45.20, type:'expense', category:'needs',   tags:[], accountId:null },
+      { id:uid(), date:today, desc:'Test wants',    amount:30,    type:'expense', category:'wants',   tags:[], accountId:null },
       { id:uid(), date:today, desc:'Test savings', amount:200,   type:'savings', category:'savings', tags:[], accountId:null },
     ];
     test('budget category aggregation is correct', () => {
@@ -13333,6 +13368,7 @@ function runSmokeTest() {
       const act = { needs:0, wants:0, savings:0 };
       mes.forEach(e => { if (isSpendEntry(e) && e.category in act) act[e.category]+=e.amount; if (isSavingsEntry(e)) act.savings+=e.amount; });
       expect(act.needs, 45.20, 'needs total');
+      expect(act.wants, 30, 'wants total');
       expect(act.savings, 200, 'savings total');
     });
 
@@ -13343,6 +13379,15 @@ function runSmokeTest() {
       const mes = DATA.entries.filter(e => ym(e.date)===THIS_MONTH);
       const needsAct = mes.filter(e => isInCategoryBucket(e,'needs')).reduce((s,e)=>s+e.amount, 0);
       expectClose(target - needsAct, 1804.80, 0.01, 'needs remaining (45.20 spent)');
+    });
+
+    test('categoryTarget/"Left in Wants" math is correct', () => {
+      // income 3700, wants split 30%, rollover.wants=false → no carry → target 1110
+      const target = categoryTarget('wants', 3700, THIS_MONTH);
+      expectClose(target, 1110, 0.01, 'wants target (no carry)');
+      const mes = DATA.entries.filter(e => ym(e.date)===THIS_MONTH);
+      const wantsAct = mes.filter(e => isInCategoryBucket(e,'wants')).reduce((s,e)=>s+e.amount, 0);
+      expectClose(target - wantsAct, 1080, 0.01, 'wants remaining (30 spent)');
     });
 
     DATA.entries.push({ id:uid(), date:PREV_MONTH+'-15', desc:'ETF prev', amount:100, type:'savings', category:'savings', tags:[], accountId:null });
