@@ -3647,7 +3647,7 @@ async function loadCommitHistory() {
           <div style="font-weight:${isCurrent?'600':'400'};color:var(--ink)">${esc(msg)}${isCurrent ? ' <span style="color:var(--Gm);font-size:11px">← current</span>' : ''}</div>
           <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">${date} · ${c.sha.slice(0,7)}</div>
         </div>
-        ${!isCurrent ? `<button class="btn xs ghost" onclick="previewCommit('${c.sha}','${esc(msg).replace(/'/g,"\\'")}','${date}')">Preview</button>` : '<span style="font-size:11px;color:var(--ink3)">live</span>'}
+        ${!isCurrent ? `<button class="btn xs ghost" onclick="previewCommit('${c.sha}',${jsAttr(msg)},'${date}')">Preview</button>` : '<span style="font-size:11px;color:var(--ink3)">live</span>'}
       </div>`;
     }).join('');
   } catch(e) { box.innerHTML = `<div style="font-size:13px;color:var(--Rm)">Error: ${esc(e.message)}</div>`; }
@@ -5776,7 +5776,7 @@ function renderEntries() {
     const cls   = isI || isS ? 'amt-p' : (isT ? 'num' : 'amt-n');
     const sign  = isI || isS ? '+' : (isT ? '⇄' : '−');
     const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
-    const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag('${esc(t)}')">${esc(t)}</span>`).join('');
+    const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag(${jsAttr(t)})">${esc(t)}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
     const checked = _selEntries.has(e.id) ? 'checked' : '';
     // Account cell: show name if linked, '—' if not; click opens select
@@ -5790,8 +5790,8 @@ function renderEntries() {
     return `<tr data-entry-id="${e.id}">
       <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
       <td class="editable num" title="${esc(loggedTitle)}" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${esc(e.date)}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc','${esc(e.desc||'')}')">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount','${esc(e.formula||String(e.amount))}')">
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc',${jsAttr(e.desc||'')})">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}</td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount',${jsAttr(e.formula||String(e.amount))})">
         <span class="${cls}">${sign}${fmt(e.amount)}</span>
       </td>
       <td><span class="badge ${esc(e.category)}">${esc(e.category)}</span></td>
@@ -6512,14 +6512,14 @@ function renderVarsUI() {
         <td style="padding:6px 8px;font-family:var(--mono);font-size:12px;color:var(--B);font-weight:500;border-bottom:.5px solid var(--bdr)">${esc(name)}</td>
         <td style="text-align:right;padding:6px 8px;font-family:var(--mono);font-size:13px;border-bottom:.5px solid var(--bdr)">
           <input type="number" value="${v.value}" step="any" style="width:110px;text-align:right;font-family:var(--mono);font-size:12px;padding:2px 6px"
-            onchange="updateVar('${esc(name)}','value',this.value)">
+            onchange="updateVar(${jsAttr(name)},'value',this.value)">
         </td>
         <td style="padding:6px 8px;border-bottom:.5px solid var(--bdr)">
           <input type="text" value="${esc(v.desc||'')}" placeholder="What is this?" style="font-size:12px;color:var(--ink2);padding:2px 6px"
-            onchange="updateVar('${esc(name)}','desc',this.value)">
+            onchange="updateVar(${jsAttr(name)},'desc',this.value)">
         </td>
         <td style="padding:6px 8px;border-bottom:.5px solid var(--bdr);white-space:nowrap">
-          <button class="btn xs ghost" onclick="deleteVar('${esc(name)}')">✕</button>
+          <button class="btn xs ghost" onclick="deleteVar(${jsAttr(name)})">✕</button>
         </td>
       </tr>`).join('')}
     </tbody>
