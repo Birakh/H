@@ -2506,8 +2506,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <!-- ── Hybrid / EV assist (only shows once any fill-up logs EV time or fuel saved) ── -->
       <div id="fuel-hybrid-card" style="display:none">
         <div class="card">
-          <div class="card-title">🔋 Hybrid assist</div>
+          <div class="card-title">🔋 Hybrid assist
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn xs ghost" id="hy-btn-ev"    onclick="setHybridChartMode('ev')"    style="border-radius:20px">EV time</button>
+              <button class="btn xs ghost" id="hy-btn-saved" onclick="setHybridChartMode('saved')" style="border-radius:20px">Fuel saved</button>
+            </div>
+          </div>
           <div id="fuel-hybrid-stats"></div>
+          <div style="overflow-x:auto;margin-top:10px"><div id="fuel-hybrid-chart"></div></div>
+          <div style="margin-top:12px">
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Yearly summary</div>
+            <div id="fuel-hybrid-yearly"></div>
+          </div>
         </div>
       </div>
 
@@ -10386,6 +10396,121 @@ function renderHybridStats(records) {
     ${withSaved.length ? stat('Fuel saved', totalSavedL.toFixed(1)+' L', savedEur!=null ? `≈ ${fmt(savedEur)} at avg price/L` : `across ${withSaved.length} fill-up${withSaved.length!==1?'s':''}`) : ''}
   </div>
   <div style="font-size:11px;color:var(--ink3);margin-top:8px">Logged from your car's trip computer at each fill-up — since-last-fill values, not lifetime totals.</div>`;
+
+  renderHybridChart(records);
+  renderHybridYearly(records);
+}
+
+// ── Hybrid/EV trend chart — bar chart per fill-up, toggle between EV time
+// and fuel saved. Same hand-rolled SVG bar-chart pattern as renderFuelHistory
+// (bars + average line + latest-value callout), so it looks and behaves
+// consistently with the other fuel charts.
+let _hybridChartMode = 'ev'; // 'ev' | 'saved'
+
+function _highlightHybridModeBtn(mode) {
+  ['ev','saved'].forEach(m => {
+    const btn = el(`hy-btn-${m}`);
+    if (btn) btn.style.fontWeight = m === mode ? '700' : '400';
+  });
+}
+
+function setHybridChartMode(mode) {
+  _hybridChartMode = mode;
+  renderHybridChart((DATA.fuel||[]).sort((a,b)=>a.date.localeCompare(b.date)));
+}
+
+function renderHybridChart(records) {
+  const wrap = el('fuel-hybrid-chart'); if (!wrap) return;
+  _highlightHybridModeBtn(_hybridChartMode);
+
+  const field = _hybridChartMode === 'ev' ? 'evMinutes' : 'fuelSaved';
+  const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
+  const pts = sorted.filter(f => f[field] != null && f[field] > 0).map(f => ({ date:f.date, v:f[field] }));
+
+  if (pts.length < 2) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:12px 0">Need at least 2 fill-ups with this value logged.</div>';
+    return;
+  }
+
+  const W=600, H=130, padL=48, padR=16, padT=14, padB=24;
+  const cW=W-padL-padR, cH=H-padT-padB;
+  const vals  = pts.map(p => p.v);
+  const minV  = 0, maxV = Math.max(...vals)*1.05;
+  const range = maxV - minV || 1;
+  const xS    = i => padL + i*(cW/Math.max(pts.length-1,1));
+  const yS    = v  => padT + cH - ((v-minV)/range)*cH;
+  const color = _hybridChartMode === 'ev' ? 'var(--Gm)' : 'var(--Bm)';
+  const fmt2  = v => _hybridChartMode === 'ev' ? `${Math.floor(v/60)}h ${Math.round(v%60)}m` : `${v.toFixed(1)} L`;
+
+  const barW = Math.max(4, Math.min(24, cW/pts.length - 3));
+  const bars = pts.map((p,i) => {
+    const by = padT+cH;
+    const bh = Math.max(2, by - yS(p.v));
+    const bx = xS(i) - barW/2;
+    return `<rect x="${bx.toFixed(1)}" y="${yS(p.v).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${color}" opacity=".75" rx="2"><title>${p.date}: ${fmt2(p.v)}</title></rect>`;
+  }).join('');
+  const avg  = vals.reduce((a,b)=>a+b,0)/vals.length;
+  const avgY = yS(avg).toFixed(1);
+  const body = `${bars}
+    <line x1="${padL}" y1="${avgY}" x2="${W-padR}" y2="${avgY}" stroke="${color}" stroke-width="1" stroke-dasharray="4,3" opacity=".5"/>
+    <text x="${W-padR-2}" y="${+avgY-3}" font-size="8" fill="${color}" text-anchor="end" opacity=".8">avg ${fmt2(avg)}</text>`;
+
+  const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
+    `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--chart-txt)" dominant-baseline="middle">${_hybridChartMode==='ev'?Math.round(v):v.toFixed(1)}</text>`
+  ).join('');
+  const every = Math.max(1, Math.ceil(pts.length/7));
+  const xLabels = pts.map((p,i) => i%every!==0 ? '' :
+    `<text x="${xS(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${p.date.slice(5)}</text>`
+  ).join('');
+
+  const lastV = vals[vals.length-1];
+  wrap.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    <line x1="${padL}" y1="${padT+cH}" x2="${W-padR}" y2="${padT+cH}" stroke="var(--chart-grid)" stroke-width=".5"/>
+    ${body}
+    ${yTicks}${xLabels}
+    <text x="${xS(pts.length-1).toFixed(1)}" y="${yS(lastV).toFixed(1)-8}" font-size="9" fill="${color}" font-weight="600" text-anchor="middle">${fmt2(lastV)}</text>
+  </svg>`;
+}
+
+// ── Hybrid/EV yearly summary ──
+// Pure grouping logic, extracted so it's testable without touching the DOM.
+// Each year's € estimate uses that year's OWN average price/L (not a global
+// average) since fuel prices move a lot year to year — a 2022 estimate using
+// 2026 prices would be misleading.
+function hybridYearlySummary(records) {
+  const byYear = {};
+  records.forEach(f => {
+    const yr = (f.date||'').slice(0,4); if (!yr) return;
+    if (!byYear[yr]) byYear[yr] = { year:yr, evMinutes:0, evFillCount:0, fuelSavedL:0, savedFillCount:0, pplSum:0, pplCount:0 };
+    const y = byYear[yr];
+    if (f.evMinutes != null && f.evMinutes > 0) { y.evMinutes += f.evMinutes; y.evFillCount++; }
+    if (f.fuelSaved != null && f.fuelSaved > 0) { y.fuelSavedL += f.fuelSaved; y.savedFillCount++; }
+    if (f.ppl > 0) { y.pplSum += f.ppl; y.pplCount++; }
+  });
+  return Object.values(byYear)
+    .filter(y => y.evFillCount > 0 || y.savedFillCount > 0)
+    .map(y => {
+      const avgPpl = y.pplCount > 0 ? y.pplSum / y.pplCount : 0;
+      return { year:y.year, evMinutes:y.evMinutes, evFillCount:y.evFillCount, fuelSavedL:y.fuelSavedL, savedFillCount:y.savedFillCount, savedEur: avgPpl > 0 ? y.fuelSavedL * avgPpl : null };
+    })
+    .sort((a,b) => b.year.localeCompare(a.year));
+}
+
+function renderHybridYearly(records) {
+  const wrap = el('fuel-hybrid-yearly'); if (!wrap) return;
+  const rows = hybridYearlySummary(records);
+  if (!rows.length) { wrap.innerHTML = '<div style="font-size:12px;color:var(--ink3)">No yearly data yet.</div>'; return; }
+
+  wrap.innerHTML = rows.map(y => {
+    const evStr = y.evFillCount ? `${Math.floor(y.evMinutes/60)}h ${Math.round(y.evMinutes%60)}m` : '—';
+    const savedStr = y.savedFillCount ? `${y.fuelSavedL.toFixed(1)} L${y.savedEur!=null ? ` (≈ ${fmt(y.savedEur)})` : ''}` : '—';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
+      <div style="font-weight:600;min-width:40px">${y.year}</div>
+      <div style="flex:1;color:var(--ink2)">EV time: <strong style="color:var(--ink)">${evStr}</strong></div>
+      <div style="flex:1;color:var(--ink2)">Fuel saved: <strong style="color:var(--ink)">${savedStr}</strong></div>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════
@@ -13561,8 +13686,7 @@ function runSmokeTest() {
     });
 
     // ── getRecurringStatus (Recurring vs Actual reconciliation) ──
-    test('getRecurringStatus classifies ok/missing/drift/partial correctly', () => {
-      DATA.recurring.push(
+    test('getRecurringStatus classifies ok/missing/drift/partial correctly', () => {      DATA.recurring.push(
         { id:'rec1', desc:'Monthly ok',      amount:50, freq:'monthly', category:'wants' },
         { id:'rec2', desc:'Monthly missing', amount:30, freq:'monthly', category:'wants' },
         { id:'rec3', desc:'Monthly drift',   amount:20, freq:'monthly', category:'wants' },
@@ -13636,6 +13760,28 @@ function runSmokeTest() {
       const catalog = mapCatalogRows([['Eggs','2,49']], 0, -1, -1);
       expect(catalog[0].price, 0, 'no price column selected → 0');
       expect(catalog[0].store, '', 'no store column selected → empty string');
+    });
+
+    // ── hybridYearlySummary (Fuel tab — EV time / fuel saved yearly breakdown) ──
+    test('hybridYearlySummary groups by year with per-year average price/L', () => {
+      const records = [
+        { date:'2025-03-01', evMinutes:60, fuelSaved:2,   ppl:1.50 },
+        { date:'2025-08-01', evMinutes:30, fuelSaved:1,   ppl:1.70 },
+        { date:'2026-02-01', evMinutes:90, fuelSaved:3,   ppl:1.60 },
+        { date:'2026-05-01', evMinutes:0,  fuelSaved:0,   ppl:1.65 }, // no EV/saved data — should not create a row by itself, but year already has one
+      ];
+      const rows = hybridYearlySummary(records);
+      expect(rows.length, 2, 'two years with data');
+      expect(rows[0].year, '2026', 'sorted most-recent year first');
+      const y2025 = rows.find(r => r.year === '2025');
+      expect(y2025.evMinutes, 90, 'sums EV minutes within the year (60+30)');
+      expectClose(y2025.fuelSavedL, 3, 0.01, 'sums fuel saved within the year (2+1)');
+      // avg ppl for 2025 = (1.50+1.70)/2 = 1.60 → savedEur = 3 * 1.60 = 4.80
+      expectClose(y2025.savedEur, 4.80, 0.01, 'uses that year\'s own average price/L, not a global average');
+    });
+    test('hybridYearlySummary excludes fill-ups with neither EV time nor fuel saved logged', () => {
+      const rows = hybridYearlySummary([{ date:'2026-01-01', evMinutes:null, fuelSaved:null, ppl:1.5 }]);
+      expect(rows.length, 0, 'a fill-up with no hybrid data should not produce a yearly row');
     });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
