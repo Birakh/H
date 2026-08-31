@@ -5725,7 +5725,10 @@ function renderEntries() {
   refreshAccountSelect();
 
   // month filter — preserve selection
-  const months = [...new Set(DATA.entries.map(e=>ym(e.date)))].sort().reverse();
+  const months = [...new Set([
+    ...DATA.entries.map(e=>ym(e.date)),
+    ...Object.entries(DATA.incomes).filter(([m,inc])=>inc && inc.amount > 0).map(([m])=>m)
+  ])].sort().reverse();
   const efm=el('ef-fm'), pM=efm.value;
   efm.innerHTML='<option value="">All months</option>'+months.map(m=>`<option${m===pM?' selected':''}>${m}</option>`).join('');
 
@@ -5735,6 +5738,21 @@ function renderEntries() {
   eft.innerHTML='<option value="">All tags</option>'+allTags.map(t=>`<option${t===pT?' selected':''}>${t}</option>`).join('');
 
   let list = [...DATA.entries];
+  // Synthesize a read-only "Monthly income" row from the Overview's saved
+  // income for each month that has one — so it's visible here alongside
+  // real entries without actually being added to DATA.entries. This is
+  // deliberately display-only: DATA.incomes[month].amount already feeds the
+  // dashboard's budget-target math separately from ad-hoc income entries
+  // (salary sets the 50/30/20 baseline; one-off bonuses logged as entries
+  // deliberately don't inflate it — see renderDash's budgetInc comment), so
+  // turning this into a real, independently-editable entry would risk
+  // quietly breaking that distinction. It sorts, filters, and totals like a
+  // normal row; editing/removing it happens on the Overview, not here.
+  Object.entries(DATA.incomes).forEach(([m, inc]) => {
+    if (inc && inc.amount > 0) {
+      list.push({ id:'baseinc-'+m, date:m+'-01', desc:'Monthly income', amount:inc.amount, type:'income', category:'income', tags:[], accountId:null, isOverviewIncome:true });
+    }
+  });
   const fM=efm.value, fC=el('ef-fc').value, fS=el('ef-fs').value.toLowerCase(), fT=eft.value;
   if (fM) list=list.filter(e=>ym(e.date)===fM);
   if (fC) list=list.filter(e=>e.category===fC);
@@ -5780,6 +5798,19 @@ function renderEntries() {
   </tr>`;
 
   el('ent-body').innerHTML = qaRow + list.map(e => {
+    if (e.isOverviewIncome) {
+      return `<tr data-entry-id="${e.id}" style="background:var(--s1)">
+        <td></td>
+        <td class="num">${esc(e.date)}</td>
+        <td>${esc(e.desc)} <span class="badge" style="background:var(--s2);color:var(--ink2);font-size:9px;vertical-align:middle;text-transform:none;letter-spacing:0">from Overview</span></td>
+        <td><span class="amt-p">+${fmt(e.amount)}</span></td>
+        <td><span class="badge income">income</span></td>
+        <td><span class="muted" style="font-size:11px">—</span></td>
+        <td></td>
+        <td><span class="muted">—</span></td>
+        <td><button class="btn xs ghost" onclick="nav('dash')" title="Edit this on the Overview tab">✎ Overview</button></td>
+      </tr>`;
+    }
     const isI   = e.type==='income';
     const isT   = e.type==='transfer';
     const isS   = isSavingsEntry(e);
