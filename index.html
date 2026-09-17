@@ -4098,6 +4098,42 @@ function setMonthIncome(month, amount, formula) {
   DATA.incomes[month] = { amount, formula };
 }
 
+// Sum of "extra" income entries for a set of month-filtered entries — i.e.
+// income logged as its own entry, NOT the Overview-set salary. Excludes the
+// salary's own mirrored entry (see syncBaseIncomeEntry) so a month's income
+// is never summed twice: once via DATA.incomes[month].amount (the "base")
+// and again via its mirror entry sitting in DATA.entries. Every place that
+// computes `base + <income entries>` should go through this rather than an
+// inline .filter(e=>e.type==='income') — missing the exclusion on even one
+// of them would silently inflate that one view's income figure.
+function extraIncomeSum(entries) {
+  return entries.filter(e => e.type==='income' && !e.isSalaryMirror).reduce((s,e) => s+e.amount, 0);
+}
+
+// Mirrors the Overview's monthly income into a REAL, normal entry — visible,
+// editable, and deletable in the Entries tab exactly like anything else, and
+// (unlike a purely-visual mirror) it now correctly flows into account
+// balances via computeAcctBalance(), same as any other income entry.
+// DATA.incomes[month].amount stays the single source of truth for the
+// salary figure — this just keeps a same-amount entry in sync with it. Uses
+// a deterministic id (one per month) so re-saving updates the same entry
+// instead of duplicating it, and an isSalaryMirror flag so extraIncomeSum()
+// (used everywhere the app adds salary + income entries together) can
+// exclude it from double-counting.
+function syncBaseIncomeEntry(month, amount) {
+  const id = 'baseinc-' + month;
+  const existing = DATA.entries.find(e => e.id === id);
+  if (amount > 0) {
+    if (existing) {
+      existing.amount = amount;
+    } else {
+      DATA.entries.push({ id, date: month+'-01', desc:'Monthly income', amount, type:'income', category:'income', tags:[], accountId:null, isSalaryMirror:true, loggedAt:new Date().toISOString() });
+    }
+  } else if (existing) {
+    DATA.entries = DATA.entries.filter(e => e.id !== id);
+  }
+}
+
 // ══════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════
@@ -4183,6 +4219,7 @@ function saveMonthIncome() {
   const month = curMonth();
   const { amount, formula } = parseAmt(el('d-income').value);
   setMonthIncome(month, amount, formula);
+  syncBaseIncomeEntry(month, amount);
   saveLocal();
   renderDash();
   const lbl = el('income-saved-lbl');
@@ -4234,7 +4271,7 @@ function renderDash() {
   }
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
-  const addInc  = mes.filter(e => e.type==='income').reduce((s,e) => s+e.amount, 0);
+  const addInc  = extraIncomeSum(mes);
   // totalInc  — actual money received this month (salary + any income entries logged).
   //             Shown in the "Total income" stat so the user sees their real cash flow.
   // budgetInc — baseline used for the 50/30/20 bar targets.
@@ -4282,7 +4319,7 @@ function renderDash() {
   // Month-over-month comparison
   const prevMon  = prevMonStr(month);
   const prevMes  = DATA.entries.filter(e => ym(e.date) === prevMon);
-  const prevInc  = getMonthIncome(prevMon).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevInc  = getMonthIncome(prevMon).amount + extraIncomeSum(prevMes);
   const prevSpent= prevMes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0);
   const prevSaved= prevMes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0);
   const prevLeft = prevInc - prevSpent;
@@ -4555,7 +4592,7 @@ function renderSplitBars(totalInc, act, dayFrac, daysElapsed, daysInMonth, isCur
     const month = curMonth();
     const mes = DATA.entries.filter(e => ym(e.date)===month);
     const { amount } = getMonthIncome(month);
-    const _addInc = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const _addInc = extraIncomeSum(mes);
     // Mirror renderDash budgetInc logic — salary-only when set, so one-off bonuses
     // logged as income entries don't inflate the 50/30/20 bar targets.
     totalInc = amount > 0 ? amount : (_addInc || 0);
@@ -4711,7 +4748,7 @@ function renderChart() {
   const mons = Array.from({length:12}, (_,i) => offsetMonStr(i - 11));
   const income  = mons.map(m => {
     const { amount } = getMonthIncome(m);
-    return amount + DATA.entries.filter(e=>ym(e.date)===m&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+    return amount + extraIncomeSum(DATA.entries.filter(e=>ym(e.date)===m));
   });
   const expense = mons.map(m => DATA.entries.filter(e=>ym(e.date)===m&&e.type==='expense').reduce((s,e)=>s+e.amount,0));
   const maxVal  = Math.max(...income, ...expense, 1);
@@ -5568,10 +5605,21 @@ async function deleteEntry(id) {
     const entry = DATA.entries.find(e => e.id === id);
     if (!entry) return;
     const idx = DATA.entries.indexOf(entry);
+    // Deleting the mirrored Overview-income entry directly: also clear
+    // DATA.incomes for that month so the Overview's income field doesn't
+    // keep showing a value/formula for an income that no longer exists
+    // anywhere — the entry and the Overview field are meant to agree.
+    let clearedIncomeMonth = null, clearedIncomeRecord = null;
+    if (entry.isSalaryMirror) {
+      clearedIncomeMonth = id.slice('baseinc-'.length);
+      clearedIncomeRecord = DATA.incomes[clearedIncomeMonth];
+      delete DATA.incomes[clearedIncomeMonth];
+    }
     DATA.entries = DATA.entries.filter(e => e.id !== id);
     saveLocal(); render();
     toast('Entry deleted', 0, () => {
       DATA.entries.splice(idx, 0, entry);
+      if (clearedIncomeMonth && clearedIncomeRecord) DATA.incomes[clearedIncomeMonth] = clearedIncomeRecord;
       saveLocal(); render(); toast('Entry restored');
     });
   } catch(e) { toast(e.message || 'Failed to delete entry.', 1); }
@@ -5589,6 +5637,14 @@ async function commitEdit(id, field, val) {
     const e = DATA.entries.find(x=>x.id===id); if(!e) return;
     if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
     else e[field]=val;
+    // Editing the mirrored Overview-income entry's amount directly: push the
+    // new value back into DATA.incomes so the Overview field stays in sync,
+    // and clear any stale formula there since a manual override no longer
+    // matches whatever formula originally produced the old amount.
+    if (e.isSalaryMirror && field === 'amount') {
+      const mon = id.slice('baseinc-'.length);
+      if (DATA.incomes[mon]) { DATA.incomes[mon].amount = e.amount; DATA.incomes[mon].formula = null; }
+    }
     saveLocal(); preserveScroll(render);
   } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
@@ -5725,10 +5781,7 @@ function renderEntries() {
   refreshAccountSelect();
 
   // month filter — preserve selection
-  const months = [...new Set([
-    ...DATA.entries.map(e=>ym(e.date)),
-    ...Object.entries(DATA.incomes).filter(([m,inc])=>inc && inc.amount > 0).map(([m])=>m)
-  ])].sort().reverse();
+  const months = [...new Set(DATA.entries.map(e=>ym(e.date)))].sort().reverse();
   const efm=el('ef-fm'), pM=efm.value;
   efm.innerHTML='<option value="">All months</option>'+months.map(m=>`<option${m===pM?' selected':''}>${m}</option>`).join('');
 
@@ -5738,21 +5791,6 @@ function renderEntries() {
   eft.innerHTML='<option value="">All tags</option>'+allTags.map(t=>`<option${t===pT?' selected':''}>${t}</option>`).join('');
 
   let list = [...DATA.entries];
-  // Synthesize a read-only "Monthly income" row from the Overview's saved
-  // income for each month that has one — so it's visible here alongside
-  // real entries without actually being added to DATA.entries. This is
-  // deliberately display-only: DATA.incomes[month].amount already feeds the
-  // dashboard's budget-target math separately from ad-hoc income entries
-  // (salary sets the 50/30/20 baseline; one-off bonuses logged as entries
-  // deliberately don't inflate it — see renderDash's budgetInc comment), so
-  // turning this into a real, independently-editable entry would risk
-  // quietly breaking that distinction. It sorts, filters, and totals like a
-  // normal row; editing/removing it happens on the Overview, not here.
-  Object.entries(DATA.incomes).forEach(([m, inc]) => {
-    if (inc && inc.amount > 0) {
-      list.push({ id:'baseinc-'+m, date:m+'-01', desc:'Monthly income', amount:inc.amount, type:'income', category:'income', tags:[], accountId:null, isOverviewIncome:true });
-    }
-  });
   const fM=efm.value, fC=el('ef-fc').value, fS=el('ef-fs').value.toLowerCase(), fT=eft.value;
   if (fM) list=list.filter(e=>ym(e.date)===fM);
   if (fC) list=list.filter(e=>e.category===fC);
@@ -5798,25 +5836,16 @@ function renderEntries() {
   </tr>`;
 
   el('ent-body').innerHTML = qaRow + list.map(e => {
-    if (e.isOverviewIncome) {
-      return `<tr data-entry-id="${e.id}" style="background:var(--s1)">
-        <td></td>
-        <td class="num">${esc(e.date)}</td>
-        <td>${esc(e.desc)} <span class="badge" style="background:var(--s2);color:var(--ink2);font-size:9px;vertical-align:middle;text-transform:none;letter-spacing:0">from Overview</span></td>
-        <td><span class="amt-p">+${fmt(e.amount)}</span></td>
-        <td><span class="badge income">income</span></td>
-        <td><span class="muted" style="font-size:11px">—</span></td>
-        <td></td>
-        <td><span class="muted">—</span></td>
-        <td><button class="btn xs ghost" onclick="nav('dash')" title="Edit this on the Overview tab">✎ Overview</button></td>
-      </tr>`;
-    }
     const isI   = e.type==='income';
     const isT   = e.type==='transfer';
     const isS   = isSavingsEntry(e);
     const cls   = isI || isS ? 'amt-p' : (isT ? 'num' : 'amt-n');
     const sign  = isI || isS ? '+' : (isT ? '⇄' : '−');
     const rBadge = e.recurId ? '<span class="recur-badge">↻</span>' : '';
+    // Small visual marker for the entry mirrored from the Overview's monthly
+    // income (syncBaseIncomeEntry) — still a completely normal, editable,
+    // deletable entry; this just flags where it came from at a glance.
+    const salaryBadge = e.isSalaryMirror ? '<span class="badge" style="background:var(--s2);color:var(--ink2);font-size:9px;vertical-align:middle;text-transform:none;letter-spacing:0" title="Kept in sync with the Overview\'s monthly income field">Overview</span>' : '';
     const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" onclick="filterByTag(${jsAttr(t)})">${esc(t)}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" onclick="editEntryTags('${e.id}')" title="Edit tags" style="opacity:.5">+tag</span>`;
     const checked = _selEntries.has(e.id) ? 'checked' : '';
@@ -5831,7 +5860,7 @@ function renderEntries() {
     return `<tr data-entry-id="${e.id}">
       <td><input type="checkbox" class="row-sel row-sel-entry" data-id="${e.id}" ${checked} onchange="toggleRowSel('${e.id}',this.checked)"></td>
       <td class="editable num" title="${esc(loggedTitle)}" ondblclick="makeEditable(this,'${e.id}','date','${e.date}')">${esc(e.date)}</td>
-      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc',${jsAttr(e.desc||'')})">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}</td>
+      <td class="editable" ondblclick="makeEditable(this,'${e.id}','desc',${jsAttr(e.desc||'')})">${esc(e.desc)||'<span class="muted">—</span>'}${rBadge}${salaryBadge}</td>
       <td class="editable" ondblclick="makeEditable(this,'${e.id}','amount',${jsAttr(e.formula||String(e.amount))})">
         <span class="${cls}">${sign}${fmt(e.amount)}</span>
       </td>
@@ -6922,7 +6951,7 @@ function exportExcel() {
       for (let m=1;m<=12;m++) {
         const mo=`${yr}-${String(m).padStart(2,'0')}`;
         const base=label==='Total Income'?getMonthIncome(mo).amount:0;
-        const inc=base+DATA.entries.filter(e=>ym(e.date)===mo&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+        const inc=base+extraIncomeSum(DATA.entries.filter(e=>ym(e.date)===mo));
         const exp=DATA.entries.filter(e=>ym(e.date)===mo&&isOutflowEntry(e)).reduce((s,e)=>s+e.amount,0);
         if (label==='Total Income') row.push(inc||'');
         else if (label==='Total Expenses') row.push(exp||'');
@@ -7022,7 +7051,7 @@ function getCategoryCarry(key, month) {
   // entries are additive only when no salary is set.  This keeps carry targets
   // consistent with what the split bars show for the same month.
   const base      = prevSaved.amount;
-  const addInc    = prevMes.filter(e => e.type === 'income').reduce((s,e) => s+e.amount, 0);
+  const addInc    = extraIncomeSum(prevMes);
   const prevInc   = base > 0 ? base : (addInc || 0);
   const prevCatSpent  = prevMes.filter(e => isInCategoryBucket(e, key)).reduce((s,e) => s+e.amount, 0);
   const prevCatBudget = prevInc * (DATA.splits[key]||0) / 100;
@@ -7987,7 +8016,7 @@ function buildAIText(from, to) {
     const inc = DATA.incomes[month];
     const base = inc ? inc.amount : 0;
     const mes  = DATA.entries.filter(e => ym(e.date) === month);
-    const addInc  = mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const addInc  = extraIncomeSum(mes);
     const totalInc = base + addInc;
     const exp = mes.filter(isOutflowEntry);
     const totalExp = exp.reduce((s,e)=>s+e.amount,0);
@@ -9076,12 +9105,12 @@ function renderAnnualGrid() {
   const curMon = curMonStr();
 
   const rows = [
-    { key:'income',   label:'Income',   fn:(mes,m)=>{ const inc=DATA.incomes[m]; return (inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); }, cls:'annual-pos' },
+    { key:'income',   label:'Income',   fn:(mes,m)=>{ const inc=DATA.incomes[m]; return (inc?.amount||0)+extraIncomeSum(mes); }, cls:'annual-pos' },
     { key:'needs',    label:'Needs',    fn:(mes)=>mes.filter(e=>e.type==='expense'&&e.category==='needs').reduce((s,e)=>s+e.amount,0), cls:'' },
     { key:'wants',    label:'Wants',    fn:(mes)=>mes.filter(e=>e.type==='expense'&&e.category==='wants').reduce((s,e)=>s+e.amount,0), cls:'' },
     { key:'savings',  label:'Savings',  fn:(mes)=>mes.filter(isSavingsEntry).reduce((s,e)=>s+e.amount,0), cls:'annual-pos' },
     { key:'total',    label:'Total exp',fn:(mes)=>mes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0), cls:'' },
-    { key:'net',      label:'Net',      fn:(mes,m)=>{ const inc=DATA.incomes[m]; const base=(inc?.amount||0)+mes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0); const exp=mes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0); return base-exp; }, cls:'', signed:true },
+    { key:'net',      label:'Net',      fn:(mes,m)=>{ const inc=DATA.incomes[m]; const base=(inc?.amount||0)+extraIncomeSum(mes); const exp=mes.filter(isOutflowEntry).reduce((s,e)=>s+e.amount,0); return base-exp; }, cls:'', signed:true },
   ];
 
   const months = Array.from({length:12}, (_,i) => `${yr}-${String(i+1).padStart(2,'0')}`);
@@ -13569,6 +13598,53 @@ function runSmokeTest() {
       expect(computeAcctBalance(DATA.accounts[0]), 3800, 'balance');
     });
 
+    // ── syncBaseIncomeEntry / extraIncomeSum (Overview income → Entries mirror) ──
+    test('syncBaseIncomeEntry creates, updates in place, and removes the mirrored entry', () => {
+      syncBaseIncomeEntry('2030-01', 3000);
+      const created = DATA.entries.find(e => e.id === 'baseinc-2030-01');
+      expectTrue(!!created, 'entry should be created when amount > 0');
+      expect(created.amount, 3000, 'created amount');
+      expectTrue(created.isSalaryMirror === true, 'should be flagged as a salary mirror');
+
+      syncBaseIncomeEntry('2030-01', 3200); // re-save with a different amount
+      const matches = DATA.entries.filter(e => e.id === 'baseinc-2030-01');
+      expect(matches.length, 1, 're-saving should update the same entry, never duplicate it');
+      expect(matches[0].amount, 3200, 'updated amount');
+
+      syncBaseIncomeEntry('2030-01', 0); // clearing income should remove the mirror entirely
+      expectTrue(!DATA.entries.find(e => e.id === 'baseinc-2030-01'), 'zero amount should remove the mirrored entry');
+    });
+    test('extraIncomeSum excludes the salary-mirror entry to prevent double-counting', () => {
+      const entries = [
+        { type:'income', amount:3700, isSalaryMirror:true },
+        { type:'income', amount:200 }, // a real bonus, logged as its own entry
+      ];
+      expect(extraIncomeSum(entries), 200, 'should sum only the non-mirror income entry');
+    });
+    test('the salary-mirror entry correctly flows into account balances (the gap this feature fixed)', () => {
+      syncBaseIncomeEntry('2030-02', 500);
+      const mirror = DATA.entries.find(e => e.id === 'baseinc-2030-02');
+      mirror.accountId = DATA.accounts[0].id;
+      // previous balance was 3800 (see prior test) — the mirror entry, once
+      // assigned to an account, must add its amount on top, same as any
+      // normal income entry would. A purely-visual mirror would silently
+      // fail this — it would never appear in computeAcctBalance() at all.
+      expect(computeAcctBalance(DATA.accounts[0]), 4300, 'account balance must include the mirrored salary entry');
+    });
+    test('wizardCopyIncome also syncs the mirrored entry, not just DATA.incomes', () => {
+      // A second, separate write path (the month-close wizard's income
+      // shortcut) sets DATA.incomes directly — it must also call
+      // syncBaseIncomeEntry(), or it silently reintroduces the exact gap
+      // the mirror entry was built to fix, just via a different button.
+      _wizardMonth = '2030-03';
+      try {
+        wizardCopyIncome(1234);
+        const mirror = DATA.entries.find(e => e.id === 'baseinc-2030-03');
+        expectTrue(!!mirror, 'wizardCopyIncome must create the mirror entry, not just DATA.incomes');
+        expect(mirror.amount, 1234, 'mirror amount should match what the wizard set');
+      } finally { _wizardMonth = null; }
+    });
+
     test('MIGRATIONS step count matches SCHEMA_VERSION', () => expect(MIGRATIONS.length, SCHEMA_VERSION, 'step count'));
     test('migrate() is idempotent on current-version data', () => {
       const once  = migrate(structuredClone(DATA));
@@ -14376,7 +14452,7 @@ function closeWizard() { el('wizard-overlay').classList.remove('open'); }
 function buildWizardContent(month) {
   const prev = prevMonStr(month);
   const prevMes = DATA.entries.filter(e => ym(e.date) === prev);
-  const prevInc = getMonthIncome(prev).amount + prevMes.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const prevInc = getMonthIncome(prev).amount + extraIncomeSum(prevMes);
   const prevAct = { needs:0, wants:0, savings:0 };
   prevMes.forEach(e => {
     if (isOutflowEntry(e) && e.category in prevAct) prevAct[e.category] += e.amount;
@@ -14451,6 +14527,7 @@ function wizardCopyIncome(amount) {
   const m = _wizardMonth;
   if (!m) return;
   DATA.incomes[m] = { amount, formula: null };
+  syncBaseIncomeEntry(m, amount);
   saveLocal();
   el('wizard-content').innerHTML = buildWizardContent(m);
   renderDash();
