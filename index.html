@@ -10794,6 +10794,25 @@ function updateInsurancePreview() {
 // ══════════════════════════════════════════
 // FUEL INLINE EDITING
 // ══════════════════════════════════════════
+// The two hybrid cells (EV time, fuel saved) of a fuel-table row, as HTML.
+// A filled cell opens its editor on double-click like every other cell. An EMPTY
+// one opens on a single click instead — there's nothing else a click could mean
+// there, it's friendlier on a phone, and it matches the odometer cell's "add" hint.
+// The hint is drawn in a clearly visible colour: it used to use the border colour
+// (~7% opacity), so empty cells just looked blank and nobody knew they were editable.
+function fuelHybridCells(f) {
+  const evCur  = f.evMinutes > 0 ? formatEvClock(f.evMinutes) : '';
+  const svCur  = f.fuelSaved > 0 ? String(f.fuelSaved) : '';
+  const evOpen = `makeFuelCellEditable(this,'${f.id}','evMinutes','${evCur}',{width:'80px'})`;
+  const svOpen = `makeFuelCellEditable(this,'${f.id}','fuelSaved','${svCur}',{type:'number',step:'0.1',min:'0',width:'60px'})`;
+  const hint   = '<span style="color:var(--ink3);border-bottom:1px dashed var(--ink3)">+ add</span>';
+  const cell = (cur, open, body, what) =>
+    `<td class="num" ${cur ? `ondblclick="${open}"` : `onclick="${open}"`} ` +
+    `title="${cur ? 'Double-click' : 'Click'} to edit · ${what} · clear to remove" style="cursor:text;font-size:11px">${cur ? body : hint}</td>`;
+  return cell(evCur, evOpen, formatEvDuration(f.evMinutes || 0), 'H:MM:SS or minutes')
+       + cell(svCur, svOpen, (f.fuelSaved > 0 ? f.fuelSaved.toFixed(1) : '0.0') + ' L', 'litres saved since last fill');
+}
+
 // Pure: applies one inline edit to a fuel record. Returns an error message if
 // the value is rejected (record left untouched), otherwise null. Split out of
 // updateFuelRecord so the edit rules are testable without rendering the tab.
@@ -12756,10 +12775,7 @@ function renderFuel() {
         <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
         <td style="text-align:center;font-size:15px;cursor:pointer" title="${fullTitle}"
           onclick="updateFuelRecord('${f.id}','fullTank',${f.fullTank===false?'true':'false'})">${fullBadge}</td>
-        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','evMinutes','${f.evMinutes>0 ? formatEvClock(f.evMinutes) : ''}',{width:'80px'})"
-          title="Double-click to edit · H:MM:SS or minutes · clear to remove" style="cursor:text;font-size:11px">${f.evMinutes>0 ? formatEvDuration(f.evMinutes) : '<span style="color:var(--bdr)">+ EV</span>'}</td>
-        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','fuelSaved','${f.fuelSaved>0 ? f.fuelSaved : ''}',{type:'number',step:'0.1',min:'0',width:'60px'})"
-          title="Double-click to edit · litres saved since last fill · clear to remove" style="cursor:text;font-size:11px">${f.fuelSaved>0 ? f.fuelSaved.toFixed(1)+' L' : '<span style="color:var(--bdr)">+ L</span>'}</td>
+        ${fuelHybridCells(f)}
         <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${jsAttr(f.note||'')},{width:'120px'})"
           title="Double-click to add note" style="cursor:text;font-size:11px;color:var(--ink3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${f.note ? esc(f.note) : '<span style="color:var(--bdr)">+ note</span>'}</td>
@@ -13967,6 +13983,19 @@ function runSmokeTest() {
       expectClose(rec.total, 75, 0.01, 'liters edit recalculates total');
       applyFuelEdit(rec, 'total', '80');
       expectClose(rec.ppl, 1.6, 0.0001, 'total edit recalculates €/L');
+    });
+    test('empty hybrid cells show a VISIBLE "+ add" hint and open on a single click', () => {
+      const html = fuelHybridCells({ id:'f1', evMinutes:null, fuelSaved:null });
+      expect((html.match(/\+ add/g)||[]).length, 2, 'both empty cells show the hint');
+      expect((html.match(/onclick="makeFuelCellEditable/g)||[]).length, 2, 'both open on a single click');
+      expectTrue(!html.includes('ondblclick'), 'an empty cell must not need a double-click');
+      expectTrue(!html.includes('var(--bdr)'), 'hint must not use the near-invisible border colour');
+    });
+    test('filled hybrid cells show the value and keep double-click editing', () => {
+      const html = fuelHybridCells({ id:'f2', evMinutes:83, fuelSaved:1.8 });
+      expectTrue(html.includes('1h 23m') && html.includes('1.8 L'), 'values are displayed');
+      expect((html.match(/ondblclick="makeFuelCellEditable/g)||[]).length, 2, 'both open on double-click');
+      expectTrue(html.includes("'evMinutes','1:23:00'") && html.includes("'fuelSaved','1.8'"), 'editor pre-filled with the current values');
     });
     test('formatEvClock → parseEvTime round-trips, and formatEvDuration never says "60m"', () => {
       [42.5, 83.3, 5, 0.1, 125.7].forEach(v => expect(parseEvTime(formatEvClock(v)), v, `round-trip of ${v} min`));
