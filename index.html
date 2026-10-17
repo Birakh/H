@@ -2664,7 +2664,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <th>Date</th><th>Type</th><th>Station</th>
               <th class="num">Litres</th><th class="num">€/L</th>
               <th class="num">Total</th><th class="num">Odometer</th>
-              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th><th>Note</th>
+              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th><th class="num" title="Electric-only drive time since the last fill (hybrids)">EV time</th><th class="num" title="Litres saved since the last fill (hybrids)">Saved</th><th>Note</th>
               <th></th>
             </tr></thead>
             <tbody id="fuel-body"></tbody>
@@ -5484,7 +5484,7 @@ function pickDescEntry(key) {
   toast(`Auto-filled from last use (${h.date})`);
 }
 
-async function addEntry() {
+async function addEntry(skipDupCheck = false) {
   try {
   const date   = el('ef-date').value || ymd();
   const desc   = el('ef-desc').value.trim();
@@ -5502,11 +5502,13 @@ async function addEntry() {
   el('tags-input').value = '';
 
   // ── Duplicate detection (skip for splits — they're intentionally similar amounts)
-  if (!_splitActive) {
+  // "Save anyway" re-enters with skipDupCheck=true — without that the retry
+  // would find the same match and just re-open the warning in a loop.
+  if (!_splitActive && !skipDupCheck) {
     const candidate = { desc, amount, date, type: entryTypeFor(cat, type) };
     const dupes = findDuplicates(candidate);
     if (dupes.length) {
-      checkDuplicateBeforeSave(candidate, () => addEntry());
+      checkDuplicateBeforeSave(candidate, () => addEntry(true));
       return;
     }
   }
@@ -5994,7 +5996,7 @@ function onSplitInput(changed) {
 }
 
 // ── INLINE QUICK-ADD ────────────────────────────────────────────────────────
-function quickAdd() {
+function quickAdd(skipDupCheck = false) {
   // Read from whichever quick-add row is in the DOM (empty-list row or pinned row)
   const date   = (el('qa-date') || el('qa-date-empty'))?.value || defaultEntryDate();
   const desc   = (el('qa-desc') || el('qa-desc-empty'))?.value?.trim() || '';
@@ -6006,8 +6008,8 @@ function quickAdd() {
   const type = cat === 'income' ? 'income' : cat === 'savings' ? 'savings' : 'expense';
 
   const candidate = { desc, amount, date, type };
-  const dupes = findDuplicates(candidate);
-  if (dupes.length) { checkDuplicateBeforeSave(candidate, () => quickAdd()); return; }
+  // "Save anyway" re-enters with skipDupCheck=true so it doesn't re-trigger the warning.
+  if (!skipDupCheck && findDuplicates(candidate).length) { checkDuplicateBeforeSave(candidate, () => quickAdd(true)); return; }
 
   DATA.entries.unshift({ id:uid(), loggedAt:new Date().toISOString(), date, desc, amount, formula, type,
     category: cat, tags:[], recurId:null });
@@ -10444,9 +10446,7 @@ function renderHybridStats(records) {
   const avgPpl      = withPpl.length ? withPpl.reduce((s,f) => s + f.ppl, 0) / withPpl.length : 0;
   const savedEur    = avgPpl > 0 ? totalSavedL * avgPpl : null;
 
-  const hrs  = Math.floor(totalEvMin / 60);
-  const mins = Math.round(totalEvMin % 60);
-  const evTimeStr = totalEvMin > 0 ? `${hrs}h ${mins}m` : '—';
+  const evTimeStr = totalEvMin > 0 ? formatEvDuration(totalEvMin) : '—';
 
   const stat = (lbl,val,sub='') =>
     `<div class="stat"><div class="stat-lbl">${lbl}</div><div class="stat-val">${val}</div>${sub?`<div style="font-size:10px;color:var(--ink3)">${sub}</div>`:''}</div>`;
@@ -10500,7 +10500,7 @@ function renderHybridChart(records) {
   const xS    = i => padL + i*(cW/Math.max(pts.length-1,1));
   const yS    = v  => padT + cH - ((v-minV)/range)*cH;
   const color = _hybridChartMode === 'ev' ? 'var(--Gm)' : 'var(--Bm)';
-  const fmt2  = v => _hybridChartMode === 'ev' ? `${Math.floor(v/60)}h ${Math.round(v%60)}m` : `${v.toFixed(1)} L`;
+  const fmt2  = v => _hybridChartMode === 'ev' ? formatEvDuration(v) : `${v.toFixed(1)} L`;
 
   const barW = Math.max(4, Math.min(24, cW/pts.length - 3));
   const bars = pts.map((p,i) => {
@@ -10563,7 +10563,7 @@ function renderHybridYearly(records) {
   if (!rows.length) { wrap.innerHTML = '<div style="font-size:12px;color:var(--ink3)">No yearly data yet.</div>'; return; }
 
   wrap.innerHTML = rows.map(y => {
-    const evStr = y.evFillCount ? `${Math.floor(y.evMinutes/60)}h ${Math.round(y.evMinutes%60)}m` : '—';
+    const evStr = y.evFillCount ? formatEvDuration(y.evMinutes) : '—';
     const savedStr = y.savedFillCount ? `${y.fuelSavedL.toFixed(1)} L${y.savedEur!=null ? ` (≈ ${fmt(y.savedEur)})` : ''}` : '—';
     return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
       <div style="font-weight:600;min-width:40px">${y.year}</div>
@@ -10794,10 +10794,10 @@ function updateInsurancePreview() {
 // ══════════════════════════════════════════
 // FUEL INLINE EDITING
 // ══════════════════════════════════════════
-function updateFuelRecord(id, field, rawVal) {
-  const rec = DATA.fuel.find(f => f.id === id);
-  if (!rec) return;
-
+// Pure: applies one inline edit to a fuel record. Returns an error message if
+// the value is rejected (record left untouched), otherwise null. Split out of
+// updateFuelRecord so the edit rules are testable without rendering the tab.
+function applyFuelEdit(rec, field, rawVal) {
   switch (field) {
     case 'date':    rec.date    = rawVal; break;
     case 'type':    rec.type    = rawVal; break;
@@ -10806,6 +10806,25 @@ function updateFuelRecord(id, field, rawVal) {
     case 'odo':
       rec.odo = parseFloat(rawVal) || null;
       break;
+    case 'evMinutes': {
+      // Same formats as the logging form: H:MM:SS, MM:SS or plain minutes.
+      // Empty clears it; an unreadable value is rejected rather than silently
+      // wiping whatever was there before.
+      const s = String(rawVal ?? '').trim();
+      if (!s) { rec.evMinutes = null; break; }
+      const mins = parseEvTime(s);
+      if (mins === null) return 'Unrecognised EV time — use H:MM:SS or minutes';
+      rec.evMinutes = mins > 0 ? mins : null;
+      break;
+    }
+    case 'fuelSaved': {
+      const s = String(rawVal ?? '').trim().replace(',', '.');
+      if (!s) { rec.fuelSaved = null; break; }
+      const l = parseFloat(s);
+      if (isNaN(l) || l < 0) return 'Fuel saved must be a number of litres';
+      rec.fuelSaved = l > 0 ? +l.toFixed(2) : null;
+      break;
+    }
     case 'fullTank':
       rec.fullTank = rawVal;
       break;
@@ -10834,6 +10853,14 @@ function updateFuelRecord(id, field, rawVal) {
       break;
     }
   }
+  return null;
+}
+
+function updateFuelRecord(id, field, rawVal) {
+  const rec = DATA.fuel.find(f => f.id === id);
+  if (!rec) return;
+  const err = applyFuelEdit(rec, field, rawVal);
+  if (err) { toast(err, 1); preserveScroll(renderFuel); return; }
   saveLocal();
   preserveScroll(renderFuel);
 }
@@ -11490,6 +11517,23 @@ function parseEvTime(raw) {
   }
   const n = parseFloat(s.replace(',', '.'));
   return isNaN(n) ? null : Math.round(n * 10) / 10;
+}
+
+// Inverse of parseEvTime, used to pre-fill the inline editor: minutes → "H:MM:SS"
+// (the format the trip computer shows, and one parseEvTime reads straight back).
+function formatEvClock(minutes) {
+  const total = Math.round(minutes * 60);
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// Compact label for display: "1h 23m" / "42m". Rounds to whole minutes FIRST so
+// 59.6 min reads "1h 0m" rather than the "0h 60m" you get from rounding the
+// remainder separately.
+function formatEvDuration(minutes) {
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60), m = total % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 function onFuelEvMinInput() {
@@ -12670,7 +12714,7 @@ function renderFuel() {
   // ── Table ──────────────────────────────────────────────────────────────────
   const tbody = el('fuel-body'); if (!tbody) return;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="13" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="empty">No refuel records yet. Log your first fill above.</td></tr>`;
   } else {
     // Pre-sort ascending to compute consecutive deltas
     const asc = [...filtered].sort((a,b) => a.date.localeCompare(b.date));
@@ -12712,6 +12756,10 @@ function renderFuel() {
         <td class="num muted" style="font-size:11px">${f.costPerKm != null ? '€'+f.costPerKm : '—'}</td>
         <td style="text-align:center;font-size:15px;cursor:pointer" title="${fullTitle}"
           onclick="updateFuelRecord('${f.id}','fullTank',${f.fullTank===false?'true':'false'})">${fullBadge}</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','evMinutes','${f.evMinutes>0 ? formatEvClock(f.evMinutes) : ''}',{width:'80px'})"
+          title="Double-click to edit · H:MM:SS or minutes · clear to remove" style="cursor:text;font-size:11px">${f.evMinutes>0 ? formatEvDuration(f.evMinutes) : '<span style="color:var(--bdr)">+ EV</span>'}</td>
+        <td class="num" ondblclick="makeFuelCellEditable(this,'${f.id}','fuelSaved','${f.fuelSaved>0 ? f.fuelSaved : ''}',{type:'number',step:'0.1',min:'0',width:'60px'})"
+          title="Double-click to edit · litres saved since last fill · clear to remove" style="cursor:text;font-size:11px">${f.fuelSaved>0 ? f.fuelSaved.toFixed(1)+' L' : '<span style="color:var(--bdr)">+ L</span>'}</td>
         <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${jsAttr(f.note||'')},{width:'120px'})"
           title="Double-click to add note" style="cursor:text;font-size:11px;color:var(--ink3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${f.note ? esc(f.note) : '<span style="color:var(--bdr)">+ note</span>'}</td>
@@ -12731,7 +12779,7 @@ function renderFuel() {
   } catch(e) {
     console.error('[Fuel]', e);
     const tbody = el('fuel-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="color:var(--Rm);font-size:12px;padding:12px">Fuel tab error: ${esc(e.message)} — check browser console for details.</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="15" style="color:var(--Rm);font-size:12px;padding:12px">Fuel tab error: ${esc(e.message)} — check browser console for details.</td></tr>`;
     toast(e.message || 'Fuel tab error', 1);
   }
 }
@@ -13673,6 +13721,24 @@ function runSmokeTest() {
       const dupes = findDuplicates({ desc:'Test needs', amount:45.20, date:today, type:'expense' });
       expectTrue(dupes.length >= 1, `expected a match, got ${dupes.length}`);
     });
+    test('dupProceed ("Save anyway") actually runs the pending save, exactly once', () => {
+      // Regression: dupProceed used to call closeDupWarning() first, which nulls
+      // _dupPendingCallback, so the save never ran.
+      let calls = 0;
+      _dupPendingCallback = () => { calls++; };
+      dupProceed();
+      expect(calls, 1, '"Save anyway" must run the pending save');
+      expectTrue(_dupPendingCallback === null, 'callback should be cleared after use');
+      dupProceed(); // a second click must not re-run it
+      expect(calls, 1, 'must not run twice');
+    });
+    test('closing the duplicate warning (Cancel / Escape) discards the pending save', () => {
+      let calls = 0;
+      _dupPendingCallback = () => { calls++; };
+      closeDupWarning();
+      dupProceed();
+      expect(calls, 0, 'cancelled save must never run');
+    });
     test('findDuplicates does not flag a different amount', () => {
       const dupes = findDuplicates({ desc:'Test needs', amount:999, date:today, type:'expense' });
       expect(dupes.length, 0, 'should not match differing amount');
@@ -13867,6 +13933,46 @@ function runSmokeTest() {
       const catalog = mapCatalogRows([['Eggs','2,49']], 0, -1, -1);
       expect(catalog[0].price, 0, 'no price column selected → 0');
       expect(catalog[0].store, '', 'no store column selected → empty string');
+    });
+
+    // ── Fuel tab: inline editing of EV time / fuel saved ──
+    test('applyFuelEdit sets EV time from H:MM:SS, MM:SS and plain minutes', () => {
+      const rec = { id:'x', evMinutes:null };
+      expect(applyFuelEdit(rec, 'evMinutes', '1:23:00'), null, 'no error');
+      expect(rec.evMinutes, 83, 'H:MM:SS → minutes');
+      applyFuelEdit(rec, 'evMinutes', '42:30');
+      expect(rec.evMinutes, 42.5, 'MM:SS → minutes');
+      applyFuelEdit(rec, 'evMinutes', '37,5');
+      expect(rec.evMinutes, 37.5, 'plain minutes with decimal comma');
+    });
+    test('applyFuelEdit rejects unreadable EV time without wiping the old value', () => {
+      const rec = { id:'x', evMinutes:60, fuelSaved:2 };
+      const err = applyFuelEdit(rec, 'evMinutes', 'abc');
+      expectTrue(typeof err === 'string' && err.length > 0, 'should return an error message');
+      expect(rec.evMinutes, 60, 'previous value must survive a bad edit');
+      const err2 = applyFuelEdit(rec, 'fuelSaved', '-3');
+      expectTrue(typeof err2 === 'string', 'negative litres rejected');
+      expect(rec.fuelSaved, 2, 'previous fuel-saved must survive a bad edit');
+    });
+    test('applyFuelEdit clears EV time / fuel saved when the field is emptied', () => {
+      const rec = { id:'x', evMinutes:60, fuelSaved:2 };
+      applyFuelEdit(rec, 'evMinutes', '');
+      applyFuelEdit(rec, 'fuelSaved', '  ');
+      expect(rec.evMinutes, null, 'empty EV time clears');
+      expect(rec.fuelSaved, null, 'empty fuel saved clears');
+    });
+    test('applyFuelEdit still recalculates total/€-per-litre like before (no regression)', () => {
+      const rec = { id:'x', liters:40, ppl:1.5, total:60 };
+      applyFuelEdit(rec, 'liters', '50');
+      expectClose(rec.total, 75, 0.01, 'liters edit recalculates total');
+      applyFuelEdit(rec, 'total', '80');
+      expectClose(rec.ppl, 1.6, 0.0001, 'total edit recalculates €/L');
+    });
+    test('formatEvClock → parseEvTime round-trips, and formatEvDuration never says "60m"', () => {
+      [42.5, 83.3, 5, 0.1, 125.7].forEach(v => expect(parseEvTime(formatEvClock(v)), v, `round-trip of ${v} min`));
+      expect(formatEvDuration(59.6), '1h 0m', '59.6 min must roll over to 1h 0m, not "0h 60m"');
+      expect(formatEvDuration(42), '42m', 'under an hour');
+      expect(formatEvDuration(83), '1h 23m', 'over an hour');
     });
 
     // ── hybridYearlySummary (Fuel tab — EV time / fuel saved yearly breakdown) ──
@@ -14399,8 +14505,13 @@ function checkDuplicateBeforeSave(candidate, onProceed) {
 }
 
 function dupProceed() {
+  // Take the callback BEFORE closing: closeDupWarning() also clears
+  // _dupPendingCallback (so Cancel/Escape discard it), which meant the old
+  // "close, then check if there's a callback" order never found one and
+  // "Save anyway" silently did nothing.
+  const proceed = _dupPendingCallback;
   closeDupWarning();
-  if (_dupPendingCallback) { _dupPendingCallback(); _dupPendingCallback = null; }
+  if (proceed) proceed();
 }
 function closeDupWarning() {
   el('dup-overlay').classList.remove('open');
