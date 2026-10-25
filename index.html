@@ -151,12 +151,16 @@ main{max-width:980px;margin:0 auto;padding:22px 16px;width:100%;flex:1}
 .chart-wrap svg{display:block;min-width:400px}
 
 /* table */
-.tbl-wrap{border:.5px solid var(--bdr);border-radius:var(--r);overflow:hidden;background:var(--s0);margin-bottom:14px}
+.tbl-wrap{border:.5px solid var(--bdr);border-radius:var(--r);overflow-x:auto;background:var(--s0);margin-bottom:14px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-size:10px;font-weight:600;color:var(--ink3);text-align:left;padding:9px 13px;border-bottom:.5px solid var(--bdr);background:var(--s1);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 td{padding:9px 13px;border-bottom:.5px solid var(--bdr);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(128,128,0,.03)}
+/* Last column pinned to the right edge of a horizontally-scrolling table, so row actions stay reachable */
+th.sticky-end,td.sticky-end{position:sticky;right:0;background:var(--s0);box-shadow:-8px 0 8px -8px rgba(0,0,0,.2)}
+th.sticky-end{background:var(--s1)}
+tr:hover td.sticky-end{background:var(--s0)}
 .num{font-family:var(--mono);font-size:12px}
 .amt-p{color:var(--G);font-weight:600;font-family:var(--mono)}
 .amt-n{color:var(--R);font-weight:600;font-family:var(--mono)}
@@ -1118,6 +1122,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <span style="font-size:11px;color:var(--ink3)">=expr ok</span>
             <button class="btn ghost xs" onclick="copyIncomeFromLastMonth()" style="font-size:11px;padding:2px 8px">↑ Copy from last month</button>
             <button class="btn ghost xs" onclick="openTax()" style="font-size:11px;padding:2px 8px">🇦🇹 Tax calc</button>
+            <label for="d-income-acct" style="font-size:11px;color:var(--ink3);margin:0;text-transform:none;letter-spacing:0;font-weight:400">Lands in</label>
+            <select id="d-income-acct" onchange="onIncomeAcctChange()" title="Which account this month's income is added to" style="width:auto;font-size:11px;padding:2px 6px"></select>
           </div>
           <div class="income-row" style="margin-top:6px">
             <span class="planned-lbl">Expected:</span>
@@ -1984,6 +1990,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Income rows in Entries
+          <span id="income-sync-status" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
+        </div>
+        <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Months where you saved an income on the Overview before it was mirrored into Entries have no "Monthly income" row there. This adds the missing ones (dated the 1st). No account is set on them, so <strong>no account balance changes</strong> — and the dashboard's budget totals don't change either.</div>
+        <button class="btn sm" onclick="runIncomeBackfill()">Add missing income rows</button>
+      </div>
+
+      <div class="card">
         <div class="card-title">Sync audit log
           <button class="btn xs ghost" onclick="renderAuditLog()">↻ Refresh</button>
         </div>
@@ -2664,9 +2678,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
               <th>Date</th><th>Type</th><th>Station</th>
               <th class="num">Litres</th><th class="num">€/L</th>
               <th class="num">Total</th><th class="num">Odometer</th>
-              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th><th class="num" title="Electric-only drive time since the last fill (hybrids)">EV time</th><th class="num" title="Litres saved since the last fill (hybrids)">Saved</th><th>Note</th>
-              <th></th>
-            </tr></thead>
+              <th class="num">km since</th><th class="num">L/100km</th><th class="num">€/km</th><th title="Full tank">⛽</th><th class="num" title="Electric-only drive time since the last fill (hybrids)">EV time</th><th class="num" title="Litres saved since the last fill (hybrids)">Saved</th><th>Note</th><th class="sticky-end"></th></tr></thead>
             <tbody id="fuel-body"></tbody>
           </table>
         </div>
@@ -2704,27 +2716,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div id="svc-preview" style="font-size:12px;color:var(--ink2);margin-bottom:12px"></div>
 
-        <!-- Tyre change -->
-        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:4px">🛞 Tyre change</div>
-        <div class="g3" style="margin-bottom:8px">
-          <div class="fg" style="margin:0"><label>Last tyre change date</label>
-            <input type="date" id="tire-date" oninput="updateServicePreview()"></div>
-          <div class="fg" style="margin:0"><label>Odometer at change (km)</label>
-            <input type="number" id="tire-km" placeholder="72 000" step="100" style="font-family:var(--mono)" oninput="updateServicePreview()"></div>
-          <div class="fg" style="margin:0"><label>Interval</label>
-            <div style="display:flex;gap:6px">
-              <input type="number" id="tire-int-km" placeholder="40 000 km" step="1000" style="font-family:var(--mono);flex:1" oninput="updateServicePreview()">
-              <input type="number" id="tire-int-mo" placeholder="60 mo" step="1" min="1" max="120" style="font-family:var(--mono);width:70px" oninput="updateServicePreview()">
-            </div>
-          </div>
+        <!-- Tyres (summer / winter sets) -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;margin-top:4px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;flex:1">🛞 Tyres</div>
+          <button class="btn xs primary" onclick="openTyreSwap()">⇄ Swap tyres</button>
+          <button class="btn xs ghost" onclick="openTyreSet()">+ Add tyre set</button>
         </div>
-        <div id="tire-preview" style="font-size:12px;color:var(--ink2);margin-bottom:10px"></div>
+        <div id="tyre-panel" style="margin-bottom:12px"></div>
 
         <!-- Tyre tread log -->
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:4px">📏 Tyre tread depth log</div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
           <div class="fg" style="margin:0;flex:1;min-width:100px"><label>Date</label><input type="date" id="tread-date"></div>
           <div class="fg" style="margin:0;width:90px"><label>Depth (mm)</label><input type="number" id="tread-mm" min="0" max="20" step="0.1" placeholder="5.5" style="font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0;min-width:130px"><label>Tyre set</label><select id="tread-set"></select></div>
           <div class="fg" style="margin:0;flex:2;min-width:120px"><label>Note (position, brand…)</label><input type="text" id="tread-note" placeholder="Front left, Michelin…"></div>
           <button class="btn xs success" onclick="addTreadLog()">+ Log</button>
         </div>
@@ -2903,6 +2908,98 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </div>
 
+  <!-- ── Remove refuel: also remove the expense it created in Entries? ── -->
+  <div class="modal-overlay" id="fuel-del-overlay" onclick="if(event.target===this)closeFuelDelete()">
+    <div class="modal-box" style="width:min(440px,100%)">
+      <div class="modal-title">Remove this refuel?</div>
+      <div class="modal-body" style="margin-bottom:8px">It also created an expense in Entries:</div>
+      <div id="fuel-del-entry" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:10px"></div>
+      <div class="modal-body" style="font-size:12px;margin-bottom:16px">Removing the expense also takes it out of your budget totals and out of the account it was charged to. You can undo for a few seconds afterwards.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn sm ghost" onclick="closeFuelDelete()">Cancel</button>
+        <button class="btn sm" onclick="confirmFuelDelete(false)">Remove refuel only</button>
+        <button class="btn sm danger" onclick="confirmFuelDelete(true)">Remove refuel + expense</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tyre set: add / edit ── -->
+  <div class="modal-overlay" id="tyre-set-overlay" onclick="if(event.target===this)closeTyreSet()">
+    <div class="modal-box" style="width:min(540px,100%);max-height:90vh;overflow-y:auto">
+      <div class="modal-title" id="ts-title">Add tyre set</div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Name</label><input type="text" id="ts-name" placeholder="Winter – from previous owner"></div>
+        <div class="fg" style="margin:0"><label>Season</label>
+          <select id="ts-season" onchange="onTyreSeasonChange()"><option value="summer">☀ Summer</option><option value="winter">❄ Winter</option><option value="all">All-season</option></select></div>
+      </div>
+      <div class="g2" style="margin-bottom:6px">
+        <div class="fg" style="margin:0"><label>Condition</label>
+          <select id="ts-cond" onchange="onTyreCondChange()"><option value="new">Brand new — starts at 0 km</option><option value="used">Second-hand / already driven</option></select></div>
+        <div class="fg" style="margin:0" id="ts-prior-wrap"><label>Km already on them <span class="muted" style="text-transform:none;letter-spacing:0">(blank = unknown)</span></label>
+          <input type="number" id="ts-prior" min="0" step="1000" placeholder="unknown" style="font-family:var(--mono)"></div>
+      </div>
+      <div id="ts-used-hint" style="font-size:11px;color:var(--ink3);margin-bottom:8px">Don't know how far they've been driven? Leave it blank — nothing is invented. Km are counted from the day you mount them, and the rest is judged by <strong>age</strong> (DOT code) and <strong>tread depth</strong>.</div>
+      <div class="g3" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>DOT code <span class="muted" style="text-transform:none;letter-spacing:0">(week+year)</span></label>
+          <input type="text" id="ts-dot" maxlength="4" inputmode="numeric" placeholder="3419" style="font-family:var(--mono)"></div>
+        <div class="fg" style="margin:0"><label>Km limit</label>
+          <input type="number" id="ts-limit" min="0" step="1000" placeholder="40 000" style="font-family:var(--mono)"></div>
+        <div class="fg" style="margin:0"><label>Replace at (mm)</label>
+          <input type="number" id="ts-min" min="1.6" max="10" step="0.1" style="font-family:var(--mono)"></div>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Price paid (€, optional)</label><input type="number" id="ts-price" min="0" step="1" style="font-family:var(--mono)"></div>
+        <div class="fg" style="margin:0"><label>Note</label><input type="text" id="ts-note" placeholder="Brand, size…"></div>
+      </div>
+
+      <div id="ts-mount-wrap" style="border-top:.5px solid var(--bdr);padding-top:10px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)">
+          <input type="checkbox" id="ts-mount" onchange="onTyreMountToggle()"> Put these on the car now</label>
+        <div id="ts-mount-fields" style="display:none;margin-top:8px">
+          <div class="g3">
+            <div class="fg" style="margin:0"><label>Date</label><input type="date" id="ts-mount-date"></div>
+            <div class="fg" style="margin:0"><label>Odometer (km)</label><input type="number" id="ts-mount-odo" step="1" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Tread now (mm)</label><input type="number" id="ts-mount-tread" min="0" max="20" step="0.1" placeholder="optional" style="font-family:var(--mono)"></div>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Odometer is pre-filled from your latest refuel — correct it if your dashboard says otherwise. Whatever set is on the car now comes off at the same reading. A tread reading now is a baseline for judging wear.</div>
+        </div>
+      </div>
+
+      <div id="ts-periods-wrap" style="display:none;border-top:.5px solid var(--bdr);padding-top:10px;margin-top:4px">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">When it was on the car</div>
+        <div id="ts-periods"></div>
+        <div style="font-size:11px;color:var(--ink3)">Leave “off” empty while it's still mounted. Fix a wrong odometer or date here.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px">
+        <button class="btn sm danger" id="ts-delete" onclick="deleteTyreSet()" style="margin-right:auto">Delete set</button>
+        <button class="btn sm ghost" onclick="closeTyreSet()">Cancel</button>
+        <button class="btn sm primary" onclick="saveTyreSet()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Swap tyres ── -->
+  <div class="modal-overlay" id="tyre-swap-overlay" onclick="if(event.target===this)closeTyreSwap()">
+    <div class="modal-box" style="width:min(460px,100%)">
+      <div class="modal-title">Swap tyres</div>
+      <div class="modal-body" id="tsw-current" style="margin-bottom:10px"></div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Put on</label><select id="tsw-set"></select></div>
+        <div class="fg" style="margin:0"><label>Date</label><input type="date" id="tsw-date"></div>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Odometer (km)</label><input type="number" id="tsw-odo" step="1" style="font-family:var(--mono)"></div>
+        <div class="fg" style="margin:0"><label>Tread now (mm)</label><input type="number" id="tsw-tread" min="0" max="20" step="0.1" placeholder="optional" style="font-family:var(--mono)"></div>
+      </div>
+      <div id="tsw-hint" style="font-size:11px;color:var(--ink3);margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn sm ghost" onclick="closeTyreSwap()">Cancel</button>
+        <button class="btn sm primary" onclick="confirmTyreSwap()">Swap</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Month Wizard ── -->
   <div class="modal-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">
     <div class="modal-box" style="width:min(500px,100%)">
@@ -2973,6 +3070,7 @@ const FRESH = () => ({
   carService: { serviceDate:null, serviceKm:null, serviceIntKm:15000, serviceIntMo:12,
                tireDate:null, tireKm:null, tireIntKm:40000, tireIntMo:60,
                treadLog:[], serviceCostLog:[] },
+  tires:       [],   // tyre sets — see TYRE SETS section
   insurance:   { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' },
   fuelSettings: { tankSize: null },
   settings:     { oilBenchmark: 'brent' }
@@ -3172,7 +3270,8 @@ function toast(msg, err=0, undoCb=null) {
   const t = el('toast');
   _undoCb = undoCb;
   if (undoCb) {
-    t.innerHTML = `<span>${msg}</span><button class="undo-btn" onclick="undoAction()">Undo</button>`;
+    // msg is escaped: this branch uses innerHTML, and some messages carry user text (a tyre set's name).
+    t.innerHTML = `<span>${esc(msg)}</span><button class="undo-btn" onclick="undoAction()">Undo</button>`;
   } else {
     t.textContent = msg;
   }
@@ -3324,6 +3423,21 @@ function markClean() {
   if (badge) badge.classList.remove('dirty');
 }
 
+// True when there are changes that exist ONLY in this tab — i.e. unpushed edits
+// in an unlocked vault. In incognito, closing the window then loses them for good
+// (the local cache is wiped too), so closing/locking should ask first.
+function shouldWarnBeforeLeaving(isDirty, isUnlocked) {
+  return !!(isDirty && isUnlocked);
+}
+
+// Browsers ignore custom text here and show their own generic "Leave site?" prompt.
+window.addEventListener('beforeunload', e => {
+  if (shouldWarnBeforeLeaving(_isDirty, !!(PAT && DATA))) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 function toggleAutoPush(on) {
   localStorage.setItem(LS_AUTO_PUSH, on ? '1' : '0');
   const toggle = el('auto-push-toggle');
@@ -3447,6 +3561,16 @@ function cStatus(type, msg) {
 }
 
 function disconnect() {
+  if (shouldWarnBeforeLeaving(_isDirty, !!(PAT && DATA))) {
+    showConfirm('Lock with unpushed changes?',
+      'Some changes have not been pushed to GitHub yet. Locking clears them from memory. Cancel and use ↑ Push first, or lock anyway to discard them.',
+      () => _disconnectCore());
+    return;
+  }
+  _disconnectCore();
+}
+
+function _disconnectCore() {
   clearTimeout(_st);           // cancel any pending encrypted save
   PAT = PASS = DATA = SALT = null;
   el('screen-app').style.display = 'none';
@@ -3858,7 +3982,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 21; // current target version
+const SCHEMA_VERSION = 22; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -4031,6 +4155,25 @@ const MIGRATIONS = [
     if (!hasCash) d.accounts.push({ id: 'cash_default', name: 'Cash', bank: 'Cash', balance: 0 });
     return d;
   },
+  // v21 → v22 : tyre sets (summer / winter). The single "last tyre change" record in
+  // carService becomes the first set, so nothing is lost. carService.tire* is left in place
+  // and kept up to date (see syncLegacyTyreFields) — an older copy of the app that opens this
+  // vault still reads it. Idempotent, and NEVER overwrites sets that already exist: an older app
+  // version re-stamps a newer vault with its own version number, so this step can run again on
+  // a vault that already has tyre sets.
+  d => {
+    if (!Array.isArray(d.tires)) d.tires = [];
+    const cs = d.carService;
+    if (d.tires.length === 0 && cs && (cs.tireDate || cs.tireKm != null)) {
+      d.tires.push({
+        id: 'tire-legacy', name: 'Current tyres', season: 'all', condition: 'new', priorKm: 0,
+        dot: null, limitKm: cs.tireIntKm || 40000, minMm: 3, price: null,
+        note: 'Imported from your earlier "last tyre change" record',
+        periods: [{ from: { date: cs.tireDate || null, odo: (typeof cs.tireKm === 'number' ? cs.tireKm : null) }, to: null }],
+      });
+    }
+    return d;
+  },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
 ];
 
@@ -4120,18 +4263,74 @@ function extraIncomeSum(entries) {
 // instead of duplicating it, and an isSalaryMirror flag so extraIncomeSum()
 // (used everywhere the app adds salary + income entries together) can
 // exclude it from double-counting.
-function syncBaseIncomeEntry(month, amount) {
+function syncBaseIncomeEntry(month, amount, accountIdForNew = null) {
   const id = 'baseinc-' + month;
   const existing = DATA.entries.find(e => e.id === id);
   if (amount > 0) {
     if (existing) {
+      // Only the amount follows the Overview. Account, description, tags etc. may
+      // have been edited on the entry itself and must survive further typing.
       existing.amount = amount;
     } else {
-      DATA.entries.push({ id, date: month+'-01', desc:'Monthly income', amount, type:'income', category:'income', tags:[], accountId:null, isSalaryMirror:true, loggedAt:new Date().toISOString() });
+      const acct = (DATA.accounts || []).some(a => a.id === accountIdForNew) ? accountIdForNew : null;
+      DATA.entries.push({ id, date: month+'-01', desc:'Monthly income', amount, type:'income', category:'income', tags:[], accountId:acct, isSalaryMirror:true, loggedAt:new Date().toISOString() });
     }
   } else if (existing) {
     DATA.entries = DATA.entries.filter(e => e.id !== id);
   }
+}
+
+// Months that have a saved Overview income but no mirrored Entries row — i.e. income
+// saved before the mirror existed.
+function monthsMissingIncomeMirror() {
+  return Object.entries(DATA.incomes || {})
+    .filter(([m, inc]) => inc && inc.amount > 0 && !DATA.entries.some(e => e.id === 'baseinc-' + m))
+    .map(([m]) => m)
+    .sort();
+}
+
+// Creates the missing rows and returns how many. Deliberately passes NO account:
+// back-filled history must never move an account balance on its own. Safe to run
+// repeatedly — a month that already has its row is skipped.
+function backfillIncomeMirrors() {
+  const months = monthsMissingIncomeMirror();
+  months.forEach(m => syncBaseIncomeEntry(m, DATA.incomes[m].amount));
+  return months.length;
+}
+
+function renderIncomeSyncStatus() {
+  const s = el('income-sync-status'); if (!s) return;
+  const n = monthsMissingIncomeMirror().length;
+  s.textContent = n ? `${n} month${n===1?'':'s'} missing` : '✓ all months in Entries';
+}
+
+function runIncomeBackfill() {
+  const n = monthsMissingIncomeMirror().length;
+  if (!n) { toast('Nothing to add — every month with saved income already has its row'); return; }
+  showConfirm(`Add ${n} income row${n===1?'':'s'} to Entries?`,
+    `One "Monthly income" row (dated the 1st) for each month where you saved an income on the Overview. No account is set, so no account balance changes. Entries' own income total will include them.`,
+    () => { const c = backfillIncomeMirrors(); saveLocal(); render(); renderIncomeSyncStatus(); toast(`Added ${c} income row${c===1?'':'s'}`); });
+}
+
+// Which account new months' income should land in by default: wherever the most
+// recent mirrored income was assigned (and that account still exists). Derived
+// from the entries themselves, so there's no extra setting to keep in step.
+function defaultIncomeAccountId() {
+  const ok = (DATA.entries || []).filter(e => e.isSalaryMirror && e.accountId && (DATA.accounts || []).some(a => a.id === e.accountId));
+  ok.sort((x, y) => y.date.localeCompare(x.date));
+  return ok.length ? ok[0].accountId : null;
+}
+
+// Keeps the Entries mirror in step with the Overview income FIELD. Used by every
+// path that writes the field (typing, Save, copy-from-last-month, tax calculator).
+// A formula that evaluates to 0 is almost always half-typed ("=h", "=hours*") — in
+// that case leave the mirror alone, rather than deleting it and losing the account
+// and any other edits made on it, only to recreate it a keystroke later.
+function syncMirrorFromField(month, amount, formula) {
+  if (formula && amount <= 0) return;
+  const sel = (typeof el === 'function') ? el('d-income-acct') : null;
+  const wanted = sel && sel.value ? sel.value : (sel ? null : defaultIncomeAccountId());
+  syncBaseIncomeEntry(month, amount, wanted);
 }
 
 // ══════════════════════════════════════════
@@ -4211,15 +4410,31 @@ function onIncomeInput() {
   const month = curMonth();
   const { amount, formula } = parseAmt(el('d-income').value);
   setMonthIncome(month, amount, formula);
+  syncMirrorFromField(month, amount, formula);
   saveLocal();
   renderSplitBars();
+  renderAccountCards();
+}
+
+// Changing "Lands in" re-assigns THIS month's income straight away (no Save needed,
+// matching how the income field itself auto-saves). If no income exists yet for the
+// month there's nothing to assign — the choice is picked up when it's first created.
+function onIncomeAcctChange() {
+  const month  = curMonth();
+  const mirror = DATA.entries.find(e => e.id === 'baseinc-' + month);
+  if (!mirror) return;
+  mirror.accountId = el('d-income-acct').value || null;
+  saveLocal();
+  renderDash();
+  const acct = (DATA.accounts || []).find(a => a.id === mirror.accountId);
+  toast(acct ? `Income now lands in ${acct.name}` : 'Income no longer assigned to an account');
 }
 
 function saveMonthIncome() {
   const month = curMonth();
   const { amount, formula } = parseAmt(el('d-income').value);
   setMonthIncome(month, amount, formula);
-  syncBaseIncomeEntry(month, amount);
+  syncMirrorFromField(month, amount, formula);
   saveLocal();
   renderDash();
   const lbl = el('income-saved-lbl');
@@ -4268,6 +4483,13 @@ function renderDash() {
   if (document.activeElement !== el('d-income')) {
     el('d-income').value = savedInc ? (savedInc.formula || (savedInc.amount > 0 ? savedInc.amount : '')) : '';
     syncPlannedIncomeField(month);
+  }
+  // "Lands in" — shows the account of this month's mirrored income if there is
+  // one, otherwise the default that a newly-created month will pick up.
+  const acctSel = el('d-income-acct');
+  if (acctSel && document.activeElement !== acctSel) {
+    const mirror = DATA.entries.find(e => e.id === 'baseinc-' + month);
+    acctSel.innerHTML = accountOptionsHtml({ placeholder: 'No account', selectedId: mirror ? mirror.accountId : defaultIncomeAccountId(), showBank: false });
   }
   const base = savedInc ? savedInc.amount : 0;
   const mes     = DATA.entries.filter(e => ym(e.date) === month);
@@ -5926,10 +6148,21 @@ function bulkDelete() {
 }
 
 // ── DUPLICATE ENTRY ────────────────────────────────────────────────────────
+// A duplicate is an independent, ordinary entry. It must NOT inherit the
+// Overview-income mirror flag: that flag excludes an entry from the income
+// totals (the salary is counted via DATA.incomes instead), so a flagged copy's
+// income would silently vanish from every total.
+function cloneEntryForDuplicate(orig) {
+  const copy = { ...orig, id: uid(), loggedAt: new Date().toISOString(), date: ymd() };
+  delete copy.isSalaryMirror;
+  delete copy.fuelId;   // a duplicate isn't the expense of any refuel
+  return copy;
+}
+
 function duplicateEntry(id) {
   const orig = DATA.entries.find(e => e.id === id);
   if (!orig) return;
-  const copy = { ...orig, id: uid(), loggedAt: new Date().toISOString(), date: ymd() };
+  const copy = cloneEntryForDuplicate(orig);
   DATA.entries.unshift(copy);
   saveLocal(); renderEntries();
   toast('Entry duplicated — edit as needed');
@@ -8143,6 +8376,7 @@ function renderSettings() {
   updateLastSync();
   renderAuditLog();
   runVaultHealth();
+  renderIncomeSyncStatus();
   updateNotifBadge();
   const apt = el('auto-push-toggle');
   if (apt) apt.checked = localStorage.getItem(LS_AUTO_PUSH) === '1';
@@ -9915,15 +10149,453 @@ function saveCarService() {
     serviceKm:    parseFloat(el('svc-km')?.value)     || null,
     serviceIntKm: parseFloat(el('svc-int-km')?.value) || 15000,
     serviceIntMo: parseFloat(el('svc-int-mo')?.value) || 12,
-    tireDate:     el('tire-date')?.value || null,
-    tireKm:       parseFloat(el('tire-km')?.value)     || null,
-    tireIntKm:    parseFloat(el('tire-int-km')?.value) || 40000,
-    tireIntMo:    parseFloat(el('tire-int-mo')?.value) || 60,
+    // carService.tire* are deliberately NOT written here any more: tyres live in DATA.tires, and
+    // these old fields are kept in step by syncLegacyTyreFields() for older copies of the app.
   });
   saveLocal();
   updateServicePreview();
   checkServiceAlert();
   toast('Service dates saved');
+}
+
+// ══════════════════════════════════════════
+// TYRE SETS  (summer / winter)
+// ══════════════════════════════════════════
+// A set's km is CALCULATED, never typed: for every period it was on the car, the
+// odometer when it came off — or the latest refuel odometer, if it's still on — minus
+// the odometer when it went on. So every refuel that has an odometer updates it by itself;
+// the only number you ever type is the odometer at a swap (and it's pre-filled).
+//
+// DATA.tires = [{
+//   id, name, season: 'summer'|'winter'|'all',
+//   condition: 'new'|'used',  priorKm: number|null,   // km it already had before you mounted it; null = unknown
+//   dot: '3419'|null,         // 4-digit DOT date code on the sidewall (week + year)
+//   limitKm: number|null,     // km life you plan to give it
+//   minMm: number,            // replace at/below this tread depth
+//   price, note,
+//   periods: [{ from:{date, odo}, to:{date, odo}|null }]   // to:null = on the car now
+// }]
+const TYRE_AGE_WARN_YEARS   = 6;
+const TYRE_AGE_MAX_YEARS    = 10;
+const TYRE_DEFAULT_LIMIT_KM = 40000;
+const tyreDefaultMinMm = season => season === 'winter' ? 4 : 3;
+const _isNum = n => typeof n === 'number' && Number.isFinite(n);
+
+function mountedTyreSet(tires) {
+  return (tires || []).find(s => (s.periods || []).some(p => !p.to)) || null;
+}
+
+function tyreKm(set, currentOdo) {
+  let tracked = 0;
+  (set.periods || []).forEach(p => {
+    const start = p.from ? p.from.odo : null;
+    const end   = p.to ? p.to.odo : currentOdo;
+    if (_isNum(start) && _isNum(end) && end >= start) tracked += end - start;
+  });
+  const priorKnown = _isNum(set.priorKm);
+  return {
+    tracked,
+    prior: priorKnown ? set.priorKm : null,
+    total: tracked + (priorKnown ? set.priorKm : 0),
+    // second-hand with no idea how far they've gone: we only know what happened since you mounted them
+    priorUnknown: set.condition === 'used' && !priorKnown,
+    mounted: (set.periods || []).some(p => !p.to),
+  };
+}
+
+// Puts a set on the car: closes the open period of whichever set is on now at the same
+// odometer, and opens one for the new set. Returns an error message, or null on success.
+function mountTyreSet(tires, setId, date, odo) {
+  const set = (tires || []).find(s => s.id === setId);
+  if (!set) return 'Unknown tyre set';
+  if (!_isNum(odo) || odo < 0) return 'Enter the odometer reading (km)';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Enter a valid date';
+  const current = mountedTyreSet(tires);
+  if (current === set) return `${set.name} is already on the car`;
+  let floor = 0;                                    // the odometer only goes up
+  tires.forEach(s => (s.periods || []).forEach(p => [p.from, p.to].forEach(pt => { if (pt && _isNum(pt.odo)) floor = Math.max(floor, pt.odo); })));
+  if (odo < floor) return `That's lower than a reading already recorded (${floor.toLocaleString('de-AT')} km) — check the number`;
+  if (current) {
+    const open = current.periods.find(p => !p.to);
+    if (open.from && open.from.date && date < open.from.date) return `That date is before ${current.name} was mounted (${open.from.date})`;
+    open.to = { date, odo };
+  }
+  if (!set.periods) set.periods = [];
+  set.periods.push({ from: { date, odo }, to: null });
+  return null;
+}
+
+// Age from the DOT code (WWYY — week, year). null when it isn't a valid code.
+function tyreAgeYears(dot, today = new Date()) {
+  const m = /^(\d{2})(\d{2})$/.exec(String(dot || '').trim());
+  if (!m) return null;
+  const week = +m[1], yy = +m[2];
+  if (week < 1 || week > 53) return null;
+  const made = new Date(2000 + yy, 0, 1 + (week - 1) * 7);
+  const years = (today - made) / (365.25 * 24 * 3600 * 1000);
+  return years < 0 ? null : years;
+}
+
+function tyreTreadReadings(setId, log = ((DATA.carService && DATA.carService.treadLog) || [])) {
+  return log.filter(t => t.setId === setId && _isNum(t.mm))
+            .sort((a, b) => a.date.localeCompare(b.date) || (a.setKm || 0) - (b.setKm || 0));
+}
+
+// How fast the tread is wearing, from two readings at least 1,000 km apart.
+// This is the answer to second-hand tyres with unknown mileage: it needs no history at all.
+function tyreWearForecast(set, readings) {
+  // Measured against km driven ON this set (setKm), not the raw odometer — otherwise the
+  // winter set's wear would be spread over the summer km it was sitting in the garage for.
+  const r = (readings || []).filter(t => _isNum(t.setKm));
+  if (r.length < 2) return null;
+  const first = r[0], last = r[r.length - 1];
+  const km = last.setKm - first.setKm, lost = first.mm - last.mm;
+  if (km < 1000 || lost <= 0) return null;
+  const perKm = lost / km;
+  return { mmPer1000km: perKm * 1000, kmLeft: Math.max(0, Math.round((last.mm - set.minMm) / perKm)) };
+}
+
+// What, if anything, needs attention on a set. A second-hand set with unknown earlier
+// mileage is judged on age and tread — never on a km limit it can't honestly be measured against.
+function tyreStatus(set, { odo = null, today = new Date(), readings = [] } = {}) {
+  const reasons = [];
+  const k = tyreKm(set, odo);
+  const n = x => x.toLocaleString('de-AT');
+  if (set.limitKm && !k.priorUnknown) {
+    const left = set.limitKm - k.total;
+    if (left <= 0)        reasons.push({ kind:'km', level:'over', text:`${n(Math.abs(left))} km past its ${n(set.limitKm)} km limit` });
+    else if (left <= 1000) reasons.push({ kind:'km', level:'soon', text:`${n(left)} km left of ${n(set.limitKm)}` });
+  }
+  const age = tyreAgeYears(set.dot, today);
+  if (age != null) {
+    if (age >= TYRE_AGE_MAX_YEARS)       reasons.push({ kind:'age', level:'over', text:`${age.toFixed(1)} years old — replace by ${TYRE_AGE_MAX_YEARS}` });
+    else if (age >= TYRE_AGE_WARN_YEARS) reasons.push({ kind:'age', level:'soon', text:`${age.toFixed(1)} years old — worth an inspection` });
+  }
+  const last = readings.length ? readings[readings.length - 1] : null;
+  if (last) {
+    if (last.mm <= LEGAL_TREAD_MM)   reasons.push({ kind:'tread', level:'over', text:`tread ${last.mm.toFixed(1)} mm — at the ${LEGAL_TREAD_MM} mm legal minimum` });
+    else if (last.mm <= set.minMm)   reasons.push({ kind:'tread', level:'soon', text:`tread ${last.mm.toFixed(1)} mm — at or below your ${set.minMm} mm minimum` });
+  }
+  const level = reasons.some(r => r.level === 'over') ? 'over' : reasons.length ? 'soon' : 'ok';
+  return { level, reasons, km: k, age, last, forecast: tyreWearForecast(set, readings) };
+}
+
+// Refuel odometer readings that can't be right (going backwards, or an impossible distance
+// for the days between). Feeds Vault Health so one typo doesn't silently skew tyre and service km.
+function odoAnomalies(fuel) {
+  const recs = (fuel || []).filter(f => f.odo > 0 && f.date).sort((a, b) => a.date.localeCompare(b.date) || a.odo - b.odo);
+  const n = x => x.toLocaleString('de-AT');
+  // Why can't `f` follow `ref`? (null = it can)
+  const problem = (f, ref) => {
+    if (f.odo < ref.odo) return `lower than ${n(ref.odo)} km on ${ref.date}`;
+    const days = Math.max(1, Math.round((new Date(f.date + 'T00:00:00') - new Date(ref.date + 'T00:00:00')) / 86400000));
+    return (f.odo - ref.odo) / days > 1500 ? `${n(f.odo - ref.odo)} km in ${days} day${days === 1 ? '' : 's'}` : null;
+  };
+  // Each reading is judged against the last TRUSTED one, so a typo is flagged itself and the
+  // correct reading after it isn't blamed. If a flagged reading and the one after it agree with
+  // each other, the odometer genuinely continued from there (e.g. it was replaced) — re-baseline
+  // instead of flagging everything that follows.
+  const out = []; let trusted = null, suspect = null;
+  recs.forEach(f => {
+    if (!trusted) { trusted = f; return; }
+    const why = problem(f, trusted);
+    if (!why) { trusted = f; suspect = null; return; }
+    if (suspect && !problem(f, suspect)) { trusted = f; suspect = null; return; }
+    out.push({ id: f.id, date: f.date, odo: f.odo, reason: why });
+    suspect = f;
+  });
+  return out;
+}
+
+// Older versions of the app only know ONE "last tyre change" (carService.tireDate / tireKm).
+// Keep those pointing at the set that's on the car now, so an older copy that opens this
+// vault still shows something sensible instead of a stale record.
+function syncLegacyTyreFields() {
+  const cur = mountedTyreSet(DATA.tires);
+  if (!cur) return;
+  const p = cur.periods.find(x => !x.to);
+  if (!DATA.carService) DATA.carService = {};
+  DATA.carService.tireDate = (p.from && p.from.date) || null;
+  DATA.carService.tireKm   = (p.from && _isNum(p.from.odo)) ? p.from.odo : null;
+  if (cur.limitKm) DATA.carService.tireIntKm = cur.limitKm;
+}
+
+// ── Tyre sets: screens ──────────────────────────────────────────────────────
+const TYRE_SEASON = { summer:'☀ Summer', winter:'❄ Winter', all:'All-season' };
+const _tn   = x => Math.round(x).toLocaleString('de-AT');
+const _tdt  = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('de-AT', { day:'numeric', month:'short', year:'numeric' }) : '—';
+const _tcol = lvl => lvl === 'over' ? 'var(--Rm)' : lvl === 'soon' ? 'var(--Am)' : 'var(--Gm)';
+
+// Logs a tread reading against a set. setKm = km driven on that set so far, which is what
+// wear is measured against. odoOverride lets a swap record the reading at the swap odometer.
+function pushTreadReading(setId, date, mm, note, odoOverride) {
+  if (!DATA.carService) DATA.carService = {};
+  if (!DATA.carService.treadLog) DATA.carService.treadLog = [];
+  const set = setId ? (DATA.tires || []).find(s => s.id === setId) : null;
+  const odo = _isNum(odoOverride) ? odoOverride : _currentOdo();
+  const entry = { id: uid(), date, mm, note: note || '', setId: set ? set.id : null, odo };
+  if (set) entry.setKm = tyreKm(set, odo).tracked;
+  DATA.carService.treadLog.push(entry);
+  DATA.carService.treadLog.sort((a, b) => b.date.localeCompare(a.date));
+  return entry;
+}
+
+function refreshTreadSetSelect() {
+  const sel = el('tread-set'); if (!sel) return;
+  const prev = sel.value, tires = DATA.tires || [], on = mountedTyreSet(tires);
+  sel.innerHTML = '<option value="">— no set —</option>'
+    + tires.map(s => `<option value="${esc(s.id)}">${esc(s.name)}${s === on ? ' (on car)' : ''}</option>`).join('');
+  sel.value = prev && tires.some(s => s.id === prev) ? prev : (on ? on.id : '');
+}
+
+function tyreCardHtml(s, onCar, odo) {
+  const readings = tyreTreadReadings(s.id);
+  const st = tyreStatus(s, { odo, readings });
+  const k = st.km, open = (s.periods || []).find(p => !p.to);
+  const L = [];
+  if (onCar && open) {
+    L.push(`On the car since <strong>${_tdt(open.from && open.from.date)}</strong>`
+      + (open.from && _isNum(open.from.odo) ? ` · odometer then ${_tn(open.from.odo)} km` : ` · <span style="color:var(--Am)">odometer missing — ✎ add it so km can be counted</span>`));
+  }
+  if (k.priorUnknown) L.push(`<strong>${_tn(k.tracked)} km</strong> with you · <span style="color:var(--Am)">earlier use unknown</span>`);
+  else if (k.prior > 0) L.push(`<strong>${_tn(k.total)} km</strong> in total <span style="color:var(--ink3)">(${_tn(k.tracked)} with you + ≈${_tn(k.prior)} before)</span>`);
+  else L.push(`<strong>${_tn(k.total)} km</strong> in total`);
+  if (s.dot) {
+    if (st.age == null) L.push(`<span style="color:var(--Am)">DOT “${esc(s.dot)}” isn't a valid code (4 digits: week, year)</span>`);
+    else { const a = st.reasons.find(r => r.kind === 'age'); L.push(`DOT ${esc(s.dot)} · <span style="color:${_tcol(a ? a.level : 'ok')}">${st.age.toFixed(1)} years old</span>`); }
+  } else if (k.priorUnknown) L.push(`<span style="color:var(--ink3)">Add the DOT code from the sidewall (e.g. 3419) to track age.</span>`);
+  if (st.last) {
+    const t = st.reasons.find(r => r.kind === 'tread');
+    let line = `Tread <strong style="color:${_tcol(t ? t.level : 'ok')}">${st.last.mm.toFixed(1)} mm</strong> <span style="color:var(--ink3)">(${_tdt(st.last.date)})</span>`;
+    if (st.forecast) line += ` · ≈ <strong>${_tn(st.forecast.kmLeft)} km</strong> until ${s.minMm} mm at the current wear`;
+    else line += ` <span style="color:var(--ink3)">· log another reading after ~1,000 km for a wear forecast</span>`;
+    L.push(line);
+  } else if (k.priorUnknown) L.push(`<span style="color:var(--ink3)">Log a tread depth now — the best way to judge second-hand tyres.</span>`);
+  if (s.price && k.total >= 1000) L.push(`<span style="color:var(--ink3)">${fmt(s.price / k.total * 1000)} per 1,000 km so far</span>`);
+  const chips = st.reasons.map(r => `<span style="font-size:11px;padding:1px 7px;border-radius:3px;background:${r.level === 'over' ? 'var(--Rbg)' : 'var(--Abg)'};color:${_tcol(r.level)}">${esc(r.text)}</span>`).join(' ');
+  const bar = (s.limitKm && !k.priorUnknown) ? `<div style="margin-top:6px">${_svcProgressBar(k.total, s.limitKm, 'var(--Gm)')}</div>` : '';
+  return `<div style="border:.5px solid var(--bdr);${onCar ? 'border-left:3px solid var(--Gm);' : ''}border-radius:var(--rs);padding:10px 12px;margin-bottom:8px;background:var(--s0)">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <strong>${esc(s.name)}</strong>
+      <span class="badge" style="background:var(--s2);color:var(--ink2);text-transform:none;letter-spacing:0">${esc(TYRE_SEASON[s.season] || s.season)}</span>
+      ${onCar ? '<span class="badge" style="background:var(--Gbg);color:var(--Gm);text-transform:none;letter-spacing:0">on the car</span>' : '<span class="badge" style="background:var(--s2);color:var(--ink3);text-transform:none;letter-spacing:0">in storage</span>'}
+      <span style="flex:1"></span>
+      ${onCar ? '' : `<button class="btn xs ghost" onclick="openTyreSwap('${s.id}')" title="Put this set on the car">⇄ Put on car</button>`}
+      <button class="btn xs ghost" onclick="openTyreSet('${s.id}')" title="Edit" aria-label="Edit tyre set">✎</button>
+      <button class="btn xs danger" onclick="deleteTyreSet('${s.id}')" title="Delete" aria-label="Delete tyre set">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--ink2);margin-top:5px;display:flex;flex-direction:column;gap:2px">${L.map(x => `<div>${x}</div>`).join('')}</div>
+    ${bar}
+    ${chips ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${chips}</div>` : ''}
+  </div>`;
+}
+
+function renderTyres() {
+  const wrap = el('tyre-panel'); if (!wrap) return;
+  refreshTreadSetSelect();
+  const tires = DATA.tires || [];
+  if (!tires.length) {
+    wrap.innerHTML = `<div style="font-size:13px;color:var(--ink3)">No tyre sets yet. Add the tyres on the car now and your spare set — their km are then counted for you from the odometer of every refuel.</div>`;
+    return;
+  }
+  const odo = _currentOdo(), on = mountedTyreSet(tires);
+  // Every tyre km figure rests on the newest refuel odometer — if that one looks wrong, say so
+  // rather than quietly showing numbers that are off.
+  const newest = _latestOdoRecord(), bad = newest ? odoAnomalies(DATA.fuel || []).find(a => a.id === newest.id) : null;
+  const odoWarn = bad ? `<div style="font-size:12px;color:var(--Rm);background:var(--Rbg);border-radius:var(--rs);padding:6px 10px;margin-bottom:8px">⚠ Your latest refuel's odometer (${_tn(bad.odo)} km on ${_tdt(bad.date)}) looks wrong — ${esc(bad.reason)}. Tyre km below may be off until you correct it in the Fuel table.</div>` : '';
+  wrap.innerHTML = odoWarn +
+    (on ? '' : `<div style="font-size:12px;color:var(--Am);margin-bottom:8px">No set is marked as on the car — use “Swap tyres” to say which one is mounted.</div>`)
+    + (on ? [on] : []).concat(tires.filter(s => s !== on)).map(s => tyreCardHtml(s, s === on, odo)).join('');
+}
+
+// ── add / edit a set ──
+let _tyreEditId = null, _tyreEditRows = [], _tyreEditInitialRaw = '[]';
+const _periodToRaw = p => ({
+  fd: (p.from && p.from.date) || '', fo: p.from && _isNum(p.from.odo) ? String(p.from.odo) : '',
+  td: (p.to && p.to.date) || '',     to: p.to && _isNum(p.to.odo) ? String(p.to.odo) : '',
+});
+const _validDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+
+// Validates the mounting-history rows from the edit dialog → { periods } or { error }.
+function parseTyrePeriods(rows) {
+  const out = [];
+  for (const r of rows) {
+    const fo = parseFloat(r.fo);
+    if (!_validDate(r.fd))            return { error: 'Each mounting needs a valid “on” date' };
+    if (!_isNum(fo) || fo < 0)        return { error: 'Each mounting needs the odometer it went on at' };
+    if (r.td || r.to !== '') {
+      const to = parseFloat(r.to);
+      if (!_validDate(r.td))          return { error: 'A mounting that came off needs a valid “off” date' };
+      if (!_isNum(to) || to < fo)     return { error: 'The “off” odometer can’t be lower than the “on” odometer' };
+      if (r.td < r.fd)                return { error: 'The “off” date is before the “on” date' };
+      out.push({ from: { date: r.fd, odo: fo }, to: { date: r.td, odo: to } });
+    } else out.push({ from: { date: r.fd, odo: fo }, to: null });
+  }
+  if (out.filter(p => !p.to).length > 1) return { error: 'Only one mounting can still be on the car' };
+  return { periods: out };
+}
+
+function readTyrePeriodInputs() {
+  return _tyreEditRows.map((_, i) => ({
+    fd: el(`tp-fd-${i}`)?.value || '', fo: el(`tp-fo-${i}`)?.value ?? '',
+    td: el(`tp-td-${i}`)?.value || '', to: el(`tp-to-${i}`)?.value ?? '',
+  }));
+}
+
+function renderTyrePeriodRows() {
+  const box = el('ts-periods'); if (!box) return;
+  if (!_tyreEditRows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-bottom:6px">Not mounted yet — use “Swap tyres” to put it on the car.</div>'; return; }
+  box.innerHTML = _tyreEditRows.map((r, i) => `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:6px;align-items:end;margin-bottom:6px">
+    <div class="fg" style="margin:0"><label>${i === 0 ? 'On' : '&nbsp;'}</label><input type="date" id="tp-fd-${i}" value="${esc(r.fd)}"></div>
+    <div class="fg" style="margin:0"><label>${i === 0 ? 'Odo on' : '&nbsp;'}</label><input type="number" id="tp-fo-${i}" value="${esc(r.fo)}" style="font-family:var(--mono)"></div>
+    <div class="fg" style="margin:0"><label>${i === 0 ? 'Off' : '&nbsp;'}</label><input type="date" id="tp-td-${i}" value="${esc(r.td)}"></div>
+    <div class="fg" style="margin:0"><label>${i === 0 ? 'Odo off' : '&nbsp;'}</label><input type="number" id="tp-to-${i}" value="${esc(r.to)}" style="font-family:var(--mono)"></div>
+    <button class="btn xs ghost" onclick="removeTyrePeriodRow(${i})" title="Remove this mounting" aria-label="Remove mounting">✕</button>
+  </div>`).join('');
+}
+
+function removeTyrePeriodRow(i) {
+  _tyreEditRows = readTyrePeriodInputs();
+  _tyreEditRows.splice(i, 1);
+  renderTyrePeriodRows();
+}
+
+function onTyreCondChange() {
+  const used = el('ts-cond').value === 'used';
+  el('ts-prior-wrap').style.display = used ? '' : 'none';
+  el('ts-used-hint').style.display  = used ? '' : 'none';
+}
+function onTyreSeasonChange() {
+  const cur = parseFloat(el('ts-min').value);
+  if (!Number.isFinite(cur) || cur === 3 || cur === 4) el('ts-min').value = tyreDefaultMinMm(el('ts-season').value);
+}
+function onTyreMountToggle() {
+  el('ts-mount-fields').style.display = el('ts-mount').checked ? '' : 'none';
+}
+
+function openTyreSet(id) {
+  _tyreEditId = id || null;
+  const s = id ? (DATA.tires || []).find(x => x.id === id) : null;
+  el('ts-title').textContent = s ? 'Edit tyre set' : 'Add tyre set';
+  el('ts-name').value   = s ? s.name : '';
+  el('ts-season').value = s ? s.season : 'summer';
+  el('ts-cond').value   = s ? s.condition : 'new';
+  el('ts-prior').value  = s && s.condition === 'used' && _isNum(s.priorKm) ? s.priorKm : '';
+  el('ts-dot').value    = s && s.dot ? s.dot : '';
+  el('ts-limit').value  = s ? (s.limitKm || '') : TYRE_DEFAULT_LIMIT_KM;
+  el('ts-min').value    = s ? s.minMm : tyreDefaultMinMm('summer');
+  el('ts-price').value  = s && s.price ? s.price : '';
+  el('ts-note').value   = s ? (s.note || '') : '';
+  el('ts-mount-wrap').style.display   = s ? 'none' : '';
+  el('ts-periods-wrap').style.display = s ? '' : 'none';
+  el('ts-delete').style.display       = s ? '' : 'none';
+  el('ts-mount').checked = false; el('ts-mount-fields').style.display = 'none';
+  el('ts-mount-date').value = ymd(); el('ts-mount-odo').value = _currentOdo() || ''; el('ts-mount-tread').value = '';
+  if (s) { _tyreEditRows = (s.periods || []).map(_periodToRaw); _tyreEditInitialRaw = JSON.stringify(_tyreEditRows); renderTyrePeriodRows(); }
+  onTyreCondChange();
+  el('tyre-set-overlay').classList.add('open');
+}
+
+function closeTyreSet() {
+  _tyreEditId = null;
+  const o = el('tyre-set-overlay'); if (o) o.classList.remove('open');
+}
+
+function saveTyreSet() {
+  const name = el('ts-name').value.trim() || 'Tyres';
+  const season = el('ts-season').value, cond = el('ts-cond').value;
+  let priorKm = 0;
+  if (cond === 'used') {
+    const raw = el('ts-prior').value.trim();
+    priorKm = raw === '' ? null : parseFloat(raw);          // blank = unknown — never invented as 0
+    if (priorKm !== null && (!Number.isFinite(priorKm) || priorKm < 0)) return toast('“Km already on them” must be a number — or leave it blank if unknown', 1);
+  }
+  const dot = el('ts-dot').value.trim();
+  if (dot && tyreAgeYears(dot) == null) return toast('DOT code is 4 digits: week, then year — e.g. 3419 (week 34 of 2019)', 1);
+  const limitRaw = parseFloat(el('ts-limit').value), minRaw = parseFloat(el('ts-min').value), priceRaw = parseFloat(el('ts-price').value);
+  const limitKm = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : null;
+  const minMm   = Number.isFinite(minRaw) && minRaw >= LEGAL_TREAD_MM ? minRaw : tyreDefaultMinMm(season);
+  const price   = Number.isFinite(priceRaw) && priceRaw > 0 ? priceRaw : null;
+  const note    = el('ts-note').value.trim();
+  if (!DATA.tires) DATA.tires = [];
+
+  if (_tyreEditId) {
+    const s = DATA.tires.find(x => x.id === _tyreEditId);
+    if (!s) { closeTyreSet(); return; }
+    let periods = s.periods;
+    const raw = readTyrePeriodInputs();
+    if (JSON.stringify(raw) !== _tyreEditInitialRaw) {          // only touch the history if it was actually edited
+      const r = parseTyrePeriods(raw);
+      if (r.error) return toast(r.error, 1);
+      if (r.periods.some(p => !p.to) && DATA.tires.some(o => o !== s && (o.periods || []).some(p => !p.to)))
+        return toast('Another set is already on the car — use “Swap tyres” instead', 1);
+      periods = r.periods;
+    }
+    Object.assign(s, { name, season, condition: cond, priorKm, dot: dot || null, limitKm, minMm, price, note, periods });
+    syncLegacyTyreFields(); saveLocal(); closeTyreSet(); render(); toast('Tyre set saved');
+    return;
+  }
+
+  const mountNow = el('ts-mount').checked;
+  const mDate = el('ts-mount-date').value, mOdo = parseFloat(el('ts-mount-odo').value), mTread = parseFloat(el('ts-mount-tread').value);
+  const set = { id: uid(), name, season, condition: cond, priorKm, dot: dot || null, limitKm, minMm, price, note, periods: [] };
+  DATA.tires.push(set);
+  if (mountNow) {
+    const err = mountTyreSet(DATA.tires, set.id, mDate, mOdo);
+    if (err) { DATA.tires.pop(); return toast(err, 1); }
+    if (Number.isFinite(mTread) && mTread > 0) pushTreadReading(set.id, mDate, mTread, 'at mounting', mOdo);
+    syncLegacyTyreFields();
+  }
+  saveLocal(); closeTyreSet(); render();
+  toast(mountNow ? `${name} is on the car` : 'Tyre set added');
+}
+
+function deleteTyreSet(id) {
+  id = id || _tyreEditId;
+  const s = (DATA.tires || []).find(x => x.id === id); if (!s) return;
+  const wasOn = mountedTyreSet(DATA.tires) === s;
+  closeTyreSet();
+  showConfirm(`Delete “${s.name}”?`,
+    `${s.name} and its mounting history are removed${wasOn ? ' — nothing will be marked as on the car' : ''}. Tread readings you logged for it stay in the log.`,
+    () => { DATA.tires = DATA.tires.filter(x => x.id !== id); saveLocal(); render(); toast('Tyre set deleted'); });
+}
+
+// ── swap ──
+function openTyreSwap(preselectId) {
+  const tires = DATA.tires || [];
+  if (!tires.length) { toast('Add a tyre set first', 1); openTyreSet(); return; }
+  const on = mountedTyreSet(tires), options = tires.filter(s => s !== on);
+  if (!options.length) { toast('There is no other set to put on — add one first', 1); openTyreSet(); return; }
+  el('tsw-set').innerHTML = options.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(TYRE_SEASON[s.season] || s.season)})</option>`).join('');
+  el('tsw-set').value  = preselectId && options.some(s => s.id === preselectId) ? preselectId : options[0].id;
+  el('tsw-date').value = ymd();
+  el('tsw-odo').value  = _currentOdo() || '';
+  el('tsw-tread').value = '';
+  el('tsw-current').innerHTML = on ? `On the car now: <strong>${esc(on.name)}</strong> — it comes off at the odometer below.` : 'Nothing is marked as on the car right now.';
+  const last = (DATA.fuel || []).filter(f => f.odo > 0 && f.date).sort((a, b) => b.date.localeCompare(a.date))[0];
+  el('tsw-hint').textContent = last
+    ? `Pre-filled from your latest refuel (${_tn(last.odo)} km on ${_tdt(last.date)}). If your dashboard shows more, use that.`
+    : 'Enter the odometer reading from your dashboard.';
+  el('tyre-swap-overlay').classList.add('open');
+}
+
+function closeTyreSwap() {
+  const o = el('tyre-swap-overlay'); if (o) o.classList.remove('open');
+}
+
+function confirmTyreSwap() {
+  const id = el('tsw-set').value, date = el('tsw-date').value;
+  const odo = parseFloat(el('tsw-odo').value), mm = parseFloat(el('tsw-tread').value);
+  const snap = structuredClone({ tires: DATA.tires, carService: DATA.carService });
+  const err = mountTyreSet(DATA.tires, id, date, odo);       // leaves everything untouched when it returns an error
+  if (err) return toast(err, 1);
+  const set = DATA.tires.find(s => s.id === id);
+  if (Number.isFinite(mm) && mm > 0) pushTreadReading(id, date, mm, 'at mounting', odo);
+  syncLegacyTyreFields(); saveLocal(); closeTyreSwap(); render();
+  toast(`${set.name} is on the car`, 0, () => {
+    DATA.tires = snap.tires; DATA.carService = snap.carService;
+    saveLocal(); render(); toast('Swap undone');
+  });
 }
 
 function renderCarServiceUI() {
@@ -9937,10 +10609,7 @@ function renderCarServiceUI() {
   set('svc-km',      s.serviceKm);
   set('svc-int-km',  s.serviceIntKm || 15000);
   set('svc-int-mo',  s.serviceIntMo || 12);
-  set('tire-date',   s.tireDate);
-  set('tire-km',     s.tireKm);
-  set('tire-int-km', s.tireIntKm || 40000);
-  set('tire-int-mo', s.tireIntMo || 60);
+  renderTyres();
   updateServicePreview();
   checkServiceAlert();
 }
@@ -9967,9 +10636,22 @@ function _nextDue(lastDateStr, lastKm, intKm, intMo, currentKm) {
   return result;
 }
 
+// The newest refuel that has an odometer reading.
+function _latestOdoRecord() {
+  const recs = (DATA.fuel || []).filter(f => f.odo > 0 && f.date);
+  if (!recs.length) return null;
+  recs.sort((a, b) => b.date.localeCompare(a.date) || b.odo - a.odo);
+  return recs[0];
+}
+
 function _currentOdo() {
-  const odos = (DATA.fuel||[]).map(f=>f.odo).filter(Boolean);
-  return odos.length ? Math.max(...odos) : null;
+  // Odometer of the most recent dated refuel that has one. This used to be the HIGHEST
+  // odometer ever typed, so a single typo (1,000,000 instead of 100,000) made every
+  // service and tyre due-date wrong until that record was found; and a back-dated refuel
+  // with a bigger number did the same. Now only the newest reading counts — and if THAT
+  // one looks wrong, the Tyres card says so (see renderTyres) and Vault Health flags it.
+  const r = _latestOdoRecord();
+  return r ? r.odo : null;
 }
 
 function _svcProgressBar(used, total, color) {
@@ -10007,28 +10689,6 @@ function updateServicePreview() {
       svcPrev.textContent = '';
     }
   }
-
-  // ── Tyre preview ──
-  const tirePrev = el('tire-preview');
-  if (tirePrev) {
-    const td = el('tire-date')?.value, tk = parseFloat(el('tire-km')?.value)||null;
-    const ik = parseFloat(el('tire-int-km')?.value)||s.tireIntKm||40000;
-    const im = parseFloat(el('tire-int-mo')?.value)||s.tireIntMo||60;
-    if (td || tk) {
-      const due = _nextDue(td, tk, ik, im, currentOdo);
-      const parts = [];
-      if (due.byDate) parts.push(`Next tyre change: <strong>${due.byDate.toLocaleDateString('de-AT')}</strong>`
-        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
-        + `(${due.daysLeft > 0 ? due.daysLeft+' days' : 'overdue by '+Math.abs(due.daysLeft)+' days'})</span>`);
-      if (due.byKm != null) parts.push(`Next tyre km: <strong>${due.byKm.toLocaleString('de-AT')}</strong>`
-        + ` <span style="color:${due.overdue?'var(--Rm)':due.dueSoon?'var(--Am)':'var(--ink3)'}">`
-        + `(${due.kmLeft > 0 ? due.kmLeft.toLocaleString('de-AT')+' km left' : Math.abs(due.kmLeft).toLocaleString('de-AT')+' km overdue'})</span>`);
-      tirePrev.innerHTML = parts.join('<br>')
-        + (tk && currentOdo ? _svcProgressBar(currentOdo-tk, ik, 'var(--Am)') : '');
-    } else {
-      tirePrev.textContent = '';
-    }
-  }
 }
 
 function checkServiceAlert() {
@@ -10053,16 +10713,11 @@ function checkServiceAlert() {
     }
   }
 
-  // Check tyres
-  if (s.tireDate || s.tireKm) {
-    const due = _nextDue(s.tireDate, s.tireKm, s.tireIntKm||40000, s.tireIntMo||60, currentOdo);
-    if (due.overdue) alerts.push({ text:`🛞 Tyre change overdue${due.kmLeft!=null?' by '+Math.abs(due.kmLeft).toLocaleString('de-AT')+' km':''}`, urgent:true });
-    else if (due.dueSoon) {
-      const parts = [];
-      if (due.daysLeft != null && due.daysLeft <= 30) parts.push(`${due.daysLeft} days`);
-      if (due.kmLeft  != null && due.kmLeft  <= 1000) parts.push(`${due.kmLeft.toLocaleString('de-AT')} km`);
-      alerts.push({ text:`🛞 Tyre change due in ${parts.join(' / ')}`, urgent:false });
-    }
+  // Check tyres — only the set on the car can need attention right now
+  const onCar = mountedTyreSet(DATA.tires);
+  if (onCar) {
+    const st = tyreStatus(onCar, { odo: currentOdo, readings: tyreTreadReadings(onCar.id) });
+    st.reasons.forEach(r => alerts.push({ text: `🛞 ${esc(onCar.name)}: ${esc(r.text)}`, urgent: r.level === 'over' }));
   }
 
   if (!alerts.length || _svcAlertDismissed) { bar.style.display = 'none'; return; }
@@ -10651,13 +11306,12 @@ function addTreadLog() {
   const mm   = parseFloat(el('tread-mm')?.value);
   const note = el('tread-note')?.value?.trim() || '';
   if (!mm || mm <= 0) return toast('Enter tread depth in mm.', 1);
-  if (!DATA.carService) DATA.carService = {};
-  if (!DATA.carService.treadLog) DATA.carService.treadLog = [];
-  DATA.carService.treadLog.push({ id:uid(), date, mm, note });
-  DATA.carService.treadLog.sort((a,b)=>b.date.localeCompare(a.date));
+  pushTreadReading(el('tread-set')?.value || null, date, mm, note);
   saveLocal();
   el('tread-mm').value=''; el('tread-note').value='';
   renderTreadLog();
+  renderTyres();
+  checkServiceAlert();
   toast('Tread depth logged');
 }
 
@@ -10679,6 +11333,7 @@ function renderTreadLog() {
       <span style="font-size:11px;color:var(--ink3);white-space:nowrap">${t.date}</span>
       <span style="font-family:var(--mono);font-weight:700;color:${col}">${t.mm.toFixed(1)} mm</span>
       ${warn?`<span style="font-size:10px;background:var(--Rbg);color:var(--Rm);padding:1px 6px;border-radius:3px">Near legal limit (${LEGAL}mm)</span>`:''}
+      ${(() => { const ts = t.setId ? (DATA.tires || []).find(x => x.id === t.setId) : null; return ts ? `<span class="badge" style="background:var(--s2);color:var(--ink2);text-transform:none;letter-spacing:0">${esc(ts.name)}</span>` : ''; })()}
       <span style="flex:1;color:var(--ink2);font-size:12px">${esc(t.note||'')}</span>
       <button class="btn xs ghost" onclick="deleteTreadLog('${t.id}')">✕</button>
     </div>`;
@@ -12638,7 +13293,8 @@ async function addFuel() {
     if (el('fuel-add-entry')?.checked) {
       DATA.entries.unshift({ id: uid(), loggedAt:new Date().toISOString(), date, desc: station || FUEL_LABELS[type] + ' fuel',
         amount: total, formula: null, type: 'expense', category: 'needs',
-        tags: ['fuel', type], accountId: el('fuel-entry-acct')?.value || null, recurId: null });
+        tags: ['fuel', type], accountId: el('fuel-entry-acct')?.value || null, recurId: null,
+        fuelId: record.id }); // link back to the refuel, so removing the refuel can offer to remove this too
     }
 
     saveLocal();
@@ -12666,11 +13322,73 @@ async function addFuel() {
   } catch(e) { toast(e.message || 'Failed to log refuel.', 1); }
 }
 
-// ── Delete a refuel ───────────────────────────────────────────────────────────
+// ── Remove a refuel (optionally with the expense it created) ─────────────────
+// A refuel and its Entries expense used to have no link at all — addFuel only
+// tagged the entry — so "remove it from Entries too" couldn't know which row to
+// take. New expenses now carry fuelId. Older ones are matched on exactly what the
+// form would have created: a fuel-tagged expense on the same day for the same
+// total. Matching by fuelId first means a refuel whose date/total was edited
+// later is still found.
+function findFuelEntry(f, entries = DATA.entries) {
+  const linked = entries.find(e => e.fuelId === f.id);
+  if (linked) return linked;
+  return entries.find(e => e.type === 'expense' && !e.fuelId && (e.tags || []).includes('fuel')
+                        && e.date === f.date && Math.abs(e.amount - f.total) < 0.005) || null;
+}
+
+// Pure: removes the refuel and, if asked, its matching expense. Returns what it removed.
+function removeFuelRecord(id, alsoRemoveEntry) {
+  const record = (DATA.fuel || []).find(x => x.id === id);
+  if (!record) return { record: null, entry: null };
+  const entry = alsoRemoveEntry ? findFuelEntry(record) : null;
+  if (entry) DATA.entries = DATA.entries.filter(e => e.id !== entry.id);
+  DATA.fuel = DATA.fuel.filter(x => x.id !== id);
+  return { record, entry };
+}
+
+let _fuelDeleteId = null;
+
 function deleteFuel(id) {
-  showConfirm('Remove refuel record?', 'This only removes the fuel log entry — any linked expense entry is kept.', () => {
-    DATA.fuel = DATA.fuel.filter(f => f.id !== id);
-    saveLocal(); renderFuel(); toast('Record removed');
+  const f = (DATA.fuel || []).find(x => x.id === id);
+  if (!f) return;
+  const entry = findFuelEntry(f);
+  if (!entry) {
+    showConfirm('Remove refuel record?', 'No matching expense was found in Entries, so only the fuel log record is removed.',
+      () => finishFuelRemoval(id, false));
+    return;
+  }
+  _fuelDeleteId = id;
+  const acct = (DATA.accounts || []).find(a => a.id === entry.accountId);
+  el('fuel-del-entry').innerHTML =
+    `<strong>${esc(entry.desc)}</strong> · ${esc(entry.date)} · ${fmt(entry.amount)}${acct ? ` · ${esc(acct.name)}` : ''}`;
+  el('fuel-del-overlay').classList.add('open');
+}
+
+function closeFuelDelete() {
+  _fuelDeleteId = null;
+  const o = el('fuel-del-overlay'); if (o) o.classList.remove('open');
+}
+
+function confirmFuelDelete(alsoEntry) {
+  // Take the id BEFORE closing — closeFuelDelete() clears it (same ordering trap
+  // that made "Save anyway" do nothing).
+  const id = _fuelDeleteId;
+  closeFuelDelete();
+  if (id) finishFuelRemoval(id, alsoEntry);
+}
+
+function finishFuelRemoval(id, alsoEntry) {
+  const rec = (DATA.fuel || []).find(x => x.id === id);
+  if (!rec) return;
+  const entryBefore = alsoEntry ? findFuelEntry(rec) : null;
+  const entryIdx = entryBefore ? DATA.entries.indexOf(entryBefore) : -1;
+  const { record, entry } = removeFuelRecord(id, alsoEntry);
+  saveLocal(); render();
+  toast(entry ? 'Refuel and expense removed' : 'Refuel removed', 0, () => {
+    DATA.fuel.push(record);
+    DATA.fuel.sort((a, b) => a.date.localeCompare(b.date));
+    if (entry) DATA.entries.splice(Math.min(Math.max(entryIdx, 0), DATA.entries.length), 0, entry);
+    saveLocal(); render(); toast('Restored');
   });
 }
 
@@ -12779,7 +13497,7 @@ function renderFuel() {
         <td ondblclick="makeFuelCellEditable(this,'${f.id}','note',${jsAttr(f.note||'')},{width:'120px'})"
           title="Double-click to add note" style="cursor:text;font-size:11px;color:var(--ink3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${f.note ? esc(f.note) : '<span style="color:var(--bdr)">+ note</span>'}</td>
-        <td><button class="btn xs danger" onclick="deleteFuel('${f.id}')">✕</button></td>
+        <td class="sticky-end"><button class="btn xs danger" title="Remove this refuel" aria-label="Remove refuel" onclick="deleteFuel('${f.id}')">✕</button></td>
       </tr>`;
     }).join('');
     tbody.innerHTML = rows;
@@ -13289,6 +14007,11 @@ function runVaultHealth() {
   // ── 3. Future-dated entries (>1 year ahead) ───────────────────────────────
   const futureEntries = (DATA.entries||[]).filter(e => new Date(e.date+'T00:00:00') > oneYearFromNow);
   if (futureEntries.length) { const ys = String(new Date().getFullYear()); const typo = ys[0]+ys[2]+ys[1]+ys[3]; issues.push({ icon:'⚠', text:`${futureEntries.length} entr${futureEntries.length===1?'y':'ies'} dated more than 1 year in the future`, fix:`Check for typos like ${typo} instead of ${ys}.` }); }
+
+  // ── 3b. Refuel odometer readings that can't be right (skews tyre + service km) ──
+  const odoBad = odoAnomalies(DATA.fuel || []);
+  if (odoBad.length) issues.push({ icon:'⚠', text:`${odoBad.length} refuel odometer reading${odoBad.length===1?'':'s'} look wrong`,
+    fix: odoBad.slice(0,3).map(a => `${a.date}: ${a.odo.toLocaleString('de-AT')} km (${a.reason})`).join(' · ') + (odoBad.length > 3 ? ' …' : '') + ' — correct them in the Fuel table (double-click the odometer).' });
 
   // ── 4. Invalid category / type ────────────────────────────────────────────
   const badCat  = (DATA.entries||[]).filter(e => e.category && !VALID_CATS.has(e.category));
@@ -14025,6 +14748,325 @@ function runSmokeTest() {
       const rows = hybridYearlySummary([{ date:'2026-01-01', evMinutes:null, fuelSaved:null, ppl:1.5 }]);
       expect(rows.length, 0, 'a fill-up with no hybrid data should not produce a yearly row');
     });
+
+    // ── Overview income → Entries: account assignment, backfill, leave-guards ──
+    test('a new mirrored income takes the chosen account; an unknown account falls back to none', () => {
+      const acct = DATA.accounts[0].id;
+      syncBaseIncomeEntry('2031-04', 1000, acct);
+      expect(DATA.entries.find(e => e.id === 'baseinc-2031-04').accountId, acct, 'valid account applied on create');
+      syncBaseIncomeEntry('2031-05', 1000, 'no_such_account');
+      expect(DATA.entries.find(e => e.id === 'baseinc-2031-05').accountId, null, 'unknown account ignored');
+    });
+    test('re-syncing an existing mirrored income changes only the amount — never its account or edits', () => {
+      const acct = DATA.accounts[0].id;
+      syncBaseIncomeEntry('2031-06', 1000, acct);
+      const e = DATA.entries.find(x => x.id === 'baseinc-2031-06');
+      e.desc = 'Salary (edited)';
+      syncBaseIncomeEntry('2031-06', 1250); // typing a new amount on the Overview
+      expect(e.amount, 1250, 'amount follows the Overview');
+      expect(e.accountId, acct, 'account survives');
+      expect(e.desc, 'Salary (edited)', 'description edits survive');
+    });
+    test('a half-typed formula leaves the mirror (and its account) alone; emptying the field removes it', () => {
+      const acct = DATA.accounts[0].id;
+      syncBaseIncomeEntry('2031-07', 900, acct);
+      syncMirrorFromField('2031-07', 0, '=hou');   // mid-typing: evaluates to 0
+      const kept = DATA.entries.find(e => e.id === 'baseinc-2031-07');
+      expectTrue(!!kept, 'mirror survives a half-typed formula');
+      expect(kept.accountId, acct, 'and keeps its account');
+      syncMirrorFromField('2031-07', 0, null);     // field cleared
+      expectTrue(!DATA.entries.find(e => e.id === 'baseinc-2031-07'), 'clearing the field removes the row');
+    });
+    test('defaultIncomeAccountId: newest assigned account that still exists', () => {
+      const real = DATA.accounts[0].id, saved = DATA.entries;
+      DATA.entries = [];
+      try {
+        expect(defaultIncomeAccountId(), null, 'none when nothing is assigned');
+        DATA.entries.push({ id:'baseinc-2031-01', date:'2031-01-01', amount:1, type:'income', isSalaryMirror:true, accountId: real });
+        DATA.entries.push({ id:'baseinc-2031-02', date:'2031-02-01', amount:1, type:'income', isSalaryMirror:true, accountId: null });
+        DATA.entries.push({ id:'baseinc-2031-03', date:'2031-03-01', amount:1, type:'income', isSalaryMirror:true, accountId: 'deleted_acct' });
+        expect(defaultIncomeAccountId(), real, 'unassigned and deleted-account rows are skipped');
+      } finally { DATA.entries = saved; }
+    });
+    test('backfill adds only the missing months, with no account, and is safe to repeat', () => {
+      const savedInc = DATA.incomes, savedEntries = DATA.entries;
+      DATA.incomes = { '2031-01':{amount:3000,formula:null}, '2031-02':{amount:3100,formula:null}, '2031-03':{amount:0,formula:null} };
+      DATA.entries = [{ id:'baseinc-2031-01', date:'2031-01-01', amount:3000, type:'income', category:'income', isSalaryMirror:true, accountId:null }];
+      try {
+        expect(monthsMissingIncomeMirror().join(','), '2031-02', 'only the month that has income but no row');
+        expect(backfillIncomeMirrors(), 1, 'one row created');
+        const made = DATA.entries.find(e => e.id === 'baseinc-2031-02');
+        expect(made.amount, 3100, 'amount copied from the Overview income');
+        expect(made.accountId, null, 'back-filled rows never get an account');
+        expect(made.date, '2031-02-01', 'dated the 1st');
+        expect(backfillIncomeMirrors(), 0, 'running again adds nothing');
+        expect(DATA.entries.filter(e => e.id.startsWith('baseinc-')).length, 2, 'no duplicates');
+      } finally { DATA.incomes = savedInc; DATA.entries = savedEntries; }
+    });
+    test('backfill moves no account balance and no dashboard income total', () => {
+      const savedInc = DATA.incomes, savedEntries = DATA.entries;
+      DATA.incomes = { '2031-08':{amount:2000,formula:null} };
+      DATA.entries = [...savedEntries];
+      try {
+        const bal = computeAcctBalance(DATA.accounts[0]), extra = extraIncomeSum(DATA.entries);
+        backfillIncomeMirrors();
+        expectClose(computeAcctBalance(DATA.accounts[0]), bal, 0.001, 'account balance unchanged');
+        expectClose(extraIncomeSum(DATA.entries), extra, 0.001, 'extra-income total unchanged (mirrors are excluded from it)');
+      } finally { DATA.incomes = savedInc; DATA.entries = savedEntries; }
+    });
+    test('shouldWarnBeforeLeaving: only unpushed changes in an unlocked vault', () => {
+      expect(shouldWarnBeforeLeaving(true,  true),  true,  'unpushed + unlocked → warn');
+      expect(shouldWarnBeforeLeaving(false, true),  false, 'everything pushed → no warning');
+      expect(shouldWarnBeforeLeaving(true,  false), false, 'locked → nothing in memory to lose');
+      expect(shouldWarnBeforeLeaving(false, false), false, 'idle → no warning');
+    });
+    test('duplicating an entry never copies the salary-mirror flag', () => {
+      const orig = { id:'baseinc-2031-09', date:'2031-09-01', desc:'Monthly income', amount:500, type:'income', category:'income', isSalaryMirror:true };
+      const copy = cloneEntryForDuplicate(orig);
+      expectTrue(copy.isSalaryMirror === undefined, 'flag is not inherited');
+      expectTrue(copy.id !== orig.id && !copy.id.startsWith('baseinc-'), 'gets its own ordinary id');
+      expect(extraIncomeSum([copy]), 500, 'so its income still counts in the totals');
+    });
+
+    // ── Fuel tab: removing a refuel, optionally with its Entries expense ──
+    test('findFuelEntry prefers the fuelId link, even after the refuel was edited', () => {
+      const f = { id:'fu1', date:'2026-06-02', total:99 };              // date/total edited since logging
+      const entries = [{ id:'e1', type:'expense', tags:['fuel'], date:'2026-06-01', amount:60, fuelId:'fu1' }];
+      expect(findFuelEntry(f, entries).id, 'e1', 'linked entry found despite differing date/total');
+    });
+    test('findFuelEntry falls back to fuel-tagged expense, same day, same total (older refuels)', () => {
+      const f = { id:'fu2', date:'2026-06-01', total:60 };
+      const entries = [
+        { id:'a', type:'expense', tags:['groceries'], date:'2026-06-01', amount:60 },          // wrong tag
+        { id:'b', type:'expense', tags:['fuel'],      date:'2026-06-02', amount:60 },          // wrong day
+        { id:'c', type:'expense', tags:['fuel'],      date:'2026-06-01', amount:61 },          // wrong amount
+        { id:'d', type:'income',  tags:['fuel'],      date:'2026-06-01', amount:60 },          // not an expense
+        { id:'e', type:'expense', tags:['fuel'],      date:'2026-06-01', amount:60, fuelId:'someone-else' }, // belongs to another refuel
+        { id:'ok', type:'expense', tags:['fuel','petrol'], date:'2026-06-01', amount:60 },
+      ];
+      expect(findFuelEntry(f, entries).id, 'ok', 'only the genuinely matching expense qualifies');
+      expect(findFuelEntry({ id:'fu3', date:'2026-07-01', total:5 }, entries), null, 'no match → null, never a guess');
+    });
+    test('removeFuelRecord removes the refuel and (only when asked) its expense', () => {
+      const savedFuel = DATA.fuel, savedEntries = DATA.entries;
+      const mk = () => {
+        DATA.fuel = [{ id:'f1', date:'2026-06-01', total:60 }, { id:'f2', date:'2026-06-10', total:50 }];
+        DATA.entries = [
+          { id:'e1', type:'expense', tags:['fuel'], date:'2026-06-01', amount:60, fuelId:'f1' },
+          { id:'e2', type:'expense', tags:['fuel'], date:'2026-06-10', amount:50, fuelId:'f2' },
+        ];
+      };
+      try {
+        mk();
+        const r1 = removeFuelRecord('f1', false);
+        expect(DATA.fuel.length, 1, 'refuel removed'); expect(DATA.entries.length, 2, 'expense kept when not asked');
+        expectTrue(r1.entry === null, 'reports no entry removed');
+        mk();
+        const r2 = removeFuelRecord('f1', true);
+        expect(DATA.fuel.map(f => f.id).join(), 'f2', 'refuel removed');
+        expect(DATA.entries.map(e => e.id).join(), 'e2', 'ONLY its own expense removed — the other refuel\'s stays');
+        expect(r2.entry.id, 'e1', 'reports the removed entry');
+        mk();
+        const r3 = removeFuelRecord('nope', true);
+        expectTrue(r3.record === null && DATA.fuel.length === 2 && DATA.entries.length === 2, 'unknown id changes nothing');
+      } finally { DATA.fuel = savedFuel; DATA.entries = savedEntries; }
+    });
+    test('removing the expense with the refuel releases the account balance it was charged to', () => {
+      const savedFuel = DATA.fuel, savedEntries = DATA.entries;
+      const acct = DATA.accounts[0];
+      DATA.fuel = [{ id:'f9', date:'2026-06-01', total:60 }];
+      DATA.entries = [...savedEntries, { id:'e9', type:'expense', tags:['fuel'], date:'2026-06-01', amount:60, accountId:acct.id, fuelId:'f9' }];
+      try {
+        const before = computeAcctBalance(acct);
+        removeFuelRecord('f9', true);
+        expectClose(computeAcctBalance(acct), before + 60, 0.001, 'balance gets the €60 back');
+      } finally { DATA.fuel = savedFuel; DATA.entries = savedEntries; }
+    });
+    test('a duplicated entry never inherits a refuel link', () => {
+      const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
+      expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Tyre sets (summer / winter) ──
+    const mkSet = (o = {}) => ({ id:'s', name:'Set', season:'summer', condition:'new', priorKm:0, dot:null, limitKm:40000, minMm:3, periods:[], ...o });
+    test('tyreKm: new tyres start at 0 and follow the latest refuel odometer by themselves', () => {
+      const s = mkSet({ periods:[{ from:{date:'2027-04-12', odo:71200}, to:null }] });
+      expect(tyreKm(s, 71200).total, 0, 'mounted today → 0 km');
+      expect(tyreKm(s, 71200 + 480).total, 480, 'a refuel at +480 km → 480');
+      expect(tyreKm(s, 71200 + 3240).total, 3240, 'a later refuel → 3,240');
+    });
+    test('tyreKm: a set\'s km add up across seasons, and only count while it was on the car', () => {
+      const s = mkSet({ periods:[
+        { from:{date:'2026-04-10', odo:60000}, to:{date:'2026-10-20', odo:66500} },   // 6,500 km
+        { from:{date:'2027-04-12', odo:71000}, to:null },                             // + still on
+      ] });
+      expect(tyreKm(s, 72000).total, 6500 + 1000, 'closed period + open period (the winter km in between are NOT counted)');
+    });
+    test('tyreKm: second-hand with unknown history is flagged, not pretended to be zero', () => {
+      const s = mkSet({ condition:'used', priorKm:null, periods:[{ from:{date:'2026-11-01', odo:65000}, to:null }] });
+      const k = tyreKm(s, 66000);
+      expect(k.tracked, 1000, 'what we do know'); expectTrue(k.priorUnknown, 'earlier use flagged unknown'); expect(k.prior, null, 'no invented number');
+      expect(tyreKm(mkSet({ condition:'used', priorKm:20000, periods:[{ from:{date:'2026-11-01', odo:65000}, to:null }] }), 66000).total, 21000, 'an estimate is added on top');
+    });
+    test('mountTyreSet swaps sets: closes the old period and opens the new one at the same odometer', () => {
+      const a = mkSet({ id:'a', name:'Winter', periods:[{ from:{date:'2026-11-01', odo:65000}, to:null }] });
+      const b = mkSet({ id:'b', name:'Summer', condition:'new', priorKm:0 });
+      const tires = [a, b];
+      expect(mountTyreSet(tires, 'b', '2027-04-12', 71200), null, 'no error');
+      expect(a.periods[0].to.odo, 71200, 'winter came off at 71,200'); expect(a.periods[0].to.date, '2027-04-12', '…on that date');
+      expect(mountedTyreSet(tires).id, 'b', 'summer is now on'); expect(b.periods[0].from.odo, 71200, '…starting at the same odometer');
+      expect(tyreKm(b, 71200).total, 0, 'brand-new tyres start at 0 km');
+      expect(tyreKm(a, 71200).tracked, 6200, 'winter keeps its 6,200 km for next autumn');
+    });
+    test('mountTyreSet rejects bad input and changes nothing when it does', () => {
+      const a = mkSet({ id:'a', name:'Winter', periods:[{ from:{date:'2026-11-01', odo:65000}, to:null }] });
+      const b = mkSet({ id:'b', name:'Summer' });
+      const tires = [a, b], snap = JSON.stringify(tires);
+      expectTrue(mountTyreSet(tires, 'b', '2027-04-12', 64000) !== null, 'odometer lower than a recorded one');
+      expectTrue(mountTyreSet(tires, 'b', '2026-10-01', 70000) !== null, 'date before the current set was mounted');
+      expectTrue(mountTyreSet(tires, 'b', '2027-04-12', NaN) !== null, 'missing odometer');
+      expectTrue(mountTyreSet(tires, 'b', 'soon', 70000) !== null, 'bad date');
+      expectTrue(mountTyreSet(tires, 'a', '2027-04-12', 70000) !== null, 'already on the car');
+      expectTrue(mountTyreSet(tires, 'zzz', '2027-04-12', 70000) !== null, 'unknown set');
+      expect(JSON.stringify(tires), snap, 'a rejected swap leaves the data untouched');
+    });
+    test('tyreAgeYears reads the DOT code (week+year) and rejects nonsense', () => {
+      const now = new Date(2026, 9, 20);
+      expectClose(tyreAgeYears('3419', now), 7.1, 0.15, 'week 34 of 2019 ≈ 7.1 years');
+      expect(tyreAgeYears('5419', now), null, 'week 54 does not exist');
+      expect(tyreAgeYears('0019', now), null, 'week 0 does not exist');
+      expect(tyreAgeYears('3450', now), null, 'a made-in-2050 tyre is a typo');
+      expect(tyreAgeYears('abc', now), null, 'not a code'); expect(tyreAgeYears('', now), null, 'empty');
+    });
+    test('tyreStatus: unknown-history tyres are judged on age and tread, never on a km limit', () => {
+      const s = mkSet({ condition:'used', priorKm:null, limitKm:40000, dot:'3419', minMm:4,
+        periods:[{ from:{date:'2025-11-01', odo:1000}, to:null }] });
+      const st = tyreStatus(s, { odo:99000, today:new Date(2026, 9, 20), readings:[] });   // 98,000 km "tracked" — still no km alert
+      expectTrue(!st.reasons.some(r => r.kind === 'km'), 'no km alert without a known starting point');
+      expect(st.reasons.find(r => r.kind === 'age').level, 'soon', '7 years old → worth an inspection');
+      const st2 = tyreStatus(s, { odo:99000, today:new Date(2026, 9, 20), readings:[{ date:'2026-10-01', mm:3.5, odo:98000 }] });
+      expect(st2.reasons.find(r => r.kind === 'tread').level, 'soon', '3.5 mm is under the 4 mm winter minimum');
+      const st3 = tyreStatus(s, { odo:99000, today:new Date(2026, 9, 20), readings:[{ date:'2026-10-01', mm:1.4, odo:98000 }] });
+      expect(st3.level, 'over', 'below the legal minimum is urgent');
+    });
+    test('tyreStatus: known mileage warns when close to and past the limit', () => {
+      const s = mkSet({ limitKm:40000, periods:[{ from:{date:'2026-04-01', odo:0}, to:null }] });
+      expect(tyreStatus(s, { odo:20000 }).level, 'ok', 'plenty left');
+      expect(tyreStatus(s, { odo:39500 }).level, 'soon', 'within 1,000 km');
+      expect(tyreStatus(s, { odo:40100 }).level, 'over', 'past the limit');
+    });
+    test('tyreWearForecast projects km left from the wear rate — no mileage history needed', () => {
+      const s = mkSet({ minMm:4 });
+      const f = tyreWearForecast(s, [{ mm:7, setKm:0 }, { mm:6, setKm:5000 }]);   // 1 mm per 5,000 km driven on the set
+      expectClose(f.mmPer1000km, 0.2, 0.001, 'wear rate'); expect(f.kmLeft, 10000, '(6 − 4 mm) at 0.2 mm/1,000 km = 10,000 km');
+      expect(tyreWearForecast(s, [{ mm:7, setKm:0 }, { mm:6.9, setKm:400 }]), null, 'too little distance to say');
+      expect(tyreWearForecast(s, [{ mm:7, setKm:0 }]), null, 'one reading is not a trend');
+      expect(tyreWearForecast(s, [{ mm:6, setKm:0 }, { mm:6.5, setKm:5000 }]), null, 'readings that "grow" are measurement noise');
+    });
+    test('odoAnomalies flags odometers going backwards and impossible distances only', () => {
+      const ok = [{ id:'1', date:'2026-01-01', odo:60000 }, { id:'2', date:'2026-01-20', odo:60700 }, { id:'3', date:'2026-02-10', odo:61400 }];
+      expect(odoAnomalies(ok).length, 0, 'normal driving is clean');
+      const back = [...ok, { id:'4', date:'2026-03-01', odo:6100 }];
+      expect(odoAnomalies(back)[0].id, '4', 'a dropped digit (6100 after 61400) is caught');
+      const jump = [...ok, { id:'5', date:'2026-02-12', odo:161400 }];
+      expect(odoAnomalies(jump)[0].id, '5', '100,000 km in 2 days is caught');
+    });
+    test('_currentOdo is the newest reading — one typo or back-dated entry can no longer poison it', () => {
+      const saved = DATA.fuel;
+      DATA.fuel = [{ id:'a', date:'2026-01-05', odo:1000000 },   // typo, long ago
+                   { id:'b', date:'2026-06-01', odo:70000 },
+                   { id:'c', date:'2026-06-20', odo:null }];     // newest has no odometer
+      try { expect(_currentOdo(), 70000, 'newest refuel that HAS an odometer'); DATA.fuel = []; expect(_currentOdo(), null, 'no readings → null'); }
+      finally { DATA.fuel = saved; }
+    });
+    test('migration v21→v22 turns the old single tyre record into the first set, and keeps the old fields', () => {
+      const old = { v:21, carService:{ tireDate:'2025-04-10', tireKm:71200, tireIntKm:45000, tireIntMo:60 } };
+      const r = migrate(structuredClone(old));
+      expect(r.v, SCHEMA_VERSION, 'stamped current'); expect(r.tires.length, 1, 'one set created');
+      const s = r.tires[0];
+      expect(s.priorKm, 0, 'the old model assumed new tyres at the change'); expect(s.limitKm, 45000, 'keeps the old interval');
+      expect(s.periods[0].from.odo, 71200, 'mounted at the recorded odometer'); expectTrue(s.periods[0].to === null, 'still on the car');
+      expect(r.carService.tireKm, 71200, 'old field untouched (older app versions still read it)');
+      expect(tyreKm(s, 73000).total, 1800, 'km used continues from where the old record left off');
+    });
+    test('migration v21→v22 is idempotent and never overwrites existing tyre sets', () => {
+      const withSets = { v:21, carService:{ tireDate:'2025-04-10', tireKm:71200 }, tires:[{ id:'mine', name:'Summer 2027', periods:[] }] };
+      const r = migrate(structuredClone(withSets));
+      expect(r.tires.length, 1, 'no legacy set added on top of real ones'); expect(r.tires[0].id, 'mine', 'and the real set is untouched');
+      const twice = migrate(structuredClone(r));
+      expect(JSON.stringify(twice), JSON.stringify(r), 'running it again changes nothing');
+      expect(migrate({ v:21, carService:{} }).tires.length, 0, 'no tyre data → no invented set');
+    });
+    test('migration chain from a very old vault still ends with a tires array', () => {
+      const r = migrate({ v:0, entries:[], incomes:{}, splits:{needs:50,wants:30,savings:20} });
+      expect(r.v, SCHEMA_VERSION, 'reaches the current version'); expectTrue(Array.isArray(r.tires), 'tires exists');
+    });
+    test('mergeVaultData keeps tyre sets from both devices (union by id, local wins)', () => {
+      const local  = { entries:[], tires:[{ id:'w', name:'Winter (local edit)' }] };
+      const remote = { entries:[], tires:[{ id:'w', name:'Winter (old)' }, { id:'s', name:'Summer' }] };
+      const m = mergeVaultData(local, remote);
+      expect(m.tires.length, 2, 'the set only the other device has is kept');
+      expect(m.tires.find(t => t.id === 'w').name, 'Winter (local edit)', 'local wins on a conflict');
+      expectTrue(Array.isArray(mergeVaultData({ entries:[] }, { entries:[] }).tires), 'neither side has tyres → still an array');
+    });
+    test('syncLegacyTyreFields keeps the old single-record fields pointing at the set that is on the car', () => {
+      const saved = DATA.tires, savedCs = DATA.carService;
+      DATA.carService = { tireDate:'2020-01-01', tireKm:1, tireIntKm:40000 };
+      DATA.tires = [mkSet({ id:'w', limitKm:35000, periods:[{ from:{date:'2027-04-12', odo:71200}, to:null }] })];
+      try { syncLegacyTyreFields();
+        expect(DATA.carService.tireDate, '2027-04-12', 'date follows'); expect(DATA.carService.tireKm, 71200, 'odometer follows'); expect(DATA.carService.tireIntKm, 35000, 'interval follows');
+        DATA.tires = []; DATA.carService.tireKm = 5; syncLegacyTyreFields();
+        expect(DATA.carService.tireKm, 5, 'nothing mounted → old fields left exactly as they were');
+      } finally { DATA.tires = saved; DATA.carService = savedCs; }
+    });
+
+    test('parseTyrePeriods accepts a valid history and explains what is wrong otherwise', () => {
+      const ok = parseTyrePeriods([{ fd:'2026-04-10', fo:'60000', td:'2026-10-20', to:'66500' }, { fd:'2027-04-12', fo:'71000', td:'', to:'' }]);
+      expect(ok.periods.length, 2, 'two mountings'); expectTrue(ok.periods[1].to === null, 'the last one is still on the car');
+      expectTrue(!!parseTyrePeriods([{ fd:'', fo:'1', td:'', to:'' }]).error, 'missing on-date');
+      expectTrue(!!parseTyrePeriods([{ fd:'2026-04-10', fo:'', td:'', to:'' }]).error, 'missing odometer');
+      expectTrue(!!parseTyrePeriods([{ fd:'2026-04-10', fo:'66500', td:'2026-10-20', to:'60000' }]).error, 'off-odometer lower than on-odometer');
+      expectTrue(!!parseTyrePeriods([{ fd:'2026-10-20', fo:'1', td:'2026-04-10', to:'5' }]).error, 'off-date before on-date');
+      expectTrue(!!parseTyrePeriods([{ fd:'2026-04-10', fo:'1', td:'', to:'' }, { fd:'2027-04-10', fo:'9', td:'', to:'' }]).error, 'two sets cannot both be on the car');
+    });
+    test('pushTreadReading records km driven ON the set, so wear is measured per set', () => {
+      const savedT = DATA.tires, savedC = DATA.carService, savedF = DATA.fuel;
+      const winter = { id:'w', name:'Winter', season:'winter', condition:'used', priorKm:null, minMm:4, limitKm:40000,
+        periods:[{ from:{date:'2025-11-01', odo:50000}, to:{date:'2026-04-10', odo:56000} }, { from:{date:'2026-11-01', odo:66000}, to:null }] };
+      DATA.tires = [winter]; DATA.carService = { treadLog:[] }; DATA.fuel = [{ id:'f', date:'2026-12-01', odo:67500 }];
+      try {
+        const r1 = pushTreadReading('w', '2026-11-01', 7.0, 'baseline', 66000);   // at mounting: 6,000 km from last winter
+        expect(r1.setKm, 6000, 'km already driven on this set when measured');
+        const r2 = pushTreadReading('w', '2026-12-01', 6.5, '');                    // later: odometer from the latest refuel
+        expect(r2.setKm, 7500, '6,000 earlier + 1,500 since remounting — the summer km in between do not count');
+        const f = tyreWearForecast(winter, tyreTreadReadings('w'));
+        expectClose(f.mmPer1000km, 0.5 / 1.5, 0.001, '0.5 mm over 1,500 km');
+        expect(pushTreadReading(null, '2026-12-01', 6, '').setId, null, 'no set → unassigned, like old readings');
+      } finally { DATA.tires = savedT; DATA.carService = savedC; DATA.fuel = savedF; }
+    });
+
+    test('_latestOdoRecord is the newest reading, and the Tyres card can tell if that one is suspect', () => {
+      const saved = DATA.fuel;
+      DATA.fuel = [{ id:'a', date:'2026-05-01', odo:60000 }, { id:'b', date:'2026-06-01', odo:60800 }, { id:'c', date:'2026-07-01', odo:6100 }];
+      try {
+        expect(_latestOdoRecord().id, 'c', 'newest by date');
+        expect(odoAnomalies(DATA.fuel).some(x => x.id === _latestOdoRecord().id), true, 'and it is flagged (a dropped digit)');
+        DATA.fuel[2].odo = 61500;
+        expect(odoAnomalies(DATA.fuel).some(x => x.id === _latestOdoRecord().id), false, 'a sane newest reading is not flagged');
+      } finally { DATA.fuel = saved; }
+    });
+
+    test('odoAnomalies blames the typo, not the correct reading after it', () => {
+      const r = [{ id:'1', date:'2027-12-01', odo:77000 }, { id:'2', date:'2027-12-20', odo:77500 }, { id:'3', date:'2027-12-28', odo:1000000 }, { id:'4', date:'2027-12-29', odo:77900 }];
+      const bad = odoAnomalies(r);
+      expect(bad.length, 1, 'exactly one reading flagged'); expect(bad[0].id, '3', 'the 1,000,000 typo — not the correct 77,900 after it');
+    });
+    test('odoAnomalies does not cascade after a genuinely replaced odometer', () => {
+      const r = [{ id:'1', date:'2027-01-01', odo:150000 }, { id:'2', date:'2027-02-01', odo:150800 },
+                 { id:'3', date:'2027-03-01', odo:20 }, { id:'4', date:'2027-04-01', odo:700 }, { id:'5', date:'2027-05-01', odo:1500 }];
+      const bad = odoAnomalies(r);
+      expect(bad.length, 1, 'only the moment of the reset is reported'); expect(bad[0].id, '3', 'and it is the reading that dropped');
+    });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
   }
@@ -14080,6 +15122,7 @@ function mergeVaultData(local, remote) {
     savingsGoals: mergeById(local.savingsGoals, remote.savingsGoals),
     stocks:       mergeById(local.stocks,       remote.stocks),
     fuel:         mergeById(local.fuel,         remote.fuel).sort((a,b) => b.date.localeCompare(a.date)),
+    tires:        mergeById(local.tires,        remote.tires),
     fxAccounts:   mergeById(local.fxAccounts,   remote.fxAccounts),
     grocery:      mergeById(local.grocery,      remote.grocery),
     cashLog:      mergeById(local.cashLog,      remote.cashLog).sort((a,b) => b.date.localeCompare(a.date)),
@@ -14667,7 +15710,7 @@ function wizardCopyIncome(amount) {
   const m = _wizardMonth;
   if (!m) return;
   DATA.incomes[m] = { amount, formula: null };
-  syncBaseIncomeEntry(m, amount);
+  syncBaseIncomeEntry(m, amount, defaultIncomeAccountId());
   saveLocal();
   el('wizard-content').innerHTML = buildWizardContent(m);
   renderDash();
@@ -14798,7 +15841,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='r') { if (!el('receipt-overlay').classList.contains('open')) openReceipt(); }
   if (e.key==='?') { el('keys-overlay').classList.contains('open') ? closeKeys() : openKeys(); }
   if (e.key==='w' && VIEW==='dash') openWhatIf();
-  if (e.key==='Escape') { closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeCmdK(); closePit(); closeDupWarning(); closeWizard(); closeRecInt(); closeTax(); }
+  if (e.key==='Escape') { closeTyreSet(); closeTyreSwap(); closeFuelDelete(); closeWhatIf(); closeConfirm(); closeMerchant(); closeReceipt(); closeKeys(); closeCmdK(); closePit(); closeDupWarning(); closeWizard(); closeRecInt(); closeTax(); }
   if (e.key==='d' && e.metaKey) { e.preventDefault(); manualToggleTheme(); }
   if (e.key==='s' && e.metaKey && VIEW==='dash') { e.preventDefault(); saveMonthIncome(); }
 });
