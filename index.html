@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vault Finance V4</title>
+<title>Vault Finance V5</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#18170f">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -806,8 +806,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1.5L2 4.5v4c0 3.2 2.5 5.9 6 7 3.5-1.1 6-3.8 6-7v-4Z"/></svg>
     </div>
     <div>
-      <div class="brand-name">Vault Finance <span style="font-size:11px;font-weight:500;opacity:.7;letter-spacing:.04em">V4</span></div>
-      <div class="brand-sub">V4 · AES-256-GCM · encrypted at rest · private vault repo</div>
+      <div class="brand-name">Vault Finance <span style="font-size:11px;font-weight:500;opacity:.7;letter-spacing:.04em" id="app-ver">V5</span></div>
+      <div class="brand-sub"><span id="app-ver-sub">V5</span> · AES-256-GCM · encrypted at rest · private vault repo</div>
     </div>
   </div>
 
@@ -1998,6 +1998,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">About</div>
+        <div id="about-line" style="font-size:13px;color:var(--ink2)"></div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">If the "files" version isn't the one you just deployed, you're looking at a cached copy — hard-refresh (Ctrl/Cmd+Shift+R).</div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Sync audit log
           <button class="btn xs ghost" onclick="renderAuditLog()">↻ Refresh</button>
         </div>
@@ -3028,6 +3034,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // ══════════════════════════════════════════
 // SHARED CONSTANTS
 // ══════════════════════════════════════════
+const APP_NAME    = 'Vault Finance';
+const APP_VERSION = 'V5';       // the ONE place the app's version label lives — bump it here for V6
+                                // (data-format version is separate: SCHEMA_VERSION; storage keys stay vf4_* on purpose —
+                                //  they're internal ids, and renaming them would make the app forget its saved config)
 const MS_PER_DAY  = 86_400_000;   // milliseconds in one day
 const MS_PER_HOUR =  3_600_000;    // milliseconds in one hour
 const LEGAL_TREAD_MM = 1.6;     // EU minimum tyre tread depth
@@ -3038,7 +3048,7 @@ let _debounceTimer = null;
 function _debouncedRender() { clearTimeout(_debounceTimer); _debounceTimer = setTimeout(renderEntries, 150); }
 
 // ══════════════════════════════════════════
-// SCHEMA  v17  (app: Vault Finance V4)
+// SCHEMA  — current data-format version is SCHEMA_VERSION; every change since v1 is a step in MIGRATIONS
 // ══════════════════════════════════════════
 const FRESH = () => ({
   v: SCHEMA_VERSION,
@@ -8241,7 +8251,7 @@ function buildAIText(from, to) {
   }
 
   const lines = [];
-  lines.push(`# Vault Finance V4 — AI Analysis Export`);
+  lines.push(`# ${APP_NAME} ${APP_VERSION} — AI Analysis Export`);
   lines.push(`Period: ${from} to ${to} (${months.length} month${months.length===1?'':'s'})`);
   lines.push(`Generated: ${new Date().toLocaleDateString('de-AT')}\n`);
 
@@ -8377,6 +8387,7 @@ function renderSettings() {
   renderAuditLog();
   runVaultHealth();
   renderIncomeSyncStatus();
+  renderAbout();
   updateNotifBadge();
   const apt = el('auto-push-toggle');
   if (apt) apt.checked = localStorage.getItem(LS_AUTO_PUSH) === '1';
@@ -10598,6 +10609,28 @@ function confirmTyreSwap() {
   });
 }
 
+// Page labels come from APP_NAME/APP_VERSION so there is one place to change.
+function applyAppVersion() {
+  document.title = `${APP_NAME} ${APP_VERSION}`;
+  ['app-ver', 'app-ver-sub'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = APP_VERSION; });
+}
+applyAppVersion();
+
+// Settings → About: which build is actually running. The cache name is the service worker's —
+// if it isn't the one you just deployed, you're looking at a cached copy (hard-refresh).
+async function renderAbout() {
+  const e = el('about-line'); if (!e) return;
+  let sw = '';
+  try {
+    if (typeof caches !== 'undefined') {
+      const ver = n => parseInt(String(n).split('-v')[1], 10) || 0;
+      const names = (await caches.keys()).filter(n => n.startsWith('vault-finance-')).sort((a, b) => ver(a) - ver(b));
+      if (names.length) sw = ` · files ${names[names.length - 1]}`;
+    }
+  } catch (_) {}
+  e.textContent = `${APP_NAME} ${APP_VERSION} · data format v${SCHEMA_VERSION}${sw}`;
+}
+
 function renderCarServiceUI() {
   const s = DATA.carService;
   if (!s) return;
@@ -12390,7 +12423,7 @@ async function askVaultAI(question) {
       body: JSON.stringify({
         model,
         max_tokens: 1000,
-        system: `You are a personal finance advisor analysing a user's encrypted Vault Finance V4 data.
+        system: `You are a personal finance advisor analysing a user's encrypted ${APP_NAME} ${APP_VERSION} data.
 The user is from Austria. Use € for currency. Be specific with numbers from the data.
 Be concise, actionable, and honest. Format with clear sections if needed.
 Do not make up numbers — only reference figures present in the data.`,
@@ -15067,6 +15100,13 @@ function runSmokeTest() {
       const bad = odoAnomalies(r);
       expect(bad.length, 1, 'only the moment of the reset is reported'); expect(bad[0].id, '3', 'and it is the reading that dropped');
     });
+
+    test('the version label shown on the page comes from APP_VERSION (one place to bump)', () => {
+      expectTrue(/^V\d+$/.test(APP_VERSION), `APP_VERSION should look like "V5", got ${APP_VERSION}`);
+      expect(document.title, `${APP_NAME} ${APP_VERSION}`, 'page title');
+      expect(document.getElementById('app-ver').textContent, APP_VERSION, 'header badge');
+      expect(document.getElementById('app-ver-sub').textContent, APP_VERSION, 'header sub-line');
+    });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
   }
@@ -15298,7 +15338,7 @@ function saveAlertThreshold(v) {
 
 function testBudgetNotif() {
   if (Notification.permission !== 'granted') return toast('Enable notifications first.', 1);
-  new Notification('Vault Finance V4 — test', {
+  new Notification(`${APP_NAME} ${APP_VERSION} — test`, {
     body: 'Budget alerts are working ✓ You will be notified at 80% and 100% of each category.',
     icon: ''
   });
@@ -15331,7 +15371,7 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
       if (fired[fireKey]) return;
       markNotifFired(fireKey);
       const overBy = pct >= 100 ? ` (over by ${fmt((act[key]||0)-target)})` : '';
-      new Notification(`Vault Finance V4 — ${label} at ${threshold}%`, {
+      new Notification(`${APP_NAME} ${APP_VERSION} — ${label} at ${threshold}%`, {
         body: `${label} budget is ${Math.round(pct)}% used this month.${overBy} ${fmt(act[key]||0)} of ${fmt(target)}.`,
         tag:  fireKey
       });
