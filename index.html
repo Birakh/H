@@ -2929,6 +2929,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </div>
 
+  <!-- ── Delete an expense: also remove the refuel it belongs to? ── -->
+  <div class="modal-overlay" id="entry-del-overlay" onclick="if(event.target===this)closeEntryDelete()">
+    <div class="modal-box" style="width:min(440px,100%)">
+      <div class="modal-title">Delete this expense?</div>
+      <div class="modal-body" style="margin-bottom:8px">It belongs to a refuel in your Fuel log:</div>
+      <div id="entry-del-fuel" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:10px"></div>
+      <div class="modal-body" style="font-size:12px;margin-bottom:16px">Deleting the refuel as well also takes it out of your fuel statistics and tyre kilometres. You can undo for a few seconds afterwards.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn sm ghost" onclick="closeEntryDelete()">Cancel</button>
+        <button class="btn sm" onclick="confirmEntryDelete(false)">Delete expense only</button>
+        <button class="btn sm danger" onclick="confirmEntryDelete(true)">Delete expense + refuel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Tyre set: add / edit ── -->
   <div class="modal-overlay" id="tyre-set-overlay" onclick="if(event.target===this)closeTyreSet()">
     <div class="modal-box" style="width:min(540px,100%);max-height:90vh;overflow-y:auto">
@@ -5834,10 +5849,31 @@ async function addEntry(skipDupCheck = false) {
   } catch(e) { toast(e.message || 'Failed to save entry.', 1); }
 }
 
-async function deleteEntry(id) {
+let _entryDeleteId = null;
+function deleteEntry(id) {
+  const entry = DATA.entries.find(e => e.id === id);
+  const fuel = entry ? findFuelForEntry(entry) : null;
+  if (!fuel) return finishEntryDeletion(id, false);
+  _entryDeleteId = id;
+  el('entry-del-fuel').innerHTML =
+    `<strong>${esc(fuel.station || FUEL_LABELS[fuel.type] || 'Refuel')}</strong> · ${esc(fuel.date)} · ${esc(String(fuel.liters))} L · ${fmt(fuel.total)}`;
+  el('entry-del-overlay').classList.add('open');
+}
+function closeEntryDelete() {
+  _entryDeleteId = null;
+  const o = el('entry-del-overlay'); if (o) o.classList.remove('open');
+}
+function confirmEntryDelete(alsoFuel) {
+  const id = _entryDeleteId;          // take it BEFORE closing — closeEntryDelete() clears it
+  closeEntryDelete();
+  if (id) finishEntryDeletion(id, alsoFuel);
+}
+function finishEntryDeletion(id, alsoFuel) {
   try {
     const entry = DATA.entries.find(e => e.id === id);
     if (!entry) return;
+    const fuelRec = alsoFuel ? findFuelForEntry(entry) : null;
+    if (fuelRec) DATA.fuel = DATA.fuel.filter(f => f.id !== fuelRec.id);
     const idx = DATA.entries.indexOf(entry);
     // Deleting the mirrored Overview-income entry directly: also clear
     // DATA.incomes for that month so the Overview's income field doesn't
@@ -5851,8 +5887,9 @@ async function deleteEntry(id) {
     }
     DATA.entries = DATA.entries.filter(e => e.id !== id);
     saveLocal(); render();
-    toast('Entry deleted', 0, () => {
+    toast(fuelRec ? 'Expense and refuel deleted' : 'Entry deleted', 0, () => {
       DATA.entries.splice(idx, 0, entry);
+      if (fuelRec) { DATA.fuel.push(fuelRec); DATA.fuel.sort((a, b) => a.date.localeCompare(b.date)); }
       if (clearedIncomeMonth && clearedIncomeRecord) DATA.incomes[clearedIncomeMonth] = clearedIncomeRecord;
       saveLocal(); render(); toast('Entry restored');
     });
@@ -11566,10 +11603,22 @@ function applyFuelEdit(rec, field, rawVal) {
 function updateFuelRecord(id, field, rawVal) {
   const rec = DATA.fuel.find(f => f.id === id);
   if (!rec) return;
+  // Find the linked expense BEFORE the edit: the pre-fuelId fallback matches on the
+  // refuel's old date + total, which the edit is about to change.
+  const entry = findFuelEntry(rec);
+  const recBefore = { ...rec }, entryBefore = entry ? { ...entry } : null;
   const err = applyFuelEdit(rec, field, rawVal);
   if (err) { toast(err, 1); preserveScroll(renderFuel); return; }
+  const changed = entry ? syncFuelEntry(rec, recBefore, entry) : [];
   saveLocal();
   preserveScroll(renderFuel);
+  if (changed.length) {
+    toast(`Refuel saved · its expense in Entries updated (${changed.join(', ')})`, 0, () => {
+      const restore = (obj, snap) => { Object.keys(obj).forEach(k => delete obj[k]); Object.assign(obj, snap); };
+      restore(rec, recBefore); restore(entry, entryBefore);
+      saveLocal(); render(); toast('Restored');
+    });
+  }
 }
 
 function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
@@ -13379,6 +13428,35 @@ function removeFuelRecord(id, alsoRemoveEntry) {
   return { record, entry };
 }
 
+// Pure: after a refuel was edited, bring its linked expense into line. `before` is a
+// copy of the refuel taken BEFORE the edit. A field is only carried over when the
+// expense still matched the refuel's OLD value — if you deliberately changed the
+// expense (renamed it, split the amount) that stays yours. Returns the labels of what
+// changed ([] = nothing). The expense is stamped with fuelId once it is changed, so an
+// older, tag-matched expense stays linked even though its date/total no longer match.
+function syncFuelEntry(rec, before, entry) {
+  const label = f => f.station || ((FUEL_LABELS[f.type] || 'Fuel') + ' fuel');   // what addFuel names the expense
+  const changed = [];
+  if (rec.date !== before.date && entry.date === before.date) { entry.date = rec.date; changed.push('date'); }
+  if (Math.abs((rec.total || 0) - (before.total || 0)) > 0.004 && Math.abs((entry.amount || 0) - (before.total || 0)) < 0.005) {
+    entry.amount = rec.total; entry.formula = null; changed.push('amount');
+  }
+  if (label(rec) !== label(before) && entry.desc === label(before)) { entry.desc = label(rec); changed.push('name'); }
+  if (rec.type !== before.type && (entry.tags || []).includes(before.type)) {
+    entry.tags = entry.tags.map(t => t === before.type ? rec.type : t); changed.push('type');
+  }
+  if (changed.length) entry.fuelId = rec.id;
+  return changed;
+}
+
+// The refuel an expense belongs to, or null. Symmetric with findFuelEntry: a refuel only
+// qualifies if findFuelEntry gives back THIS expense, so the two can never disagree.
+function findFuelForEntry(entry, fuel = DATA.fuel, entries = DATA.entries) {
+  if (!entry || entry.type !== 'expense') return null;
+  if (entry.fuelId) return (fuel || []).find(f => f.id === entry.fuelId) || null;   // linked to a refuel that is gone → null
+  return (fuel || []).find(f => (findFuelEntry(f, entries) || {}).id === entry.id) || null;
+}
+
 let _fuelDeleteId = null;
 
 function deleteFuel(id) {
@@ -14918,6 +14996,53 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Fuel ↔ expense two-way link ──
+    test('syncFuelEntry carries date, amount, name and type from an edited refuel to its expense', () => {
+      const entry = { id:'e', type:'expense', date:'2026-06-01', amount:60, formula:'40*1.5', desc:'Shell', tags:['fuel','petrol'], fuelId:'f' };
+      const before = { id:'f', date:'2026-06-01', total:60, station:'Shell', type:'petrol' };
+      const rec = { id:'f', date:'2026-06-02', total:63.5, station:'OMV', type:'diesel' };
+      const changed = syncFuelEntry(rec, before, entry);
+      expect(changed.join(), 'date,amount,name,type', 'all four reported');
+      expect(entry.date, '2026-06-02', 'date'); expect(entry.amount, 63.5, 'amount'); expectTrue(entry.formula === null, 'stale formula cleared');
+      expect(entry.desc, 'OMV', 'name'); expect(entry.tags.join(), 'fuel,diesel', 'type tag swapped, "fuel" kept');
+    });
+    test('syncFuelEntry leaves alone whatever you changed on the expense yourself', () => {
+      const entry = { id:'e', type:'expense', date:'2026-06-05', amount:30, desc:'Fuel for the trip', tags:['fuel','petrol','trip'] };
+      const before = { id:'f', date:'2026-06-01', total:60, station:'Shell', type:'petrol' };
+      const rec = { id:'f', date:'2026-06-02', total:63.5, station:'OMV', type:'diesel' };
+      const changed = syncFuelEntry(rec, before, entry);
+      expect(changed.join(), 'type', 'only the still-in-step field (type tag) moved');
+      expect(entry.date, '2026-06-05', 'moved date kept'); expect(entry.amount, 30, 'split amount kept'); expect(entry.desc, 'Fuel for the trip', 'renamed kept');
+      expect(entry.tags.join(), 'fuel,diesel,trip', 'other tags kept');
+    });
+    test('syncFuelEntry: nothing relevant edited → no change, no link stamped', () => {
+      const entry = { id:'e', type:'expense', date:'2026-06-01', amount:60, desc:'Shell', tags:['fuel','petrol'] };
+      const rec = { id:'f', date:'2026-06-01', total:60, station:'Shell', type:'petrol', odo:1 };
+      expect(syncFuelEntry(rec, { ...rec }, entry).length, 0, 'nothing to do');
+      expectTrue(entry.fuelId === undefined, 'entry untouched');
+    });
+    test('syncFuelEntry names a station-less refuel the way addFuel does, and follows the type', () => {
+      const entry = { id:'e', type:'expense', date:'2026-06-01', amount:60, desc:'Petrol fuel', tags:['fuel','petrol'] };
+      syncFuelEntry({ id:'f', date:'2026-06-01', total:60, station:'', type:'diesel' }, { id:'f', date:'2026-06-01', total:60, station:'', type:'petrol' }, entry);
+      expect(entry.desc, 'Diesel fuel', 'default name follows the fuel type');
+      expect(entry.fuelId, 'f', 'older expense is now permanently linked');
+    });
+    test('findFuelForEntry is the mirror image of findFuelEntry', () => {
+      const fuel = [{ id:'f1', date:'2026-06-01', total:60 }, { id:'f2', date:'2026-06-10', total:50 }];
+      const entries = [
+        { id:'linked', type:'expense', tags:['fuel'], date:'2026-06-03', amount:77, fuelId:'f2' },   // edited since, still linked
+        { id:'legacy', type:'expense', tags:['fuel'], date:'2026-06-01', amount:60 },                // pre-link, matched by day + total
+        { id:'other',  type:'expense', tags:['food'], date:'2026-06-01', amount:60 },
+        { id:'orphan', type:'expense', tags:['fuel'], date:'2026-06-10', amount:50, fuelId:'gone' },  // its refuel was removed
+        { id:'inc',    type:'income',  tags:['fuel'], date:'2026-06-01', amount:60 },
+      ];
+      expect(findFuelForEntry(entries[0], fuel, entries).id, 'f2', 'fuelId link wins');
+      expect(findFuelForEntry(entries[1], fuel, entries).id, 'f1', 'legacy match');
+      expect(findFuelForEntry(entries[2], fuel, entries), null, 'unrelated expense');
+      expect(findFuelForEntry(entries[3], fuel, entries), null, 'link to a deleted refuel → nothing (never re-guess)');
+      expect(findFuelForEntry(entries[4], fuel, entries), null, 'income is never a refuel expense');
     });
 
     // ── Tyre sets (summer / winter) ──
