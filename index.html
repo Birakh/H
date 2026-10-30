@@ -669,6 +669,61 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fuel-type-badge.lpg{background:var(--Abg);color:var(--A)}
 .fuel-type-badge.electric{background:var(--Tbg);color:var(--T)}
 .fuel-type-badge.other{background:var(--s2);color:var(--ink2)}
+/* Refuel history on phones: one card per refuel instead of a 15-column table. Both are always rendered;
+   only CSS decides which one is visible (same 680px breakpoint as the rest of the app). */
+/* Monthly report: an on-screen sheet that is also what gets printed ("Save as PDF"). Paper colours on purpose
+   (white / dark text) whatever theme the app is in. Plain tables + block layout so every print engine copes. */
+#report-overlay{display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:300;background:var(--s1);overflow:auto}
+#report-overlay.open{display:block}
+.rp-bar{position:sticky;top:0;z-index:2;display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--s0);border-bottom:.5px solid var(--bdr)}
+.rp-bar .rp-hint{font-size:11px;color:var(--ink3);margin-left:auto}
+#report-sheet{max-width:800px;margin:14px auto;padding:28px 30px;background:#fff;color:#1a1a1a;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.45;box-shadow:0 1px 6px rgba(0,0,0,.15)}
+#report-sheet h1{font-size:22px;margin:0 0 2px;color:#111}
+#report-sheet h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin:20px 0 6px;padding-bottom:3px;border-bottom:1px solid #ccc}
+#report-sheet .rp-sub{color:#666;font-size:12px;margin-bottom:12px}
+#report-sheet table{width:100%;border-collapse:collapse;margin:0}
+#report-sheet th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#666;font-weight:600;padding:4px 6px;border-bottom:1px solid #bbb}
+#report-sheet td{padding:5px 6px;border-bottom:.5px solid #ddd;vertical-align:top;font-size:12.5px;color:#1a1a1a}
+#report-sheet .r{text-align:right;white-space:nowrap}
+#report-sheet .tiles td{border:1px solid #ddd;padding:9px 11px;width:33%}
+#report-sheet .tiles .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#666}
+#report-sheet .tiles .big{font-size:18px;font-weight:700;margin-top:2px}
+#report-sheet .tiles .sm{font-size:11px;color:#666;margin-top:1px}
+#report-sheet .good{color:#1b7a3d}#report-sheet .bad{color:#b3261e}
+#report-sheet .bar{height:7px;background:#e6e6e6;border-radius:4px;overflow:hidden;min-width:70px}
+#report-sheet .bar div{height:7px;background:#3b7dd8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#report-sheet .bar div.over{background:#b3261e}
+#report-sheet .rp-note{font-size:11px;color:#777;margin-top:16px;border-top:1px solid #ddd;padding-top:6px}
+#report-sheet tr{page-break-inside:avoid}
+@media print{
+  body.report-open > *{display:none!important}
+  body.report-open > #report-overlay{display:block!important;position:static;background:#fff;overflow:visible}
+  .rp-bar{display:none!important}
+  #report-sheet{max-width:none;margin:0;padding:0;box-shadow:none}
+  @page{margin:14mm}
+}
+.fuel-cards{display:none}
+.fuel-card{background:var(--s0);border:.5px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.fc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fc-date{font-family:var(--mono);font-size:13px;font-weight:600}
+.fc-pill,.fc-fill{cursor:pointer}
+.fc-fill{font-size:16px;padding:4px}
+.fc-del{margin-left:auto;min-width:44px;min-height:36px}
+.fc-main{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:6px 0 8px}
+.fc-total{font-family:var(--mono);font-size:18px;font-weight:700}
+.fc-station{font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px}
+.fc-grid label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:0 0 2px}
+.fc-grid span{font-family:var(--mono);font-size:12px}
+.fc-val{cursor:pointer;display:inline-block;min-height:24px;line-height:24px;border-bottom:1px dashed var(--ink3)}
+.fc-note{margin-top:8px;font-size:12px;color:var(--ink2)}
+.fc-hint{font-size:11px;color:var(--ink3);margin:0 0 8px}
+/* iOS zooms the page when an input under 16px gets focus — the inline editor is 12px by default */
+.fuel-card .edit-in{font-size:16px!important;padding:4px 6px!important;min-width:90px}
+@media(max-width:680px){
+  .fuel-tbl{display:none}
+  .fuel-cards{display:block}
+}
 
 /* ── CASH LOG ── */
 .cash-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap}
@@ -1139,6 +1194,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button type="button" class="btn xs ghost" onclick="shiftMonth(1)" title="Next month" style="padding:2px 8px">▶</button>
           <button type="button" class="btn xs ghost" onclick="jumpMonthToToday()" title="Jump to current month">Today</button>
           <button class="btn xs info" onclick="openWhatIf()" title="What-if planner">What-if</button>
+          <button class="btn xs ghost" onclick="openMonthReport()" title="Printable monthly report — save it as a PDF">📄 Report</button>
         </div>
       </div>
 
@@ -1523,18 +1579,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             </div>
             <div class="g3" style="margin-bottom:10px">
               <div class="fg" style="margin:0"><label>Default type</label>
-                <select id="csv-def-type"><option value="expense">Expense</option><option value="income">Income</option></select>
+                <select id="csv-def-type" onchange="csvPreview()"><option value="expense">Expense</option><option value="income">Income</option></select>
               </div>
               <div class="fg" style="margin:0"><label>Default category</label>
-                <select id="csv-def-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option></select>
+                <select id="csv-def-cat" onchange="csvPreview()"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option></select>
               </div>
               <div class="fg" style="margin:0"><label>Negate amounts?</label>
-                <select id="csv-negate"><option value="0">No</option><option value="1">Yes (bank exports)</option></select>
+                <select id="csv-negate" onchange="csvPreview()"><option value="0">No</option><option value="1">Yes (bank exports)</option></select>
               </div>
             </div>
+            <div class="fg" style="margin:0 0 10px"><label>If a row looks already imported</label>
+              <select id="csv-dup-mode" onchange="csvPreview()">
+                <option value="exact">Skip exact duplicates (same day, amount and description)</option>
+                <option value="all">Skip exact and possible duplicates (same day and amount)</option>
+                <option value="none">Import everything</option>
+              </select></div>
             <div class="csv-preview-wrap" id="csv-preview-wrap"></div>
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
-              <button class="btn sm primary" onclick="csvImport()">Import entries</button>
+              <button class="btn sm primary" id="csv-import-btn" onclick="csvImport()">Import entries</button>
               <span id="csv-import-info" style="font-size:12px;color:var(--ink2)"></span>
             </div>
           </div>
@@ -1998,6 +2060,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card">
+        <div class="card-title">Yearly checks
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">things this app hard-codes</span>
+        </div>
+        <div id="verify-list"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">About</div>
         <div id="about-line" style="font-size:13px;color:var(--ink2)"></div>
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">If the "files" version isn't the one you just deployed, you're looking at a cached copy — hard-refresh (Ctrl/Cmd+Shift+R).</div>
@@ -2432,7 +2501,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="euribor-spark"><div id="rm-spark"></div></div>
         </div>
 
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates are the published Governing Council monetary policy schedule. Rate decisions are announced at 13:45 CET — check <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener">ecb.europa.eu</a> for the latest.</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Euribor sourced from the ECB Statistical Data Warehouse (public API, no key required). ECB meeting dates follow the ECB's published Governing Council calendar (checked in Settings → Yearly checks). Rate decisions are announced on the second day of each meeting — see the <a href="https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html" target="_blank" rel="noopener">ECB calendar</a> for the latest.</div>
 
         <!-- Rate Alert -->
         <div class="mort-sub">
@@ -2678,7 +2747,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <button class="btn xs ghost" onclick="exportFuelCSV()">↓ CSV</button>
           </div>
         </div>
-        <div class="tbl-wrap">
+        <div class="tbl-wrap fuel-tbl">
           <table>
             <thead><tr>
               <th>Date</th><th>Type</th><th>Station</th>
@@ -2688,6 +2757,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <tbody id="fuel-body"></tbody>
           </table>
         </div>
+        <div id="fuel-cards" class="fuel-cards"></div>
       </div>
 
       <!-- ── Monthly cost card ── -->
@@ -3041,6 +3111,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </div>
 
+</div>
+
+<!-- ── Monthly report (print / save as PDF) ── -->
+<div id="report-overlay">
+  <div class="rp-bar">
+    <button class="btn sm primary" onclick="printMonthReport()">🖨 Print / Save as PDF</button>
+    <button class="btn sm ghost" onclick="closeMonthReport()">✕ Close</button>
+    <span class="rp-hint">In the print dialog choose “Save as PDF”.</span>
+  </div>
+  <div id="report-sheet"></div>
 </div>
 
 <script>
@@ -5239,18 +5319,107 @@ function csvFileLoad(input) {
   reader.readAsText(file);
 }
 function csvPasteChange() { clearTimeout(window._csvT); window._csvT = setTimeout(csvParse, 400); }
+// ── Pure helpers (unit-tested in the smoke test; no DOM) ─────────────────────
+// Split CSV text into rows of trimmed cells. Quote-aware: a field that STARTS with a
+// quote may contain the separator, doubled quotes ("") and line breaks, so a bank's
+// "Lidl, Wien" stays one cell. A quote in the middle of an unquoted field (5" pipe)
+// is an ordinary character.
+function csvSplit(raw, sep) {
+  const rows = []; let row = [], cell = '', inQ = false, atStart = true;
+  const s = String(raw || '');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inQ) {
+      if (ch === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+      else cell += ch;
+    } else if (ch === '"' && atStart) { inQ = true; atStart = false; }
+    else if (ch === sep) { row.push(cell.trim()); cell = ''; atStart = true; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && s[i + 1] === '\n') i++;
+      row.push(cell.trim()); rows.push(row); row = []; cell = ''; atStart = true;
+    } else { cell += ch; if (ch !== ' ' && ch !== '\t') atStart = false; }
+  }
+  row.push(cell.trim()); rows.push(row);
+  return rows;
+}
+// Comma, semicolon or tab — whichever the header line uses most (ties → comma).
+function csvDetectSep(raw) {
+  const first = String(raw || '').split(/\r?\n/)[0] || '';
+  const n = c => first.split(c).length - 1;
+  return [',', ';', '\t'].reduce((best, c) => n(c) > n(best) ? c : best, ',');
+}
+// → 'YYYY-MM-DD' or null. Accepts YYYY-MM-DD, DD.MM.YYYY, DD-MM-YYYY, MM/DD/YYYY, each optionally
+// followed by a time. A date that does not exist (31.02.2026) or is not four-digit-year → null, so
+// junk never ends up in the vault as a "date".
+function csvDateISO(raw) {
+  const s = String(raw || '').trim(); let m, y, mo, d;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/)))            { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if ((m = s.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})(?:[T\s].*)?$/))) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+  else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T\s].*)?$/)))       { mo = +m[1]; d = +m[2]; y = +m[3]; }
+  else return null;
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+// "1.234,56" / "1,234.56" / "12,50" / "€ -12.5" → number (NaN if unreadable). When both separators
+// appear, the LAST one is the decimal mark.
+function csvAmount(raw) {
+  let s = String(raw == null ? '' : raw).replace(/[€$£\s\u00a0]/g, '');
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else s = s.replace(',', '.');
+  return parseFloat(s);
+}
+// rows + column mapping → importable candidates. `unreadable` counts rows skipped for a missing/invalid
+// date or a missing/zero amount; `unreadableSample` shows the first offender so the user can see why.
+function csvBuildCandidates(rows, o) {
+  const items = []; let unreadable = 0, unreadableSample = '';
+  (rows || []).forEach(r => {
+    const dateRaw = String(r[o.di] || '').trim();
+    const amount  = csvAmount(r[o.ai]) * (o.negate ? -1 : 1);
+    const date    = csvDateISO(dateRaw);
+    if (!date || isNaN(amount) || amount === 0) { unreadable++; if (!unreadableSample) unreadableSample = `${dateRaw || '(no date)'} · ${String(r[o.ai] || '(no amount)')}`; return; }
+    const catRaw = o.ci !== '' && o.ci != null ? String(r[+o.ci] || '').toLowerCase().trim() : '';
+    const category = ['needs', 'wants', 'savings'].includes(catRaw) ? catRaw : o.defCat;
+    items.push({ date, desc: String(r[o.dsi] || '').trim(), amount: Math.abs(amount), category, type: entryTypeFor(category, o.defType) });
+  });
+  return { items, unreadable, unreadableSample };
+}
+// Marks each candidate with c.dup = 'exact' | 'possible' | null (and c.match = the existing entry).
+//   exact    — same direction (income / outflow), same day, same amount to the cent, same description
+//   possible — same direction, day and amount, different description (you may have renamed it since;
+//              or it is the Overview-income row of that salary)
+// Matching is one-to-one: two identical coffees in the file against ONE in the vault flags only one of them.
+function csvMarkDuplicates(items, entries) {
+  const norm = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const dir  = t => t === 'income' ? 'in' : 'out';
+  const buckets = new Map();
+  (entries || []).forEach(e => { const k = dir(e.type) + '|' + e.date; (buckets.get(k) || buckets.set(k, []).get(k)).push(e); });
+  const used = new Set();
+  const take = (c, wantSameDesc) => {
+    const list = buckets.get(dir(c.type) + '|' + c.date) || [];
+    return list.find(e => !used.has(e) && Math.abs((+e.amount || 0) - c.amount) < 0.005 && (!wantSameDesc || norm(e.desc) === norm(c.desc)));
+  };
+  items.forEach(c => { c.dup = null; c.match = null; });
+  items.forEach(c => { const e = take(c, true);  if (e) { used.add(e); c.dup = 'exact';    c.match = e; } });
+  items.forEach(c => { if (c.dup) return; const e = take(c, false); if (e) { used.add(e); c.dup = 'possible'; c.match = e; } });
+  return items;
+}
+// mode: 'exact' (default) skips exact duplicates · 'all' also skips possible ones · 'none' imports everything.
+function csvSelectForImport(items, mode) {
+  const skip = c => mode === 'none' ? false : mode === 'all' ? !!c.dup : c.dup === 'exact';
+  return { toAdd: items.filter(c => !skip(c)), skippedDup: items.filter(skip).length };
+}
+
+// ── The panel ────────────────────────────────────────────────────────────────
 function csvParse() {
   const raw = el('csv-paste').value.trim();
   if (!raw) { el('csv-map-area').style.display='none'; return; }
-  // detect separator
-  const firstLine = raw.split('\n')[0];
-  const sep = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
-  const lines = raw.split('\n').map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
+  const lines = csvSplit(raw, csvDetectSep(raw));
   if (lines.length < 2) return;
   _csvHeaders = lines[0];
   _csvRows    = lines.slice(1).filter(r => r.some(c => c));
-  // populate selects
-  const opts = _csvHeaders.map((h,i) => `<option value="${i}">${h||'Col '+(i+1)}</option>`).join('');
+  // populate selects (header text comes from the file → escape it)
+  const opts = _csvHeaders.map((h,i) => `<option value="${i}">${esc(h || 'Col '+(i+1))}</option>`).join('');
   const optsNone = '<option value="">— none —</option>' + opts;
   ['csv-col-date','csv-col-desc','csv-col-amt'].forEach(id => { el(id).innerHTML = opts; });
   el('csv-col-cat').innerHTML = optsNone;
@@ -5265,49 +5434,56 @@ function csvParse() {
   el('csv-map-area').style.display = 'block';
   csvPreview();
 }
+// What the import WOULD do with the current mapping — shared by the preview and the import button.
+function csvCurrentPlan() {
+  const plan = csvBuildCandidates(_csvRows, {
+    di: +el('csv-col-date').value, dsi: +el('csv-col-desc').value, ai: +el('csv-col-amt').value,
+    ci: el('csv-col-cat').value, defType: el('csv-def-type').value || 'expense', defCat: el('csv-def-cat').value || 'needs',
+    negate: el('csv-negate').value === '1' });
+  csvMarkDuplicates(plan.items, DATA.entries);
+  plan.mode = el('csv-dup-mode')?.value || 'exact';
+  plan.sel  = csvSelectForImport(plan.items, plan.mode);
+  return plan;
+}
 function csvPreview() {
-  const di = +el('csv-col-date').value, dsi = +el('csv-col-desc').value, ai = +el('csv-col-amt').value;
-  const preview = _csvRows.slice(0,5);
+  const plan = csvCurrentPlan();
+  const exact = plan.items.filter(c => c.dup === 'exact').length, poss = plan.items.filter(c => c.dup === 'possible').length;
+  const badge = c => c.dup === 'exact'    ? '<span style="color:var(--Rm)">already in Entries</span>'
+                   : c.dup === 'possible' ? '<span style="color:var(--Am)">possible duplicate</span>'
+                   : '<span style="color:var(--Gm)">new</span>';
+  const skipTag = c => plan.sel.toAdd.includes(c) ? '' : ' <span style="color:var(--ink3)">· skipped</span>';
   el('csv-preview-wrap').innerHTML = `<table><thead><tr>
-    <th>Date</th><th>Description</th><th>Amount</th>
-  </tr></thead><tbody>${preview.map(r=>`<tr>
-    <td>${r[di]||''}</td><td>${r[dsi]||''}</td><td>${r[ai]||''}</td>
-  </tr>`).join('')}</tbody></table>`;
-  el('csv-import-info').textContent = `${_csvRows.length} rows detected`;
+    <th>Date</th><th>Description</th><th>Amount</th><th>Status</th>
+  </tr></thead><tbody>${plan.items.slice(0, 10).map(c => `<tr>
+    <td>${esc(c.date)}</td><td>${esc(c.desc)}</td><td>${esc(c.amount.toFixed(2))}</td><td>${badge(c)}${skipTag(c)}</td>
+  </tr>`).join('')}</tbody></table>`
+  + (plan.items.length > 10 ? `<div style="font-size:11px;color:var(--ink3);margin-top:4px">First 10 of ${plan.items.length} shown.</div>` : '');
+  const parts = [`${plan.items.length} readable rows`, `${plan.items.length - exact - poss} new`];
+  if (exact) parts.push(`${exact} already in Entries`);
+  if (poss)  parts.push(`${poss} possible duplicate${poss > 1 ? 's' : ''}`);
+  if (plan.unreadable) parts.push(`${plan.unreadable} unreadable (date or amount), e.g. ${plan.unreadableSample}`);
+  el('csv-import-info').textContent = parts.join(' · ');
+  const btn = el('csv-import-btn'); if (btn) btn.textContent = `Import ${plan.sel.toAdd.length} entr${plan.sel.toAdd.length === 1 ? 'y' : 'ies'}`;
 }
 function csvImport() {
-  const di = +el('csv-col-date').value, dsi = +el('csv-col-desc').value, ai = +el('csv-col-amt').value;
-  const ci  = el('csv-col-cat').value;
-  const defType = el('csv-def-type').value;
-  const defCat  = el('csv-def-cat').value;
-  const negate  = el('csv-negate').value === '1';
-  let added = 0, skipped = 0;
-  _csvRows.forEach(r => {
-    const dateRaw = (r[di]||'').trim();
-    const desc    = (r[dsi]||'').trim();
-    const amtRaw  = (r[ai]||'').replace(/[€$£\s]/g,'').replace(',','.');
-    const amount  = parseFloat(amtRaw) * (negate ? -1 : 1);
-    if (!dateRaw || isNaN(amount) || amount === 0) { skipped++; return; }
-    // normalise date — DD.MM.YYYY or DD-MM-YYYY → dmy; MM/DD/YYYY → mdy; YYYY-MM-DD passes through
-    let date = dateRaw;
-    const dmy = dateRaw.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
-    if (dmy) date = `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
-    const mdy = dateRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (mdy && !dmy) date = `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
-    const cat = ci ? (r[+ci]||defCat).toLowerCase().trim() || defCat : defCat;
-    const finalCat = ['needs','wants','savings'].includes(cat) ? cat : defCat;
-    DATA.entries.push({ id:uid(), loggedAt:new Date().toISOString(), date, desc, amount: Math.abs(amount), formula:null,
-      type: entryTypeFor(finalCat, defType),
-      category: finalCat,
-      tags:[], recurId:null });
-    added++;
-  });
+  const plan = csvCurrentPlan();
+  const added = plan.sel.toAdd.map(c => ({ id:uid(), loggedAt:new Date().toISOString(), date:c.date, desc:c.desc, amount:c.amount, formula:null,
+    type:c.type, category:c.category, tags:[], recurId:null }));
+  if (!added.length) {
+    el('csv-import-info').textContent = plan.sel.skippedDup ? `Nothing new to import — ${plan.sel.skippedDup} already in Entries` : 'Nothing to import';
+    return toast(plan.sel.skippedDup ? `Nothing imported — all ${plan.sel.skippedDup} rows look like duplicates` : 'Nothing to import', 1);
+  }
+  DATA.entries.push(...added);
   // sort entries by date desc
   DATA.entries.sort((a,b) => b.date.localeCompare(a.date));
   saveLocal(); render();
-  el('csv-import-info').textContent = `✓ Imported ${added} entries${skipped?' · '+skipped+' skipped':''}`;
-  toast(`Imported ${added} entries`);
-  if (added) { el('csv-paste').value=''; el('csv-map-area').style.display='none'; _csvRows=[]; }
+  const extra = [plan.sel.skippedDup ? `${plan.sel.skippedDup} duplicates skipped` : '', plan.unreadable ? `${plan.unreadable} unreadable` : ''].filter(Boolean).join(' · ');
+  el('csv-import-info').textContent = `✓ Imported ${added.length} entries${extra ? ' · ' + extra : ''}`;
+  const ids = new Set(added.map(e => e.id));
+  toast(`Imported ${added.length} entries${extra ? ' · ' + extra : ''}`, 0, () => {
+    DATA.entries = DATA.entries.filter(e => !ids.has(e.id)); saveLocal(); render(); toast('Import undone');
+  });
+  el('csv-paste').value=''; el('csv-map-area').style.display='none'; _csvRows=[];
 }
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
@@ -7354,6 +7530,102 @@ function categoryTarget(key, totalInc, month) {
 }
 
 // ══════════════════════════════════════════
+// MONTHLY REPORT  (print / save as PDF)
+// monthSummary() deliberately repeats the Overview's formulas (renderDash) so the report shows the SAME numbers;
+// a smoke test renders the Overview and compares them, so the two cannot drift apart unnoticed.
+// ══════════════════════════════════════════
+function monthSummary(month, withPrev = true) {
+  const saved = DATA.incomes && DATA.incomes[month];
+  const base = saved ? saved.amount : 0;
+  const mes = DATA.entries.filter(e => ym(e.date) === month);
+  const addInc = extraIncomeSum(mes);
+  const planned = (DATA.plannedIncome && DATA.plannedIncome[month]) || 0;
+  const totalInc  = base > 0 ? base + addInc : (addInc || planned);
+  const budgetInc = base > 0 ? base : (addInc || planned);
+  const act = { needs: 0, wants: 0, savings: 0 };
+  mes.forEach(e => {
+    if (e.type === 'expense' && e.category in act) act[e.category] += e.amount;
+    if (e.type === 'savings') act.savings += e.amount;
+  });
+  const spent = act.needs + act.wants + act.savings, left = budgetInc - spent;
+  const targets = {}; ['needs', 'wants', 'savings'].forEach(k => { targets[k] = budgetInc > 0 ? categoryTarget(k, budgetInc, month) : 0; });
+  const expenses = mes.filter(e => e.type === 'expense');
+  const merch = new Map();
+  expenses.forEach(e => {
+    const name = (e.desc || '').trim() || '(no description)', k = name.toLowerCase();
+    const m = merch.get(k) || { name, count: 0, total: 0 }; m.count++; m.total += e.amount; merch.set(k, m);
+  });
+  const fuel = (DATA.fuel || []).filter(f => ym(f.date) === month);
+  const fuelL = fuel.reduce((a, f) => a + (f.liters || 0), 0), fuelCost = fuel.reduce((a, f) => a + (f.total || 0), 0);
+  return {
+    month, base, addInc, totalInc, budgetInc, act, targets, spent, left,
+    savePct: budgetInc > 0 ? Math.round(left / budgetInc * 100) : 0,
+    entryCount: mes.length,
+    topExpenses: [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 10),
+    topMerchants: [...merch.values()].sort((a, b) => b.total - a.total).slice(0, 8),
+    fuel: fuel.length ? { n: fuel.length, liters: fuelL, cost: fuelCost, avgPpl: fuelL > 0 ? fuelCost / fuelL : 0 } : null,
+    prev: withPrev ? monthSummary(prevMonStr(month), false) : null,
+  };
+}
+// → the report sheet as an HTML string. Everything that came from the user is escaped.
+function monthReportHtml(m, generatedISO) {
+  const money = n => (n < 0 ? '−' : '') + fmt(n);
+  const [y, mo] = m.month.split('-').map(Number);
+  const label = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const CAT = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
+  const hasData = m.entryCount > 0 || m.budgetInc > 0;
+  const prevOk = m.prev && (m.prev.entryCount > 0 || m.prev.budgetInc > 0);
+  const delta = (cur, prev, goodWhenUp) => {
+    if (!prevOk || Math.abs(cur - prev) < 0.005) return '';
+    const up = cur > prev, good = goodWhenUp ? up : !up;
+    return `<div class="sm ${good ? 'good' : 'bad'}">${up ? '↑' : '↓'} ${fmt(Math.abs(cur - prev))} vs ${esc(m.prev.month)}</div>`;
+  };
+  const tile = (lbl, big, sub, cls) => `<td><div class="lbl">${lbl}</div><div class="big ${cls || ''}">${big}</div>${sub || ''}</td>`;
+  let h = `<h1>Vault Finance — ${esc(label)}</h1><div class="rp-sub">Monthly report · generated ${esc(generatedISO)}</div>`;
+  if (!hasData) return h + `<p>No entries or income recorded for this month.</p>`;
+  h += `<table class="tiles"><tr>
+    ${tile('Total income', money(m.totalInc), m.addInc > 0 ? `<div class="sm">salary ${fmt(m.base)} + other ${fmt(m.addInc)}</div>` : '')}
+    ${tile('Total allocated', money(m.spent), delta(m.spent, m.prev ? m.prev.spent : 0, false))}
+    ${tile('Left to spend', money(m.left), `<div class="sm">savings rate ${m.budgetInc > 0 ? m.savePct + '%' : '—'}</div>`, m.left >= 0 ? 'good' : 'bad')}
+  </tr></table>`;
+  h += `<h2>Budget (50/30/20)</h2><table><tr><th>Bucket</th><th class="r">Target</th><th class="r">Actual</th><th class="r">Left</th><th style="width:22%">Used</th></tr>`;
+  ['needs', 'wants', 'savings'].forEach(k => {
+    const t = m.targets[k], a = m.act[k], pct = t > 0 ? Math.min(100, Math.round(a / t * 100)) : 0, over = t > 0 && a > t;
+    h += `<tr><td>${CAT[k]}</td><td class="r">${t > 0 ? fmt(t) : '—'}</td><td class="r">${fmt(a)}</td>
+      <td class="r ${over ? 'bad' : ''}">${t > 0 ? (over ? '−' : '') + fmt(Math.abs(t - a)) : '—'}</td>
+      <td>${t > 0 ? `<div class="bar"><div class="${over ? 'over' : ''}" style="width:${pct}%"></div></div>` : ''}</td></tr>`;
+  });
+  h += `</table>`;
+  if (m.topExpenses.length) {
+    h += `<h2>Largest expenses</h2><table><tr><th>Date</th><th>Description</th><th>Bucket</th><th class="r">Amount</th></tr>`
+      + m.topExpenses.map(e => `<tr><td class="r" style="text-align:left">${esc(e.date)}</td><td>${esc(e.desc || '—')}</td><td>${esc(CAT[e.category] || e.category || '')}</td><td class="r">${fmt(e.amount)}</td></tr>`).join('') + `</table>`;
+  }
+  if (m.topMerchants.length) {
+    h += `<h2>Top merchants</h2><table><tr><th>Name</th><th class="r">Purchases</th><th class="r">Total</th></tr>`
+      + m.topMerchants.map(x => `<tr><td>${esc(x.name)}</td><td class="r">${x.count}</td><td class="r">${fmt(x.total)}</td></tr>`).join('') + `</table>`;
+  }
+  if (m.fuel) {
+    h += `<h2>Fuel</h2><table><tr><th>Refuels</th><th class="r">Litres</th><th class="r">Cost</th><th class="r">Average €/L</th></tr>
+      <tr><td>${m.fuel.n}</td><td class="r">${m.fuel.liters.toFixed(1)} L</td><td class="r">${fmt(m.fuel.cost)}</td><td class="r">${m.fuel.avgPpl.toFixed(3)} €</td></tr></table>`;
+  }
+  return h + `<div class="rp-note">${m.entryCount} entries this month. Figures follow the Overview: budget targets use the salary alone and include any rollover; “Total allocated” is needs + wants + savings.</div>`;
+}
+let _reportPrevTitle = null;
+function openMonthReport() {
+  const month = curMonth();
+  el('report-sheet').innerHTML = monthReportHtml(monthSummary(month), ymd());
+  el('report-overlay').classList.add('open'); document.body.classList.add('report-open');
+  if (_reportPrevTitle === null) _reportPrevTitle = document.title;
+  document.title = `Vault Finance ${month}`;             // becomes the suggested PDF file name
+  const o = el('report-overlay'); if (o.scrollTo) o.scrollTo(0, 0);
+}
+function closeMonthReport() {
+  el('report-overlay').classList.remove('open'); document.body.classList.remove('report-open');
+  if (_reportPrevTitle !== null) { document.title = _reportPrevTitle; _reportPrevTitle = null; }
+}
+function printMonthReport() { window.print(); }
+
+// ══════════════════════════════════════════
 // SAVINGS STREAK
 // Counts consecutive months where actual savings ≥ 90% of target.
 // ══════════════════════════════════════════
@@ -8425,6 +8697,7 @@ function renderSettings() {
   runVaultHealth();
   renderIncomeSyncStatus();
   renderAbout();
+  renderVerifyCard();
   updateNotifBadge();
   const apt = el('auto-push-toggle');
   if (apt) apt.checked = localStorage.getItem(LS_AUTO_PUSH) === '1';
@@ -8848,6 +9121,14 @@ function fireUpdate() {
 // Losses net against gains within the same year (§ 27 EStG).
 // ══════════════════════════════════════════
 const KEST_RATE = 0.275;
+// Last time this rate was checked against the Austrian Finance Ministry (BMF). It is a BUILD constant on
+// purpose: the app is used in incognito, so a stamp stored in the browser would be forgotten every session.
+// Yearly: re-check, then bump this date.
+const KEST_VERIFIED = '2026-10-30';
+const KEST_SOURCES = [
+  { label: 'BMF: Besteuerung von Kapitalerträgen', url: 'https://www.bmf.gv.at/themen/steuern/sparen-veranlagen/besteuerung-kapitalertraege-inland.html' },
+  { label: 'USP: Kapitalertragsteuer (KESt)',       url: 'https://www.usp.gv.at/services/suchen-und-finden/lexikon/kapitalertragsteuer-kest.html' },
+];
 
 // Pure per-year KeSt calc, extracted so it's testable without touching the
 // DOM. `records` is an array of realised-P&L rows with a numeric `.pnl`.
@@ -9699,20 +9980,42 @@ function renderWeeklySummary() {
 // ══════════════════════════════════════════
 
 // Published ECB Governing Council monetary policy meeting dates.
-// Rate decisions announced at 13:45 CET on these dates.
+// Rate decisions are announced on these dates (times: see ECB_CALENDAR_URL).
 // Source: https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html
-// 2027 dates are estimated based on the ECB's published pattern (≈6-week cycle).
+// Checked 2026-10-30 against the ECB's own Governing Council calendar and its press release of
+// 30 June 2026 (2027 operational calendars). Each date is the DECISION day (day 2 of the meeting).
+// Yearly: add the next year's dates, then bump ECB_VERIFIED. Dates after ECB_VERIFIED.through
+// are shown as "estimated" in the app.
+const ECB_CALENDAR_URL = 'https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html';
+const ECB_VERIFIED = { on: '2026-10-30', through: '2027-12-16' };
 const ECB_MEETINGS = [
   // 2025 (past)
   '2025-01-30','2025-03-06','2025-04-17','2025-06-05',
   '2025-07-24','2025-09-11','2025-10-30','2025-12-18',
   // 2026 (published — ecb.europa.eu)
-  '2026-01-29','2026-03-05','2026-04-23',
+  '2026-02-05','2026-03-19','2026-04-30',
   '2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17',
   // 2027 (published — ecb.europa.eu)
   '2027-02-04','2027-03-18','2027-04-29','2027-06-10',
   '2027-07-22','2027-09-09','2027-10-28','2027-12-16',
 ];
+
+// Pure helpers for the Settings → "Yearly checks" card and the "estimated" labels.
+const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const _isoDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / MS_PER_DAY);
+// A date beyond what was last checked against the ECB calendar is only an estimate.
+function ecbIsEstimated(iso, through = ECB_VERIFIED.through) { return String(iso) > through; }
+// How far the meeting list reaches. status: 'ok' | 'soon' (list ends within 180 days) | 'expired' (no future date left).
+function ecbCoverage(dates, todayISO) {
+  const sorted = [...(dates || [])].sort(), future = sorted.filter(d => d >= todayISO);
+  const last = sorted[sorted.length - 1] || null, next = future[0] || null;
+  const daysLeft = last ? _isoDays(todayISO, last) : -1;
+  return { next, last, upcoming: future.length, daysLeft, status: !future.length ? 'expired' : daysLeft < 180 ? 'soon' : 'ok' };
+}
+// A check done in an earlier calendar year is due again (rates and laws change on 1 January).
+function verifyDue(verifiedISO, todayISO) {
+  return !verifiedISO || String(todayISO).slice(0, 4) > String(verifiedISO).slice(0, 4);
+}
 
 // ECB Statistical Data Warehouse — SDMX series keys for EURIBOR fixing rates.
 // Dataset: FM (Financial Markets), frequency: M (monthly), area: U2 (Euro area)
@@ -9838,10 +10141,9 @@ function rmRenderEcb() {
     // Imminent alert banner — shown ≤ 10 days before the meeting
     if (soonEl && soonMsg) {
       if (days <= 10) {
-        const estimated2027 = next.getFullYear() >= 2027;
-        const suffix = estimated2027 ? ' (estimated date — verify at ecb.europa.eu).' : '.';
+        const suffix = ecbIsEstimated(ymdOf(next)) ? ' (estimated date — verify at ecb.europa.eu).' : '.';
         soonMsg.textContent = days === 0
-          ? '⚡ ECB rate decision is today — decision announced at 13:45 CET. Your Euribor-linked mortgage rate may change at the next reset date.'
+          ? '⚡ ECB rate decision is today — announced this afternoon (times: ecb.europa.eu). Your Euribor-linked mortgage rate may change at the next reset date.'
           : `⏰ ECB rate decision in ${days} day${days === 1 ? '' : 's'} (${dateLabel})${suffix} If rates change, your Euribor-linked mortgage will adjust at its next reset.`;
         soonEl.style.display = 'flex';
       } else {
@@ -10666,6 +10968,30 @@ async function renderAbout() {
     }
   } catch (_) {}
   e.textContent = `${APP_NAME} ${APP_VERSION} · data format v${SCHEMA_VERSION}${sw}`;
+}
+
+// Settings → Yearly checks: the two facts the app hard-codes (ECB meeting dates, KESt rate), whether they
+// are still good, and where to verify them. Nothing here is fetched — the app has no backend.
+function renderVerifyCard(today = ymd()) {
+  const box = el('verify-list'); if (!box) return;
+  const chip = (cls, txt) => `<span style="font-size:11px;font-weight:600;color:var(--${cls});margin-left:6px">${txt}</span>`;
+  const link = (url, label) => `<a href="${url}" target="_blank" rel="noopener" style="margin-right:12px">${esc(label)} ↗</a>`;
+  const row = (title, status, body, links) => `<div style="padding:8px 0;border-bottom:.5px solid var(--bdr)">
+      <div style="font-size:13px;font-weight:600">${esc(title)}${status}</div>
+      <div style="font-size:12px;color:var(--ink2);margin:3px 0 5px">${body}</div>
+      <div style="font-size:12px">${links}</div></div>`;
+  const cov = ecbCoverage(ECB_MEETINGS, today);
+  const ecbStatus = cov.status === 'expired' ? chip('Rm', '✗ list has run out — add the new dates')
+                  : cov.status === 'soon'    ? chip('Am', `⚠ list ends in ${cov.daysLeft} days — add the next year`)
+                  : chip('Gm', '✓ OK');
+  const ecbBody = cov.next ? `Next decision <strong>${esc(cov.next)}</strong> · ${cov.upcoming} upcoming · list ends ${esc(cov.last)} · checked against the ECB calendar on ${esc(ECB_VERIFIED.on)}`
+                           : `No upcoming date left (list ends ${esc(cov.last || '—')}).`;
+  const kDue = verifyDue(KEST_VERIFIED, today);
+  const kStatus = kDue ? chip('Am', `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
+  const kBody = `${(KEST_RATE * 100).toFixed(1)} % on realised gains and dividends (§ 27a EStG) · this build was checked on ${esc(KEST_VERIFIED)}. Interest on bank deposits is taxed at 25 %, which this app does not use.`;
+  box.innerHTML = row('ECB meeting dates', ecbStatus, ecbBody, link(ECB_CALENDAR_URL, 'ECB meeting calendar'))
+                + row('KESt rate', kStatus, kBody, KEST_SOURCES.map(x => link(x.url, x.label)).join(''))
+                + `<div style="font-size:11px;color:var(--ink3);margin-top:8px">Both are written into the app, not fetched. Once a year, open the links, and if something changed, ask for an updated build.</div>`;
 }
 
 function renderCarServiceUI() {
@@ -13503,6 +13829,52 @@ function finishFuelRemoval(id, alsoEntry) {
   });
 }
 
+// ── Phone layout: one card per refuel ────────────────────────────────────────
+// Same data and the same inline editor as the table, but every value opens on a single TAP
+// (double-click is unreliable on touch screens). `f` is a refuel row with kmSince / lPer100 /
+// costPerKm already computed by renderFuel. All values go through esc() / jsAttr().
+function fuelCardHtml(f, showHybrid) {
+  const open = (field, cur, opts) => `makeFuelCellEditable(this,${jsAttr(f.id)},${jsAttr(field)},${jsAttr(cur)},${jsAttr(opts)})`;
+  const val  = (field, cur, opts, body, what) =>
+    `<span class="fc-val" role="button" tabindex="0" title="Tap to edit${what ? ' · ' + what : ''}" onclick="${open(field, cur, opts)}">${body}</span>`;
+  const hint = '<span style="color:var(--ink3)">+ add</span>';
+  const FILL_BADGES = { full:'⛽', partial:'◑', brim:'⬆' }, FILL_TITLES = { full:'Full tank', partial:'Partial fill', brim:'Brim (overfill)' };
+  const fillType = f.fillType || (f.fullTank === false ? 'partial' : 'full');
+  const effCls = f.lPer100 ? (f.lPer100 > 8 ? 'cr' : f.lPer100 < 6 ? 'cg' : '') : '';
+  const evCur = f.evMinutes > 0 ? formatEvClock(f.evMinutes) : '', svCur = f.fuelSaved > 0 ? String(f.fuelSaved) : '';
+  const cell = (label, inner) => `<div><label>${label}</label>${inner}</div>`;
+  const typeOpts = { isSelect: true, width: '90px', options: { petrol:'Petrol', diesel:'Diesel', lpg:'LPG', electric:'Electric' } };
+  return `<div class="fuel-card">
+    <div class="fc-head">
+      ${val('date', f.date, { type:'date', width:'130px' }, esc(f.date)).replace('class="fc-val"', 'class="fc-val fc-date"')}
+      <span class="fuel-type-badge ${esc(f.type)} fc-pill" role="button" tabindex="0" title="Tap to change fuel type" onclick="${open('type', f.type, typeOpts)}">${esc(FUEL_LABELS[f.type] || f.type)}</span>
+      <span class="fc-fill" role="button" tabindex="0" title="${esc(FILL_TITLES[fillType] || '')} — tap to toggle full / partial" onclick="updateFuelRecord(${jsAttr(f.id)},'fullTank',${f.fullTank === false ? 'true' : 'false'})">${FILL_BADGES[fillType] || '⛽'}</span>
+      <button class="btn xs danger fc-del" title="Remove this refuel" aria-label="Remove refuel" onclick="deleteFuel(${jsAttr(f.id)})">✕</button>
+    </div>
+    <div class="fc-main">
+      ${val('total', f.total, { type:'number', step:'0.01', min:'0', width:'90px' }, '−' + fmt(f.total), 'recalculates €/L').replace('class="fc-val"', 'class="fc-val fc-total amt-n"')}
+      ${val('station', f.station || '', { width:'140px' }, f.station ? esc(f.station) : hint).replace('class="fc-val"', 'class="fc-val fc-station"')}
+    </div>
+    <div class="fc-grid">
+      ${cell('Litres',   val('liters', f.liters, { type:'number', step:'0.001', min:'0', width:'80px' }, f.liters.toFixed(2) + ' L', 'recalculates Total'))}
+      ${cell('€/L',      val('ppl', f.ppl, { type:'number', step:'0.001', min:'0', width:'80px' }, f.ppl.toFixed(3) + ' €', 'recalculates Total'))}
+      ${cell('Odometer', val('odo', f.odo || '', { type:'number', step:'1', min:'0', width:'90px' }, f.odo ? f.odo.toLocaleString() : hint))}
+      ${cell('km since', `<span>${f.kmSince != null ? f.kmSince.toLocaleString() + ' km' : '—'}</span>`)}
+      ${cell('L/100 km', `<span class="${effCls}">${f.lPer100 != null ? f.lPer100 + ' L' : '—'}</span>`)}
+      ${cell('€/km',     `<span>${f.costPerKm != null ? '€' + f.costPerKm : '—'}</span>`)}
+      ${showHybrid ? cell('EV time', val('evMinutes', evCur, { width:'90px' }, evCur ? formatEvDuration(f.evMinutes) : hint, 'H:MM:SS or minutes'))
+                   + cell('Saved',   val('fuelSaved', svCur, { type:'number', step:'0.1', min:'0', width:'80px' }, svCur ? f.fuelSaved.toFixed(1) + ' L' : hint, 'litres saved since last fill')) : ''}
+    </div>
+    <div class="fc-note">${val('note', f.note || '', { width:'200px' }, f.note ? esc(f.note) : '<span style="color:var(--ink3)">+ note</span>')}</div>
+  </div>`;
+}
+function renderFuelCards(rows) {
+  const box = el('fuel-cards'); if (!box) return;
+  if (!rows.length) { box.innerHTML = '<div class="empty">No refuel records yet. Log your first fill above.</div>'; return; }
+  const showHybrid = (DATA.fuel || []).some(r => r.evMinutes > 0 || r.fuelSaved > 0);   // EV cells only for a car that uses them
+  box.innerHTML = '<div class="fc-hint">Tap any underlined value to edit it.</div>' + rows.map(f => fuelCardHtml(f, showHybrid)).join('');
+}
+
 // ── Main render ───────────────────────────────────────────────────────────────
 function renderFuel() {
   try {
@@ -13612,7 +13984,9 @@ function renderFuel() {
       </tr>`;
     }).join('');
     tbody.innerHTML = rows;
+    renderFuelCards([...withDeltas].reverse());
   }
+  if (!filtered.length) renderFuelCards([]);
 
   // ── Charts & analysis ─────────────────────────────────────────────────────
   setFuelHistoryMode(_fuelHistoryMode);
@@ -14063,7 +14437,7 @@ function renderRateResetCalendar() {
     const isPast    = resetDate < today;
     const daysAway  = Math.round((resetDate - today) / MS_PER_DAY);
     const dateStr   = resetDate.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
-    const estimated = meetingsInWindow.some(m => m.getFullYear() >= 2027);
+    const estimated = meetingsInWindow.some(m => ecbIsEstimated(ymdOf(m)));
 
     const badge = isToday   ? '<span class="rrc-badge today">today</span>'
       : meetingsInWindow.length > 0 ? '<span class="rrc-badge change">ECB meets before this</span>'
@@ -14083,7 +14457,7 @@ function renderRateResetCalendar() {
       <div class="rrc-body">
         <div class="rrc-label">Reset ${i+1} &nbsp;<span style="color:var(--ink3);font-size:11px">${esc(countdownStr)}</span>${badge}</div>
         <div class="rrc-meetings">ECB meetings in window: ${meetingList}</div>
-        ${estimated ? '<div style="font-size:10px;color:var(--ink3);margin-top:2px">⚠ 2027 dates are estimated — verify at ecb.europa.eu</div>' : ''}
+        ${estimated ? '<div style="font-size:10px;color:var(--ink3);margin-top:2px">⚠ estimated dates — verify at ecb.europa.eu</div>' : ''}
       </div>
     </div>`;
   }).join('');
@@ -14998,6 +15372,149 @@ function runSmokeTest() {
       expectTrue(copy.fuelId === undefined, 'link not copied');
     });
 
+    // ── Monthly report ──
+    const withData = (setup, fn) => { const keep = DATA; DATA = FRESH(); DATA.splits = { needs:50, wants:30, savings:20, rollover:{ needs:false, wants:false, savings:false } }; try { setup(DATA); fn(); } finally { DATA = keep; } };
+    test('monthSummary: buckets, income (mirror not double-counted), targets, left, savings rate', () => withData(d => {
+      d.incomes['2026-05'] = { amount:3000, formula:null };
+      d.entries = [
+        { id:'1', date:'2026-05-02', desc:'Rent',   amount:1000, type:'expense', category:'needs',  tags:[] },
+        { id:'2', date:'2026-05-09', desc:'Cinema', amount:300,  type:'expense', category:'wants',  tags:[] },
+        { id:'3', date:'2026-05-10', desc:'ETF',    amount:200,  type:'savings', category:'savings',tags:[] },
+        { id:'4', date:'2026-05-15', desc:'Bonus',  amount:150,  type:'income',  category:'needs',  tags:[] },
+        { id:'baseinc-2026-05', date:'2026-05-01', desc:'Monthly income', amount:3000, type:'income', isSalaryMirror:true, tags:[] },
+        { id:'6', date:'2026-04-30', desc:'Other month', amount:999, type:'expense', category:'needs', tags:[] } ];
+    }, () => {
+      const m = monthSummary('2026-05');
+      expect(m.base, 3000, 'salary'); expect(m.addInc, 150, 'extra income only — the mirror is excluded');
+      expect(m.totalInc, 3150, 'total income'); expect(m.budgetInc, 3000, 'budget baseline is the salary alone');
+      expect(m.act.needs + '/' + m.act.wants + '/' + m.act.savings, '1000/300/200', 'buckets');
+      expect(m.spent, 1500, 'allocated'); expect(m.left, 1500, 'left'); expect(m.savePct, 50, 'savings rate');
+      expect(m.targets.needs + '/' + m.targets.wants + '/' + m.targets.savings, '1500/900/600', '50/30/20 of the salary');
+      expect(m.entryCount, 5, 'only this month\'s entries'); expect(m.prev.entryCount, 1, 'previous month summarised too, without recursing further');
+      expect(m.prev.prev, null, 'no endless chain of months');
+    }));
+    test('monthSummary: planned income stands in when no salary is saved; top lists are sorted and merged', () => withData(d => {
+      d.plannedIncome = { '2026-05': 2000 };
+      d.entries = [ { id:'1', date:'2026-05-02', desc:'Spar', amount:10, type:'expense', category:'needs', tags:[] },
+                    { id:'2', date:'2026-05-03', desc:' SPAR ', amount:15, type:'expense', category:'needs', tags:[] },
+                    { id:'3', date:'2026-05-04', desc:'Rent', amount:500, type:'expense', category:'needs', tags:[] } ];
+      d.fuel = [ { id:'f1', date:'2026-05-05', liters:40, total:60 }, { id:'f2', date:'2026-05-20', liters:20, total:34 }, { id:'f3', date:'2026-04-20', liters:99, total:99 } ];
+    }, () => {
+      const m = monthSummary('2026-05');
+      expect(m.budgetInc, 2000, 'planned income used'); expect(m.topExpenses[0].desc, 'Rent', 'largest first');
+      expect(m.topMerchants.map(x => x.name + ':' + x.count + ':' + x.total).join(), 'Rent:1:500,Spar:2:25', 'same shop in different case/spacing merges');
+      expect(m.fuel.n + '/' + m.fuel.liters + '/' + m.fuel.cost, '2/60/94', 'fuel of this month only'); expectClose(m.fuel.avgPpl, 94 / 60, 1e-9, 'average €/L');
+    }));
+    test('monthReportHtml: escapes user text, handles an empty month and a month with a deficit', () => withData(d => {
+      d.incomes['2026-05'] = { amount:100, formula:null };
+      d.entries = [ { id:'1', date:'2026-05-02', desc:'<scr' + 'ipt>alert(1)</scr' + 'ipt> & "Co"', amount:250, type:'expense', category:'needs', tags:[] } ];
+    }, () => {
+      const html = monthReportHtml(monthSummary('2026-05'), '2026-06-01');
+      expectTrue(html.indexOf('<scr' + 'ipt>') < 0 && /&lt;script&gt;/.test(html), 'description escaped');
+      expectTrue(/class="bad"|class="big bad"/.test(html), 'a negative "left" is flagged'); expectTrue(/class="over"/.test(html), 'an over-budget bar is flagged');
+      expectTrue(/May 2026/.test(html), 'month label');
+      const empty = monthReportHtml(monthSummary('2031-01'), '2026-06-01');
+      expectTrue(/No entries or income recorded/.test(empty), 'empty month says so, no empty tables');
+    }));
+
+    // ── Yearly checks: ECB dates + KESt ──
+    test('ECB_MEETINGS: the ECB-published 2026 dates are in, the three wrong ones are gone', () => {
+      ['2026-02-05','2026-03-19','2026-04-30','2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17'].forEach(d => expectTrue(ECB_MEETINGS.includes(d), d + ' present'));
+      ['2026-01-29','2026-03-05','2026-04-23'].forEach(d => expectTrue(!ECB_MEETINGS.includes(d), d + ' (never an ECB decision day) removed'));
+    });
+    test('ECB_MEETINGS is well-formed: ascending, no repeats, every date a Thursday, eight per year', () => {
+      const asc = ECB_MEETINGS.every((d, i) => i === 0 || d > ECB_MEETINGS[i - 1]);
+      expectTrue(asc, 'strictly ascending (so no duplicates)');
+      expectTrue(ECB_MEETINGS.every(d => new Date(d + 'T12:00:00Z').getUTCDay() === 4), 'all Thursdays');
+      const perYear = {}; ECB_MEETINGS.forEach(d => { perYear[d.slice(0, 4)] = (perYear[d.slice(0, 4)] || 0) + 1; });
+      expect(Object.values(perYear).every(n => n === 8), true, 'eight decisions in every listed year');
+      expectTrue(ECB_MEETINGS[ECB_MEETINGS.length - 1] <= ECB_VERIFIED.through, 'nothing listed beyond what was verified');
+    });
+    test('ecbIsEstimated flags only dates beyond the verified range', () => {
+      expect(ecbIsEstimated('2027-12-16'), false, 'last verified date'); expect(ecbIsEstimated('2027-02-04'), false, '2027 is no longer "estimated"');
+      expect(ecbIsEstimated('2028-02-03'), true, 'unverified year'); expect(ecbIsEstimated('2028-02-03', '2028-12-31'), false, 'after the next verification');
+    });
+    test('ecbCoverage: ok / soon / expired, and the next decision', () => {
+      const d = ['2026-12-17', '2027-02-04', '2027-12-16'];
+      const a = ecbCoverage(d, '2026-10-30');
+      expect(a.status, 'ok', 'plenty left'); expect(a.next, '2026-12-17', 'next'); expect(a.upcoming, 3, 'count'); expect(a.last, '2027-12-16', 'list end');
+      expect(ecbCoverage(d, '2027-08-01').status, 'soon', 'list ends in < 180 days');
+      expect(ecbCoverage(d, '2027-08-01').next, '2027-12-16', 'next after the first two passed');
+      expect(ecbCoverage(d, '2027-12-16').next, '2027-12-16', 'a decision TODAY still counts as upcoming');
+      expect(ecbCoverage(d, '2028-01-05').status, 'expired', 'nothing left'); expect(ecbCoverage([], '2026-10-30').status, 'expired', 'empty list');
+    });
+    test('verifyDue: due once the calendar year has changed since the check', () => {
+      expect(verifyDue('2026-10-30', '2026-12-31'), false, 'same year'); expect(verifyDue('2026-10-30', '2027-01-01'), true, 'new year');
+      expect(verifyDue('', '2026-01-01'), true, 'never checked'); expect(verifyDue(KEST_VERIFIED, ymd()) === (ymd().slice(0, 4) > KEST_VERIFIED.slice(0, 4)), true, 'matches the rule for today');
+    });
+    test('KEST_RATE is the 27.5 % the card and the verify text both state', () => { expect(KEST_RATE, 0.275, 'rate'); expectTrue(KEST_SOURCES.every(x => /^https:\/\/(www\.)?(bmf|usp)\.gv\.at\//.test(x.url)), 'sources are official .gv.at pages'); });
+
+    // ── CSV import: parsing + duplicate detection ──
+    test('csvSplit keeps a quoted field that contains the separator in ONE cell', () => {
+      const rows = csvSplit('Date;Name;Amount\n03.05.2026;"Lidl; Wien";-12,50\n04.05.2026;"He said ""hi""";-3', ';');
+      expect(rows[1].join('|'), '03.05.2026|Lidl; Wien|-12,50', 'separator inside quotes');
+      expect(rows[2][1], 'He said "hi"', 'doubled quotes unescaped');
+      expect(csvSplit('a,5" pipe,3', ',')[0].join('|'), 'a|5" pipe|3', 'a quote mid-field is just a character');
+      expect(csvSplit('a,b\r\nc,d\r\n', ',').length, 3, 'CRLF handled (last empty row is filtered by the caller)');
+    });
+    test('csvDetectSep picks comma, semicolon or tab', () => {
+      expect(csvDetectSep('a;b;c\n1,2,3'), ';', 'semicolon'); expect(csvDetectSep('a,b,c'), ',', 'comma');
+      expect(csvDetectSep('a\tb\tc'), '\t', 'tab (the file picker accepts .tsv)'); expect(csvDetectSep('abc'), ',', 'default');
+    });
+    test('csvDateISO reads the usual bank formats and rejects anything that is not a real date', () => {
+      expect(csvDateISO('2026-05-03'), '2026-05-03', 'ISO'); expect(csvDateISO('3.5.2026'), '2026-05-03', 'D.M.YYYY');
+      expect(csvDateISO('03-05-2026'), '2026-05-03', 'DD-MM-YYYY'); expect(csvDateISO('05/03/2026'), '2026-05-03', 'MM/DD/YYYY (as before)');
+      expect(csvDateISO('2026-05-03 14:22:10'), '2026-05-03', 'time suffix dropped'); expect(csvDateISO('2026-05-03T14:22'), '2026-05-03', 'ISO datetime');
+      expect(csvDateISO('01.02.24'), null, 'two-digit year is NOT stored as text any more'); expect(csvDateISO('31.02.2026'), null, 'no 31 February');
+      expect(csvDateISO(''), null, 'empty'); expect(csvDateISO('Booking date'), null, 'a header row');
+    });
+    test('csvAmount understands European and English number formats', () => {
+      expect(csvAmount('12,50'), 12.5, 'decimal comma'); expect(csvAmount('-1.234,56'), -1234.56, 'European thousands + decimal comma (was read as 1.234)');
+      expect(csvAmount('1,234.56'), 1234.56, 'English thousands'); expect(csvAmount('€ 7.9'), 7.9, 'symbol + space');
+      expect(csvAmount('3400'), 3400, 'plain'); expect(Number.isNaN(csvAmount('abc')), true, 'unreadable → NaN');
+    });
+    test('csvBuildCandidates: maps columns, takes |amount|, applies negate/category, counts unreadable rows', () => {
+      const rows = [['03.05.2026','Spar','-12,50','wants'], ['04.05.2026','Salary','3.400,00',''], ['31.02.2026','Bad date','5',''], ['05.05.2026','Zero','0',''], ['06.05.2026','Coffee','2,5','nonsense']];
+      const r = csvBuildCandidates(rows, { di:0, dsi:1, ai:2, ci:'3', defType:'expense', defCat:'needs', negate:false });
+      expect(r.items.length, 3, 'three readable'); expect(r.unreadable, 2, 'bad date + zero amount');
+      expect(r.items[0].amount, 12.5, 'sign dropped'); expect(r.items[0].category, 'wants', 'category column used');
+      expect(r.items[2].category, 'needs', 'unknown category → default'); expect(r.items[1].amount, 3400, 'thousands separator');
+      expectTrue(/31\.02\.2026/.test(r.unreadableSample), 'the first unreadable row is quoted back to the user');
+      const neg = csvBuildCandidates([['03.05.2026','Spar','-12,50','']], { di:0, dsi:1, ai:2, ci:'', defType:'expense', defCat:'savings', negate:true });
+      expect(neg.items[0].type, 'savings', 'expense + savings category → savings type, like the entry form');
+    });
+    test('csvMarkDuplicates: exact vs possible, one-to-one, direction-aware', () => {
+      const entries = [
+        { id:'a', type:'expense', date:'2026-05-03', amount:12.5, desc:'  SPAR  wien ' },
+        { id:'b', type:'savings', date:'2026-05-04', amount:50,   desc:'ETF' },
+        { id:'c', type:'income',  date:'2026-05-01', amount:3400, desc:'Monthly income' },
+        { id:'d', type:'expense', date:'2026-05-06', amount:2.5,  desc:'Coffee' } ];
+      const items = [
+        { date:'2026-05-03', desc:'spar WIEN', amount:12.5, type:'expense' },
+        { date:'2026-05-04', desc:'ETF',       amount:50,   type:'expense' },
+        { date:'2026-05-01', desc:'Gehalt',    amount:3400, type:'income'  },
+        { date:'2026-05-06', desc:'Coffee',    amount:2.5,  type:'expense' },
+        { date:'2026-05-06', desc:'Coffee',    amount:2.5,  type:'expense' },
+        { date:'2026-05-06', desc:'Coffee',    amount:2.51, type:'expense' },
+        { date:'2026-05-03', desc:'Spar',      amount:12.5, type:'income'  } ];
+      csvMarkDuplicates(items, entries);
+      expect(items.map(c => c.dup || 'new').join(), 'exact,exact,possible,exact,new,new,new', 'case/space-insensitive exact; recategorised savings still matches; salary row = possible; 2nd identical coffee = new; a cent off = new; opposite direction = new');
+      expect(items[2].match.id, 'c', 'possible match points at the income row');
+    });
+    test('csvMarkDuplicates is empty-safe and never mutates the vault', () => {
+      const entries = [{ id:'a', type:'expense', date:'2026-05-03', amount:1, desc:'x' }], snap = JSON.stringify(entries);
+      expect(csvMarkDuplicates([], entries).length, 0, 'no rows'); csvMarkDuplicates([{ date:'2026-05-03', desc:'x', amount:1, type:'expense' }], []);
+      csvMarkDuplicates([{ date:'2026-05-03', desc:'x', amount:1, type:'expense' }], entries);
+      expect(JSON.stringify(entries), snap, 'entries untouched');
+    });
+    test('csvSelectForImport: exact / all / none', () => {
+      const items = [{ dup:'exact' }, { dup:'possible' }, { dup:null }];
+      expect(csvSelectForImport(items, 'exact').toAdd.length, 2, 'exact mode keeps possible + new');
+      expect(csvSelectForImport(items, 'all').toAdd.length, 1, 'all mode keeps only new');
+      expect(csvSelectForImport(items, 'none').toAdd.length, 3, 'none imports everything');
+      expect(csvSelectForImport(items, 'exact').skippedDup, 1, 'reports how many it skipped');
+    });
+
     // ── Fuel ↔ expense two-way link ──
     test('syncFuelEntry carries date, amount, name and type from an edited refuel to its expense', () => {
       const entry = { id:'e', type:'expense', date:'2026-06-01', amount:60, formula:'40*1.5', desc:'Shell', tags:['fuel','petrol'], fuelId:'f' };
@@ -15424,7 +15941,7 @@ function markNotifFired(key) {
 
 function updateNotifBadge() {
   const b = el('notif-state-badge'); if (!b) return;
-  const perm = Notification.permission;
+  const perm = ('Notification' in window) ? Notification.permission : 'unsupported';   // iOS Safari tabs have no Notifications API
   b.textContent = perm;
   b.className   = `notif-state ${perm}`;
   const chk = el('notif-enabled');
