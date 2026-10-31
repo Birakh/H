@@ -849,6 +849,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   .keys-grid{grid-template-columns:1fr}
 }
 
+/* Insights card (Overview) */
+.ins{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;margin-bottom:6px;border-radius:var(--rs);background:var(--s1);border-left:3px solid var(--ink3)}
+.ins-warn{border-left-color:var(--Am)}
+.ins-good{border-left-color:var(--Gm)}
+.ins-info{border-left-color:var(--ink3)}
+.ins-ic{font-size:16px;line-height:1.3}
+.ins-t{font-size:13px;font-weight:600}
+.ins-x{font-size:12.5px;color:var(--ink2);line-height:1.45;margin-top:1px}
+.ins-none{font-size:12px;color:var(--ink3);padding:4px 0}
 </style>
 </head>
 <body>
@@ -1201,6 +1210,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div id="d-account-cards"></div>
       <div id="d-banners"></div>
       <div class="stat-grid" id="d-stats"></div>
+
+      <div class="card" id="insights-card">
+        <div class="card-title">Insights
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">computed from your data, no AI involved</span>
+        </div>
+        <div id="insights-list"></div>
+        <div id="insights-ai-row" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="btn xs ghost" id="insights-ai-btn" onclick="explainInsights()" title="Sends only the sentences above to Anthropic, using your own API key">✨ Explain with AI</button>
+          <span style="font-size:11px;color:var(--ink3)">sends only these findings — no transactions. Needs your API key (Wealth → AI assistant).</span>
+        </div>
+        <div id="insights-ai-out" style="display:none;margin-top:8px;font-size:13px;line-height:1.5;white-space:pre-wrap"></div>
+      </div>
 
       <div class="card">
         <div class="card-title">This week
@@ -3399,6 +3420,139 @@ function dl(content, name, type) {
 }
 
 // ══════════════════════════════════════════
+// COMMIT — the one write path.
+//   commit('Entry deleted', d => { d.entries = d.entries.filter(...) }, { touch: ['entries'] })
+// does, in this order: snapshot → mutate (all-or-nothing: if it throws, everything is rolled back) → save → re-render
+// (scroll position kept) → toast with Undo. Undo reverses exactly WHAT THE CHANGE DID — records added / removed / changed
+// (matched by id) — not the whole collection, so something you added in the meantime survives an Undo. An item that was
+// changed again since is left alone, and the toast says so.
+//   touch   — the top-level DATA keys the change may modify (default: all). Be precise: it is what Undo can reverse.
+//   toast   — message (default: label) · a function of mutate's return value that may return null for "no toast" · null
+//   undo    — false = no Undo button      restored — message shown after Undo
+//   render  — false, or your own function (default: preserveScroll(render))
+// The pure parts (diffKey / applyUndo / commitCore) take their side effects as arguments so the smoke test can run
+// them without saving anything.
+// ══════════════════════════════════════════
+const _clone = v => v === undefined ? undefined : structuredClone(v);
+const _json  = v => JSON.stringify(v);
+const _isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const _isRecList  = v => Array.isArray(v) && v.every(r => r && typeof r === 'object' && typeof r.id === 'string');
+
+// before / after → list of inverse operations (empty = nothing changed)
+function diffKey(k, before, after) {
+  const ops = [];
+  if (_isRecList(before) && _isRecList(after)) {                       // a list of records with ids: entries, fuel, tires …
+    const was = new Map(before.map((r, i) => [r.id, { r, i }])), now = new Map(after.map(r => [r.id, r]));
+    was.forEach(({ r, i }, id) => {
+      if (!now.has(id)) ops.push({ t: 'restore', k, id, rec: _clone(r), at: i });
+      else if (_json(r) !== _json(now.get(id))) ops.push({ t: 'revert', k, id, rec: _clone(r), afterJson: _json(now.get(id)) });
+    });
+    now.forEach((r, id) => { if (!was.has(id)) ops.push({ t: 'unadd', k, id, afterJson: _json(r) }); });
+  } else if (_isPlainObj(before) && _isPlainObj(after)) {              // a map: incomes by month …
+    new Set([...Object.keys(before), ...Object.keys(after)]).forEach(sub => {
+      const inB = sub in before, inA = sub in after;
+      if (inB && inA && _json(before[sub]) === _json(after[sub])) return;
+      ops.push({ t: 'sub', k, sub, had: inB, val: _clone(before[sub]), afterHad: inA, afterJson: inA ? _json(after[sub]) : null });
+    });
+  } else if (_json(before) !== _json(after)) {                         // anything else: one value
+    ops.push({ t: 'value', k, had: before !== undefined, val: _clone(before), afterJson: _json(after) });
+  }
+  return ops;
+}
+
+// Applies the inverse operations to `data`. Returns how many items could NOT be restored because they changed since.
+function applyUndo(data, ops) {
+  let conflicts = 0;
+  const order = { unadd: 0, revert: 1, sub: 1, value: 1, restore: 2 };   // remove added items first so restore positions stay accurate
+  [...ops].sort((a, b) => order[a.t] - order[b.t] || (a.at || 0) - (b.at || 0)).forEach(op => {
+    const cur = data[op.k];
+    if (op.t === 'unadd') {
+      const i = Array.isArray(cur) ? cur.findIndex(r => r.id === op.id) : -1;
+      if (i < 0) return;                                                // already gone
+      if (_json(cur[i]) !== op.afterJson) { conflicts++; return; }
+      cur.splice(i, 1);
+    } else if (op.t === 'revert') {
+      const r = Array.isArray(cur) ? cur.find(x => x.id === op.id) : null;
+      if (!r || _json(r) !== op.afterJson) { conflicts++; return; }
+      Object.keys(r).forEach(key => delete r[key]); Object.assign(r, _clone(op.rec));
+    } else if (op.t === 'restore') {
+      if (!Array.isArray(cur) || cur.some(r => r.id === op.id)) { conflicts++; return; }
+      cur.splice(Math.min(op.at, cur.length), 0, _clone(op.rec));
+    } else if (op.t === 'sub') {
+      if (!_isPlainObj(cur)) { conflicts++; return; }
+      const same = op.afterHad ? (op.sub in cur && _json(cur[op.sub]) === op.afterJson) : !(op.sub in cur);
+      if (!same) { conflicts++; return; }
+      if (op.had) cur[op.sub] = _clone(op.val); else delete cur[op.sub];
+    } else if (op.t === 'value') {
+      if (_json(cur) !== op.afterJson) { conflicts++; return; }
+      if (op.had) data[op.k] = _clone(op.val); else delete data[op.k];
+    }
+  });
+  return conflicts;
+}
+
+// The whole commit, with its side effects passed in. `getData` is read again at Undo time (the vault may have been re-opened).
+function commitCore(getData, label, mutate, o, io) {
+  const data = getData(), keys = o.touch || Object.keys(data);
+  const before = {}; keys.forEach(k => { before[k] = _clone(data[k]); });
+  let result;
+  try { result = mutate(data); }
+  catch (e) { keys.forEach(k => { if (before[k] === undefined) delete data[k]; else data[k] = before[k]; }); throw e; }   // all or nothing
+  const ops = keys.flatMap(k => diffKey(k, before[k], data[k]));
+  if (!ops.length) return { result, changed: false };
+  io.save();
+  if (o.render !== false) io.render(o.render);
+  const msg = typeof o.toast === 'function' ? o.toast(result) : o.toast === undefined ? label : o.toast;
+  if (msg) io.toast(msg, 0, o.undo === false ? null : () => {
+    const d = getData(); if (!d) return;
+    const n = applyUndo(d, ops);
+    io.save(); io.render(o.render);
+    io.toast(n ? `Restored — ${n} item${n > 1 ? 's' : ''} changed since and ${n > 1 ? 'were' : 'was'} left as is` : (o.restored || 'Restored'), n ? 1 : 0);
+  });
+  return { result, changed: true };
+}
+const _realIo = {
+  save:   () => saveLocal(),
+  render: fn => (typeof fn === 'function' ? fn() : preserveScroll(render)),
+  toast:  (m, e, u) => toast(m, e, u),
+};
+function commit(label, mutate, o = {}) { return commitCore(() => DATA, label, mutate, o, _realIo); }
+
+// ══════════════════════════════════════════
+// ACTIONS — delegated event handling for UI generated from strings.
+// Instead of  onclick="doThing(${jsAttr(id)})"  (a quoting trap that has thrown "Unexpected error" more than once)  write
+//   <button data-action="thing" data-id="${esc(id)}">      and register   defineActions({ thing: (el, ev) => doThing(el.dataset.id) })
+// Values travel as ordinary HTML attributes, escaped with esc() — the browser decodes them exactly once, so quotes,
+// apostrophes and angle brackets in user text cannot break out. One listener per event type serves the whole app.
+//   data-action="x"         click  (and Enter / Space on elements with role="button")
+//   data-action-change="x"  change      data-action-input="x"  input
+// Clicks that land inside an <input>/<select>/<textarea> are ignored, so an inline editor never re-triggers its own cell.
+// ══════════════════════════════════════════
+const ACTIONS = Object.create(null);
+function defineActions(map) { Object.assign(ACTIONS, map); }
+function runAction(kind, ev) {
+  const tag = ev && ev.target && ev.target.tagName;
+  if (kind === 'click' && /^(INPUT|SELECT|TEXTAREA)$/.test(tag || '')) return false;
+  const attr = kind === 'click' ? 'data-action' : 'data-action-' + kind;
+  const t = ev && ev.target && ev.target.closest ? ev.target.closest('[' + attr + ']') : null;
+  if (!t) return false;
+  const name = t.getAttribute(attr), fn = ACTIONS[name];
+  if (!fn) { console.warn('No action registered for "' + name + '"'); return false; }
+  fn(t, ev);
+  return true;
+}
+document.addEventListener('click',  ev => runAction('click', ev));
+document.addEventListener('change', ev => runAction('change', ev));
+document.addEventListener('input',  ev => runAction('input', ev));
+document.addEventListener('keydown', ev => {                         // keyboard access for non-button elements marked role="button"
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  if (/^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test((ev.target && ev.target.tagName) || '')) return;
+  const t = ev.target && ev.target.closest ? ev.target.closest('[data-action][role="button"]') : null;
+  const fn = t && ACTIONS[t.getAttribute('data-action')];
+  if (fn) { ev.preventDefault(); fn(t, ev); }
+});
+
+// ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
 let PAT=null, PASS=null, CFG={}, DATA=null, SALT=null, VIEW='dash';
@@ -4706,6 +4860,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderInsights(); } catch (e) { console.error('Insights failed:', e); }   // a bug here must never break the Overview
 
   // Expensive cross-month renders — skip if entry count + account balances haven't changed
   const _dashKey = `${DATA.entries.length}|${DATA.accounts.map(a=>a.id+a.balance).join(',')}|${DATA.stocks.length}|${DATA.fxAccounts?.length}`;
@@ -6049,26 +6204,14 @@ function finishEntryDeletion(id, alsoFuel) {
     const entry = DATA.entries.find(e => e.id === id);
     if (!entry) return;
     const fuelRec = alsoFuel ? findFuelForEntry(entry) : null;
-    if (fuelRec) DATA.fuel = DATA.fuel.filter(f => f.id !== fuelRec.id);
-    const idx = DATA.entries.indexOf(entry);
-    // Deleting the mirrored Overview-income entry directly: also clear
-    // DATA.incomes for that month so the Overview's income field doesn't
-    // keep showing a value/formula for an income that no longer exists
-    // anywhere — the entry and the Overview field are meant to agree.
-    let clearedIncomeMonth = null, clearedIncomeRecord = null;
-    if (entry.isSalaryMirror) {
-      clearedIncomeMonth = id.slice('baseinc-'.length);
-      clearedIncomeRecord = DATA.incomes[clearedIncomeMonth];
-      delete DATA.incomes[clearedIncomeMonth];
-    }
-    DATA.entries = DATA.entries.filter(e => e.id !== id);
-    saveLocal(); render();
-    toast(fuelRec ? 'Expense and refuel deleted' : 'Entry deleted', 0, () => {
-      DATA.entries.splice(idx, 0, entry);
-      if (fuelRec) { DATA.fuel.push(fuelRec); DATA.fuel.sort((a, b) => a.date.localeCompare(b.date)); }
-      if (clearedIncomeMonth && clearedIncomeRecord) DATA.incomes[clearedIncomeMonth] = clearedIncomeRecord;
-      saveLocal(); render(); toast('Entry restored');
-    });
+    commit(fuelRec ? 'Expense and refuel deleted' : 'Entry deleted', d => {
+      if (fuelRec) d.fuel = d.fuel.filter(f => f.id !== fuelRec.id);
+      // Deleting the mirrored Overview-income entry directly: also clear DATA.incomes for that month so the
+      // Overview's income field doesn't keep showing a value/formula for an income that no longer exists
+      // anywhere — the entry and the Overview field are meant to agree.
+      if (entry.isSalaryMirror) delete d.incomes[id.slice('baseinc-'.length)];
+      d.entries = d.entries.filter(e => e.id !== id);
+    }, { touch: ['entries', 'fuel', 'incomes'], restored: 'Entry restored' });
   } catch(e) { toast(e.message || 'Failed to delete entry.', 1); }
 }
 
@@ -7624,6 +7767,152 @@ function closeMonthReport() {
   if (_reportPrevTitle !== null) { document.title = _reportPrevTitle; _reportPrevTitle = null; }
 }
 function printMonthReport() { window.print(); }
+
+// ══════════════════════════════════════════
+// INSIGHTS — plain rules over the data you already have; no AI involved in the numbers.
+// computeInsights(data, month, today) is PURE: it reads only its arguments, so the smoke test can feed it any vault.
+// Every rule stays quiet unless there is enough history to compare with (a wrong alarm is worse than silence).
+//   no-income · pace (expected month end vs income) · bucket vs your usual · price change of a regular charge ·
+//   savings-rate trend · unusually large purchase · fuel price per litre
+// The optional "Explain with AI" sends ONLY the sentences produced here (see insightsForAI) — never transactions.
+// ══════════════════════════════════════════
+const _INS_MAX = 6;
+const _insNorm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const _insMonthsBefore = (month, n) => { const [y, m] = month.split('-').map(Number); return Array.from({ length: n }, (_, i) => { const d = new Date(y, m - 2 - i, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }); };
+const _insDim = month => { const [y, m] = month.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+
+// What was allocated in `month` up to and including `day` (needs / wants / savings), the Overview's way of counting.
+function _insAgg(entries, month, day) {
+  const act = { needs: 0, wants: 0, savings: 0 }; let n = 0;
+  entries.forEach(e => {
+    if (ym(e.date) !== month || +String(e.date).slice(8, 10) > day) return;
+    n++;
+    if (e.type === 'expense' && e.category in act) act[e.category] += e.amount;
+    if (e.type === 'savings') act.savings += e.amount;
+  });
+  return { act, allocated: act.needs + act.wants + act.savings, n };
+}
+// The Overview's budget baseline: the salary alone, else extra income, else the planned income.
+function _insIncome(data, month) {
+  const base = (data.incomes && data.incomes[month] && data.incomes[month].amount) || 0;
+  const add = extraIncomeSum(data.entries.filter(e => ym(e.date) === month));
+  return base > 0 ? base : (add || (data.plannedIncome && data.plannedIncome[month]) || 0);
+}
+const _insPct = (a, b) => Math.round((a - b) / b * 100);
+
+function computeInsights(data, month, today) {
+  const entries = (data && data.entries) || [];
+  const thisMonth = today.slice(0, 7);
+  if (month > thisMonth) return [];                                      // nothing to say about the future
+  const isCur = month === thisMonth, dim = _insDim(month), day = isCur ? +today.slice(8, 10) : dim;
+  const cur = _insAgg(entries, month, day), income = _insIncome(data, month), out = [];
+  const priors = _insMonthsBefore(month, 3).filter(m => _insAgg(entries, m, 31).n > 0);   // earlier months that have data (up to 3)
+  const add = i => out.push(i);
+
+  // 1) no income → every budget figure is empty
+  if (cur.n > 0 && income === 0) add({ id: 'no-income', level: 'warn', icon: '⚠️', impact: 1e9, title: 'No income set for this month',
+    text: `There are entries in ${month} but no income, so the budget figures stay empty. Enter it at the top of the Overview.`, facts: { month, entries: cur.n } });
+
+  // 2) pace: where the month is heading, judged against what your earlier months looked like by the same day
+  if (isCur && day >= 8 && income > 0 && priors.length >= 2) {
+    const byDay = priors.map(m => _insAgg(entries, m, day).allocated), full = priors.map(m => _insAgg(entries, m, 31).allocated);
+    const avgByDay = byDay.reduce((a, b) => a + b, 0) / priors.length, avgFull = full.reduce((a, b) => a + b, 0) / priors.length;
+    const expectedEnd = cur.allocated + Math.max(0, avgFull - avgByDay);   // so far + what usually still comes
+    const gap = expectedEnd - income, ahead = cur.allocated - avgByDay;
+    const facts = { month, day, allocatedSoFar: Math.round(cur.allocated), usualByNow: Math.round(avgByDay), expectedMonthEnd: Math.round(expectedEnd), income: Math.round(income) };
+    if (gap > 0) add({ id: 'pace-over', level: 'warn', icon: '📈', impact: gap, title: 'On course to overspend',
+      text: `So far you have allocated ${fmt(cur.allocated)} (${ahead >= 0 ? fmt(ahead) + ' more' : fmt(-ahead) + ' less'} than usual by day ${day}). If the rest of the month looks like your last ${priors.length}, you end near ${fmt(expectedEnd)} against ${fmt(income)} income — about ${fmt(gap)} over.`, facts });
+    else if (-gap >= income * 0.1) add({ id: 'pace-ok', level: 'good', icon: '✅', impact: -gap, title: 'On track',
+      text: `If the rest of the month looks like your last ${priors.length}, you finish near ${fmt(expectedEnd)} of ${fmt(income)} income — about ${fmt(-gap)} unallocated.`, facts });
+  }
+
+  // 3) a bucket well above / below your usual (a finished month, or this month judged by the same day)
+  if (priors.length >= 2 && (!isCur || day >= 10)) {
+    const label = { needs: 'Needs', wants: 'Wants', savings: 'Savings' }, when = isCur ? ` by day ${day}` : '';
+    ['needs', 'wants', 'savings'].forEach(k => {
+      const avg = priors.map(m => _insAgg(entries, m, day).act[k]).reduce((a, b) => a + b, 0) / priors.length, v = cur.act[k], diff = v - avg;
+      if (avg < 1 || Math.abs(diff) < 50 || Math.abs(v - avg) / avg < 0.2) return;
+      const up = diff > 0, good = k === 'savings' ? up : !up;
+      add({ id: 'bucket-' + k, level: good ? 'good' : 'warn', icon: good ? '👍' : '👀', impact: Math.abs(diff), title: `${label[k]} ${up ? 'above' : 'below'} your usual`,
+        text: `${label[k]}${when}: ${fmt(v)} — ${Math.abs(_insPct(v, avg))}% ${up ? 'more' : 'less'} than your ${priors.length}-month average of ${fmt(avg)}.`, facts: { bucket: k, month, value: Math.round(v), average: Math.round(avg), months: priors.length } });
+    });
+  }
+
+  // 4) a regular charge changed price: the last three months in a row, the first two equal, this month different
+  const prev3 = _insMonthsBefore(month, 2);                                  // [month-1, month-2]
+  const seen = {}; entries.forEach(e => { if (e.type === 'expense' && ym(e.date) && [month, ...prev3].includes(ym(e.date)) && _insNorm(e.desc).length >= 3) (seen[_insNorm(e.desc)] = seen[_insNorm(e.desc)] || []).push(e); });
+  Object.values(seen).forEach(list => {
+    const byM = {}; list.forEach(e => (byM[ym(e.date)] = byM[ym(e.date)] || []).push(e));
+    if ([month, ...prev3].some(m => !byM[m] || byM[m].length !== 1)) return;       // exactly one charge in each of the three months
+    const [a, b, c] = [byM[month][0].amount, byM[prev3[0]][0].amount, byM[prev3[1]][0].amount];
+    if (Math.abs(b - c) > Math.max(0.01, c * 0.01)) return;                           // the earlier two must be steady
+    const diff = a - b; if (Math.abs(diff) < 0.5 || Math.abs(diff) / b < 0.03) return;
+    const name = byM[month][0].desc.trim();
+    add({ id: 'price-' + _insNorm(name), level: diff > 0 ? 'warn' : 'good', icon: diff > 0 ? '🏷️' : '💚', impact: Math.abs(diff) * 12, title: `${name} ${diff > 0 ? 'got more expensive' : 'got cheaper'}`,
+      text: `${name}: ${fmt(b)} → ${fmt(a)} (${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff))} a month, about ${fmt(Math.abs(diff) * 12)} a year).`, facts: { name, before: b, after: a, month } });
+  });
+
+  // 5) savings-rate trend (finished months only: a running month has not had its full income-vs-spending yet)
+  if (!isCur && income > 0 && cur.n > 0) {
+    const rate = m => { const i = _insIncome(data, m), a = _insAgg(entries, m, 31).allocated; return i > 0 ? (i - a) / i * 100 : null; };
+    const prior = priors.map(rate).filter(r => r !== null);
+    if (prior.length >= 2) {
+      const avg = prior.reduce((a, b) => a + b, 0) / prior.length, now = rate(month), d = now - avg;
+      if (Math.abs(d) >= 10) add({ id: 'rate-trend', level: d > 0 ? 'good' : 'warn', icon: d > 0 ? '📊' : '📉', impact: Math.abs(d) * income / 100, title: `Savings rate ${d > 0 ? 'up' : 'down'}`,
+        text: `You kept ${Math.round(now)}% of your income this month, ${Math.abs(Math.round(d))} points ${d > 0 ? 'above' : 'below'} your ${prior.length}-month average of ${Math.round(avg)}%.`, facts: { month, ratePct: Math.round(now), averagePct: Math.round(avg) } });
+    }
+  }
+
+  // 6) one purchase that stands out
+  const spend = entries.filter(e => e.type === 'expense' && ym(e.date) === month && e.amount > 0 && +String(e.date).slice(8, 10) <= day).sort((a, b) => a.amount - b.amount);
+  if (spend.length >= 8) {
+    const biggest = spend[spend.length - 1], median = spend[Math.floor(spend.length / 2)].amount;
+    if (biggest.amount >= 100 && biggest.amount >= median * 5 && (income === 0 || biggest.amount >= income * 0.1)) add({ id: 'big-purchase', level: 'info', icon: '🧾', impact: biggest.amount / 4, title: 'Largest purchase',
+      text: `${biggest.desc || 'An expense'} (${biggest.date}) at ${fmt(biggest.amount)}${income > 0 ? ` is ${Math.round(biggest.amount / income * 100)}% of the month's income` : ''} — about ${Math.round(biggest.amount / median)}× your typical purchase.`, facts: { amount: biggest.amount, date: biggest.date, typical: Math.round(median) } });
+  }
+
+  // 7) fuel price per litre vs the month before
+  const ppl = m => { const f = (data.fuel || []).filter(r => ym(r.date) === m && r.liters > 0); const l = f.reduce((a, r) => a + r.liters, 0); return f.length ? f.reduce((a, r) => a + (r.total || 0), 0) / l : null; };
+  const pm = _insMonthsBefore(month, 1)[0], pNow = ppl(month), pPrev = ppl(pm);
+  if (pNow && pPrev && Math.abs(pNow - pPrev) / pPrev >= 0.05) add({ id: 'fuel-ppl', level: 'info', icon: '⛽', impact: Math.abs(pNow - pPrev) * 40, title: `Fuel ${pNow > pPrev ? 'cost more' : 'cost less'} per litre`,
+    text: `Average ${pNow.toFixed(3)} €/L this month against ${pPrev.toFixed(3)} €/L in ${pm} (${pNow > pPrev ? '+' : '−'}${Math.abs(_insPct(pNow, pPrev))}%).`, facts: { month, perLitre: +pNow.toFixed(3), previous: +pPrev.toFixed(3) } });
+
+  const rank = { warn: 0, good: 1, info: 2 };
+  return out.sort((a, b) => rank[a.level] - rank[b.level] || b.impact - a.impact).slice(0, _INS_MAX);
+}
+
+// Only the findings go to the AI: titles, sentences and the numbers behind them. No descriptions of transactions, no entry list.
+function insightsForAI(list, month) {
+  return `Findings computed by a budgeting app for ${month} (all numbers are exact):\n` +
+    list.map(i => `- [${i.level}] ${i.title}: ${i.text}`).join('\n');
+}
+
+// ── Card on the Overview ─────────────────────────────────────────────────────
+let _lastInsights = [];
+function renderInsights() {
+  const box = el('insights-list'); if (!box) return;
+  _lastInsights = computeInsights(DATA, curMonth(), ymd());
+  box.innerHTML = _lastInsights.length
+    ? _lastInsights.map(i => `<div class="ins ins-${esc(i.level)}"><span class="ins-ic" aria-hidden="true">${i.icon}</span><div><div class="ins-t">${esc(i.title)}</div><div class="ins-x">${esc(i.text)}</div></div></div>`).join('')
+    : '<div class="ins-none">Nothing notable — or not enough history yet. Insights compare this month with your earlier months, so they appear once two or three months are filled in.</div>';
+  const ai = el('insights-ai-row'); if (ai) ai.style.display = _lastInsights.length ? 'flex' : 'none';
+  const out = el('insights-ai-out'); if (out) { out.style.display = 'none'; out.textContent = ''; }
+}
+async function explainInsights() {
+  const out = el('insights-ai-out'), btn = el('insights-ai-btn');
+  const show = (txt, isErr) => { if (out) { out.style.display = 'block'; out.style.color = isErr ? 'var(--Rm)' : ''; out.textContent = txt; } };
+  if (!_lastInsights.length) return;
+  const apiKey = el('ai-apikey')?.value?.trim(), model = el('ai-model')?.value?.trim() || DATA.aiModel || AI_MODEL_DEFAULT;
+  if (!apiKey) return show('Add your Anthropic API key first: Wealth → AI assistant. It is kept only in this tab and is not saved or synced.', true);
+  if (btn) btn.disabled = true; show('Thinking…', false);
+  try {
+    const text = await aiComplete({ apiKey, model, maxTokens: 700,
+      system: 'You are a calm personal-finance coach for a user in Austria (amounts in €). You get findings an app computed from their budget; the numbers are exact. In plain language: (1) say what stands out in two or three sentences; (2) for each warning, suggest ONE concrete thing to check or do; (3) never invent numbers, merchants or facts beyond the findings, and say so if the history looks too short to judge. Under 170 words, no headings.',
+      user: insightsForAI(_lastInsights, curMonth()) });
+    show(text, false);
+  } catch (e) { show('⚠ ' + (e.message || 'AI request failed'), true); }
+  finally { if (btn) btn.disabled = false; }
+}
 
 // ══════════════════════════════════════════
 // SAVINGS STREAK
@@ -11927,24 +12216,23 @@ function applyFuelEdit(rec, field, rawVal) {
 }
 
 function updateFuelRecord(id, field, rawVal) {
-  const rec = DATA.fuel.find(f => f.id === id);
-  if (!rec) return;
-  // Find the linked expense BEFORE the edit: the pre-fuelId fallback matches on the
-  // refuel's old date + total, which the edit is about to change.
-  const entry = findFuelEntry(rec);
-  const recBefore = { ...rec }, entryBefore = entry ? { ...entry } : null;
-  const err = applyFuelEdit(rec, field, rawVal);
-  if (err) { toast(err, 1); preserveScroll(renderFuel); return; }
-  const changed = entry ? syncFuelEntry(rec, recBefore, entry) : [];
-  saveLocal();
-  preserveScroll(renderFuel);
-  if (changed.length) {
-    toast(`Refuel saved · its expense in Entries updated (${changed.join(', ')})`, 0, () => {
-      const restore = (obj, snap) => { Object.keys(obj).forEach(k => delete obj[k]); Object.assign(obj, snap); };
-      restore(rec, recBefore); restore(entry, entryBefore);
-      saveLocal(); render(); toast('Restored');
-    });
-  }
+  if (!(DATA.fuel || []).some(f => f.id === id)) return;
+  let err = null;
+  const res = commit('Refuel saved', d => {
+    const rec = d.fuel.find(f => f.id === id);
+    // Find the linked expense BEFORE the edit: the pre-fuelId fallback matches on the
+    // refuel's old date + total, which the edit is about to change.
+    const entry = findFuelEntry(rec), recBefore = { ...rec };
+    err = applyFuelEdit(rec, field, rawVal);
+    return { changed: !err && entry ? syncFuelEntry(rec, recBefore, entry) : [] };
+  }, {
+    touch: ['fuel', 'entries'],
+    render: () => preserveScroll(renderFuel),
+    toast: r => r.changed.length ? `Refuel saved · its expense in Entries updated (${r.changed.join(', ')})` : null,   // a plain edit needs no toast
+  });
+  // Nothing changed (same value, or unreadable input): still redraw, or the inline editor would stay on screen.
+  if (err || !res.changed) preserveScroll(renderFuel);
+  if (err) toast(err, 1);
 }
 
 function makeFuelCellEditable(td, id, field, currentVal, opts={}) {
@@ -12756,6 +13044,29 @@ function saveAiModel(v) {
   saveLocal();
 }
 
+// One place that talks to the API (used by the assistant and by "Explain with AI" on the Overview).
+// Bring-your-own-key, direct from the browser — Anthropic's documented pattern for client-side apps (no server-side
+// proxy needed), enabled via the anthropic-dangerous-direct-browser-access header. The key lives only in the input
+// field for the current tab; it is never written to DATA, localStorage, or synced to GitHub.
+async function aiComplete({ apiKey, model, system, user, maxTokens = 1000, fetchFn = fetch }) {
+  const resp = await fetchFn('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(()=>({}));
+    throw new Error(err?.error?.message || `API error ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.content?.find(b=>b.type==='text')?.text || '(no response)';
+}
+
 async function askVaultAI(question) {
   if (!question?.trim()) return;
   const loadEl = el('ai-loading');
@@ -12787,35 +13098,14 @@ async function askVaultAI(question) {
     // enabled via the anthropic-dangerous-direct-browser-access header. The
     // key lives only in this input field for the current tab; it is never
     // written to DATA, localStorage, or synced to GitHub.
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1000,
-        system: `You are a personal finance advisor analysing a user's encrypted ${APP_NAME} ${APP_VERSION} data.
+    const text = await aiComplete({
+      apiKey, model, maxTokens: 1000,
+      system: `You are a personal finance advisor analysing a user's encrypted ${APP_NAME} ${APP_VERSION} data.
 The user is from Austria. Use € for currency. Be specific with numbers from the data.
 Be concise, actionable, and honest. Format with clear sections if needed.
 Do not make up numbers — only reference figures present in the data.`,
-        messages: [{
-          role: 'user',
-          content: `Here is my financial data:\n\n${context}\n\n---\n\nQuestion: ${question.trim()}`
-        }]
-      })
+      user: `Here is my financial data:\n\n${context}\n\n---\n\nQuestion: ${question.trim()}`,
     });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err?.error?.message || `API error ${resp.status}`);
-    }
-
-    const data = await resp.json();
-    const text = data.content?.find(b=>b.type==='text')?.text || '(no response)';
 
     if (respEl) {
       respEl.style.display = 'block';
@@ -13817,16 +14107,8 @@ function confirmFuelDelete(alsoEntry) {
 function finishFuelRemoval(id, alsoEntry) {
   const rec = (DATA.fuel || []).find(x => x.id === id);
   if (!rec) return;
-  const entryBefore = alsoEntry ? findFuelEntry(rec) : null;
-  const entryIdx = entryBefore ? DATA.entries.indexOf(entryBefore) : -1;
-  const { record, entry } = removeFuelRecord(id, alsoEntry);
-  saveLocal(); render();
-  toast(entry ? 'Refuel and expense removed' : 'Refuel removed', 0, () => {
-    DATA.fuel.push(record);
-    DATA.fuel.sort((a, b) => a.date.localeCompare(b.date));
-    if (entry) DATA.entries.splice(Math.min(Math.max(entryIdx, 0), DATA.entries.length), 0, entry);
-    saveLocal(); render(); toast('Restored');
-  });
+  const withEntry = !!(alsoEntry && findFuelEntry(rec));
+  commit(withEntry ? 'Refuel and expense removed' : 'Refuel removed', () => { removeFuelRecord(id, alsoEntry); }, { touch: ['fuel', 'entries'] });
 }
 
 // ── Phone layout: one card per refuel ────────────────────────────────────────
@@ -13834,9 +14116,10 @@ function finishFuelRemoval(id, alsoEntry) {
 // (double-click is unreliable on touch screens). `f` is a refuel row with kmSince / lPer100 /
 // costPerKm already computed by renderFuel. All values go through esc() / jsAttr().
 function fuelCardHtml(f, showHybrid) {
-  const open = (field, cur, opts) => `makeFuelCellEditable(this,${jsAttr(f.id)},${jsAttr(field)},${jsAttr(cur)},${jsAttr(opts)})`;
+  // No inline handlers: everything the click needs travels as escaped data-* attributes (see core/actions.js).
+  const edit = (field, cur, opts) => `data-action="fuel-edit" data-id="${esc(f.id)}" data-field="${field}" data-cur="${esc(cur)}" data-opts="${esc(JSON.stringify(opts))}"`;
   const val  = (field, cur, opts, body, what) =>
-    `<span class="fc-val" role="button" tabindex="0" title="Tap to edit${what ? ' · ' + what : ''}" onclick="${open(field, cur, opts)}">${body}</span>`;
+    `<span class="fc-val" role="button" tabindex="0" title="Tap to edit${what ? ' · ' + what : ''}" ${edit(field, cur, opts)}>${body}</span>`;
   const hint = '<span style="color:var(--ink3)">+ add</span>';
   const FILL_BADGES = { full:'⛽', partial:'◑', brim:'⬆' }, FILL_TITLES = { full:'Full tank', partial:'Partial fill', brim:'Brim (overfill)' };
   const fillType = f.fillType || (f.fullTank === false ? 'partial' : 'full');
@@ -13847,9 +14130,9 @@ function fuelCardHtml(f, showHybrid) {
   return `<div class="fuel-card">
     <div class="fc-head">
       ${val('date', f.date, { type:'date', width:'130px' }, esc(f.date)).replace('class="fc-val"', 'class="fc-val fc-date"')}
-      <span class="fuel-type-badge ${esc(f.type)} fc-pill" role="button" tabindex="0" title="Tap to change fuel type" onclick="${open('type', f.type, typeOpts)}">${esc(FUEL_LABELS[f.type] || f.type)}</span>
-      <span class="fc-fill" role="button" tabindex="0" title="${esc(FILL_TITLES[fillType] || '')} — tap to toggle full / partial" onclick="updateFuelRecord(${jsAttr(f.id)},'fullTank',${f.fullTank === false ? 'true' : 'false'})">${FILL_BADGES[fillType] || '⛽'}</span>
-      <button class="btn xs danger fc-del" title="Remove this refuel" aria-label="Remove refuel" onclick="deleteFuel(${jsAttr(f.id)})">✕</button>
+      <span class="fuel-type-badge ${esc(f.type)} fc-pill" role="button" tabindex="0" title="Tap to change fuel type" ${edit('type', f.type, typeOpts)}>${esc(FUEL_LABELS[f.type] || f.type)}</span>
+      <span class="fc-fill" role="button" tabindex="0" title="${esc(FILL_TITLES[fillType] || '')} — tap to toggle full / partial" data-action="fuel-toggle-full" data-id="${esc(f.id)}" data-to="${f.fullTank === false ? 'true' : 'false'}">${FILL_BADGES[fillType] || '⛽'}</span>
+      <button class="btn xs danger fc-del" title="Remove this refuel" aria-label="Remove refuel" data-action="fuel-delete" data-id="${esc(f.id)}">✕</button>
     </div>
     <div class="fc-main">
       ${val('total', f.total, { type:'number', step:'0.01', min:'0', width:'90px' }, '−' + fmt(f.total), 'recalculates €/L').replace('class="fc-val"', 'class="fc-val fc-total amt-n"')}
@@ -13874,6 +14157,12 @@ function renderFuelCards(rows) {
   const showHybrid = (DATA.fuel || []).some(r => r.evMinutes > 0 || r.fuelSaved > 0);   // EV cells only for a car that uses them
   box.innerHTML = '<div class="fc-hint">Tap any underlined value to edit it.</div>' + rows.map(f => fuelCardHtml(f, showHybrid)).join('');
 }
+
+defineActions({
+  'fuel-edit':        t => makeFuelCellEditable(t, t.dataset.id, t.dataset.field, t.dataset.cur, JSON.parse(t.dataset.opts || '{}')),
+  'fuel-toggle-full': t => updateFuelRecord(t.dataset.id, 'fullTank', t.dataset.to === 'true'),
+  'fuel-delete':      t => deleteFuel(t.dataset.id),
+});
 
 // ── Main render ───────────────────────────────────────────────────────────────
 function renderFuel() {
@@ -15370,6 +15659,135 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Insights engine ──
+    const _e = (id, date, amount, category = 'needs', extra = {}) => ({ id, date, desc: extra.desc || 'x' + id, amount, type: extra.type || 'expense', category, tags: [], ...extra });
+    const _mkIns = (entries, incomes, fuel) => ({ entries, incomes: incomes || {}, fuel: fuel || [], plannedIncome: {} });
+    const _priorMonths = ['2026-07', '2026-08', '2026-09'];
+    const _history = (n = 0) => _priorMonths.flatMap((m, i) => [_e('h' + i + 'a' + n, m + '-01', 1000), _e('h' + i + 'b' + n, m + '-10', 500), _e('h' + i + 'c' + n, m + '-25', 700)]);   // 1500 by day 20, 2200 in the month
+    const _inc = { '2026-07': { amount: 3000 }, '2026-08': { amount: 3000 }, '2026-09': { amount: 3000 }, '2026-10': { amount: 3000 } };
+    const _ids = list => list.map(i => i.id).join();
+    test('insights: pace — expected month end is judged against what earlier months looked like by the same day', () => {
+      const over = computeInsights(_mkIns([..._history(), _e('c1', '2026-10-01', 1000), _e('c2', '2026-10-10', 500), _e('c3', '2026-10-15', 1000)], _inc), '2026-10', '2026-10-20');
+      const p = over.find(i => i.id === 'pace-over');
+      expectTrue(!!p, 'overspend flagged'); expect(p.facts.expectedMonthEnd, 3200, '2500 so far + the 700 that usually still comes'); expect(p.level, 'warn', 'level');
+      const ok = computeInsights(_mkIns([..._history(), _e('c1', '2026-10-01', 1000), _e('c2', '2026-10-10', 400)], _inc), '2026-10', '2026-10-20').find(i => i.id === 'pace-ok');
+      expectTrue(!!ok && ok.level === 'good', 'comfortable month reported as on track');
+    });
+    test('insights: nothing is claimed without enough history, for the future, or too early in the month', () => {
+      const one = _mkIns([_e('a', '2026-09-01', 2000), _e('b', '2026-10-01', 2500)], _inc);
+      expect(computeInsights(one, '2026-10', '2026-10-20').length, 0, 'one earlier month is not a pattern');
+      expect(computeInsights(_mkIns(_history(), _inc), '2026-12', '2026-10-20').length, 0, 'future month');
+      const early = computeInsights(_mkIns([..._history(), _e('c1', '2026-10-01', 2900)], _inc), '2026-10', '2026-10-05');
+      expectTrue(!early.some(i => i.id.startsWith('pace') || i.id.startsWith('bucket')), 'day 5: too early to judge pace or buckets');
+    });
+    test('insights: a finished month is compared with the 3 before it, per bucket (savings up is good, wants up is a warning)', () => {
+      const base = _history().filter(e => e.date < '2026-09');                                   // Jun-Aug ≈ needs only
+      const prior = ['2026-06', '2026-07', '2026-08'].flatMap((m, i) => [_e('w' + i, m + '-05', 200, 'wants'), _e('s' + i, m + '-06', 300, 'savings', { type: 'savings' })]);
+      const sep = [_e('jn', '2026-06-01', 2200), _e('n', '2026-09-01', 2200), _e('w', '2026-09-05', 400, 'wants'), _e('s', '2026-09-06', 600, 'savings', { type: 'savings' })];
+      const r = computeInsights(_mkIns([...base, ...prior, ...sep], { ..._inc, '2026-06': { amount: 3000 } }), '2026-09', '2026-10-20');
+      expectTrue(r.some(i => i.id === 'bucket-wants' && i.level === 'warn'), 'wants doubled → warn'); expectTrue(r.some(i => i.id === 'bucket-savings' && i.level === 'good'), 'savings doubled → good');
+      expectTrue(!r.some(i => i.id === 'bucket-needs'), 'needs roughly unchanged → silent'); expect(r[0].level, 'warn', 'warnings are listed before good news');
+    });
+    test('insights: a regular charge that changed price — steady, steady, different — and not a variable shop', () => {
+      const nf = [_e('n1', '2026-08-05', 13.99, 'wants', { desc: 'Netflix' }), _e('n2', '2026-09-05', 13.99, 'wants', { desc: 'netflix' }), _e('n3', '2026-10-05', 15.99, 'wants', { desc: 'Netflix' })];
+      const spar = [_e('p1', '2026-08-07', 41, 'needs', { desc: 'Spar' }), _e('p2', '2026-09-07', 63, 'needs', { desc: 'Spar' }), _e('p3', '2026-10-07', 52, 'needs', { desc: 'Spar' })];
+      const r = computeInsights(_mkIns([...nf, ...spar], _inc), '2026-10', '2026-10-20');
+      const p = r.find(i => i.id.startsWith('price-')); expectTrue(!!p && /Netflix/.test(p.title), 'Netflix found'); expect(p.level, 'warn', 'a rise is a warning');
+      expectTrue(/\+/.test(p.text) && /year/.test(p.text), 'states the monthly and yearly effect'); expectTrue(!r.some(i => /spar/i.test(i.id)), 'Spar varies every month → no price alarm');
+      const cheaper = computeInsights(_mkIns([_e('n1', '2026-08-05', 15.99, 'wants', { desc: 'Netflix' }), _e('n2', '2026-09-05', 15.99, 'wants', { desc: 'Netflix' }), _e('n3', '2026-10-05', 12.99, 'wants', { desc: 'Netflix' })], _inc), '2026-10', '2026-10-20');
+      expect(cheaper.find(i => i.id.startsWith('price-')).level, 'good', 'a drop is good news');
+      const twice = computeInsights(_mkIns([...nf, _e('n4', '2026-10-20', 15.99, 'wants', { desc: 'Netflix' })], _inc), '2026-10', '2026-10-25');
+      expectTrue(!twice.some(i => i.id.startsWith('price-')), 'two charges in one month → ambiguous → silent');
+    });
+    test('insights: savings-rate trend of a finished month', () => {
+      const r = computeInsights(_mkIns([..._history().filter(e => e.date < '2026-09'), _e('x1', '2026-09-02', 2400), _e('o1', '2026-06-02', 1500), _e('o2', '2026-05-02', 1500)], { ..._inc, '2026-06': { amount: 3000 }, '2026-05': { amount: 3000 } }), '2026-09', '2026-10-20');
+      const t = r.find(i => i.id === 'rate-trend'); expectTrue(!!t && t.level === 'warn', 'rate fell from ~50% to 20%'); expect(t.facts.ratePct, 20, 'rate'); expectTrue(/below/.test(t.text), 'says below');
+    });
+    test('insights: a purchase that stands out — only when it is big in money AND against the usual', () => {
+      const small = Array.from({ length: 9 }, (_, i) => _e('s' + i, `2026-10-${String(i + 1).padStart(2, '0')}`, 20));
+      const big = computeInsights(_mkIns([...small, _e('b', '2026-10-12', 900, 'wants', { desc: 'Laptop' })], _inc), '2026-10', '2026-10-20').find(i => i.id === 'big-purchase');
+      expectTrue(!!big && /Laptop/.test(big.text) && big.level === 'info', 'laptop flagged'); expectTrue(/30%/.test(big.text), '30% of the income');
+      expectTrue(!computeInsights(_mkIns([...small, _e('b', '2026-10-12', 150, 'wants')], _inc), '2026-10', '2026-10-20').some(i => i.id === 'big-purchase'), '€150 is under 10% of income → silent');
+      expectTrue(!computeInsights(_mkIns(small.slice(0, 5).concat([_e('b', '2026-10-12', 900)]), _inc), '2026-10', '2026-10-20').some(i => i.id === 'big-purchase'), 'too few purchases to know what is typical');
+    });
+    test('insights: fuel price per litre moves ≥5% vs last month; no income set is flagged first', () => {
+      const fuel = [{ id: 'f1', date: '2026-09-04', liters: 40, total: 60 }, { id: 'f2', date: '2026-10-04', liters: 40, total: 64.8 }];
+      const r = computeInsights(_mkIns([_e('a', '2026-10-01', 100)], _inc, fuel), '2026-10', '2026-10-20');
+      expectTrue(r.some(i => i.id === 'fuel-ppl' && /\+8%/.test(i.text)), '1.500 → 1.620 = +8%');
+      const none = computeInsights(_mkIns([_e('a', '2026-10-01', 100)], {}, fuel), '2026-10', '2026-10-20');
+      expect(none[0].id, 'no-income', 'a missing income comes first'); expect(none[0].level, 'warn', 'as a warning');
+    });
+    test('insights: never more than 6, each with the numbers behind it, and the AI text carries findings only', () => {
+      const list = computeInsights(_mkIns([..._history(), _e('c1', '2026-10-01', 1000), _e('c2', '2026-10-10', 500), _e('c3', '2026-10-15', 1000, 'wants', { desc: 'SECRET-SHOP-77' })], _inc), '2026-10', '2026-10-20');
+      expectTrue(list.length >= 1 && list.length <= 6, 'between 1 and 6'); expectTrue(list.every(i => i.facts && i.text && i.title && i.level), 'every insight has facts, text, title, level');
+      const ai = insightsForAI(list, '2026-10'); expectTrue(/2026-10/.test(ai) && /\[warn\]/.test(ai), 'AI text has the month and the findings'); expectTrue(!/SECRET-SHOP-77/.test(ai), 'a transaction description does not leak into the AI text');
+    });
+
+    // ── commit(): snapshot / atomic / undo ──
+    const stubIo = () => { const calls = []; let undo = null; return { calls, get undo() { return undo; },
+      io: { save: () => calls.push('save'), render: () => calls.push('render'), toast: (m, e, u) => { calls.push('toast:' + m + (e ? '!' : '')); undo = u; } } }; };
+    const mkData = () => ({ entries: [{ id:'a', amount:1 }, { id:'b', amount:2 }, { id:'c', amount:3 }], fuel: [{ id:'f1', total:60 }], incomes: { '2026-05': { amount:3000 } }, note: 'x' });
+    test('commit: a deletion is undone to the SAME position', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Deleted', x => { x.entries = x.entries.filter(e => e.id !== 'b'); }, { touch: ['entries'] }, s.io);
+      expect(d.entries.map(e => e.id).join(), 'a,c', 'deleted'); expect(s.calls.join('|'), 'save|render|toast:Deleted', 'save → render → toast');
+      s.undo(); expect(d.entries.map(e => e.id).join(), 'a,b,c', 'back in its place'); expect(d.entries[1].amount, 2, 'with its data');
+    });
+    test('commit: Undo keeps what you added in the meantime (it reverses the change, not the whole list)', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Deleted', x => { x.entries = x.entries.filter(e => e.id !== 'b'); }, { touch: ['entries'] }, s.io);
+      d.entries.push({ id:'new', amount:99 });                         // user keeps working within the 5 s window
+      s.undo();
+      expect(d.entries.map(e => e.id).join(), 'a,b,c,new', 'b is back AND the new entry survived');
+    });
+    test('commit: an item changed again since is left alone, and Undo says so', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Edited', x => { x.entries[0].amount = 10; x.entries = x.entries.filter(e => e.id !== 'c'); }, { touch: ['entries'] }, s.io);
+      d.entries[0].amount = 55;                                        // edited again afterwards
+      s.undo();
+      expect(d.entries[0].amount, 55, 'the newer edit is NOT overwritten'); expect(d.entries.some(e => e.id === 'c'), true, 'the deletion was still undone');
+      expectTrue(/1 item changed since/.test(s.calls[s.calls.length - 1]) && /!$/.test(s.calls[s.calls.length - 1]), 'toast reports the one conflict as a warning');
+    });
+    test('commit: undo of an edit and of an add', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Changed', x => { x.entries[1].amount = 20; x.entries.push({ id:'z', amount:5 }); x.fuel[0].total = 70; }, { touch: ['entries', 'fuel'] }, s.io);
+      s.undo(); expect(d.entries[1].amount, 2, 'edit reverted'); expect(d.entries.length, 3, 'added record removed'); expect(d.fuel[0].total, 60, 'second collection reverted too');
+    });
+    test('commit: map data (incomes by month) — add, change and delete are all reversible', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Income', x => { x.incomes['2026-05'].amount = 3100; x.incomes['2026-06'] = { amount:5 }; }, { touch: ['incomes'] }, s.io);
+      s.undo(); expect(JSON.stringify(d.incomes), '{"2026-05":{"amount":3000}}', 'reverted, new month removed');
+      const s2 = stubIo(); commitCore(() => d, 'Cleared', x => { delete x.incomes['2026-05']; }, { touch: ['incomes'] }, s2.io);
+      expect(Object.keys(d.incomes).length, 0, 'deleted'); s2.undo(); expect(d.incomes['2026-05'].amount, 3000, 'restored');
+    });
+    test('commit: all or nothing — if the change throws, nothing is half-applied, saved or announced', () => {
+      const d = mkData(), s = stubIo(), snap = JSON.stringify(d); let threw = null;
+      try { commitCore(() => d, 'Boom', x => { x.entries.pop(); x.fuel.length = 0; throw new Error('halfway'); }, { touch: ['entries', 'fuel'] }, s.io); } catch (e) { threw = e.message; }
+      expect(threw, 'halfway', 'the error reaches the caller'); expect(JSON.stringify(d), snap, 'data exactly as before'); expect(s.calls.length, 0, 'no save, no render, no toast');
+    });
+    test('commit: a change that changes nothing saves nothing; toast can be suppressed or customised', () => {
+      const d = mkData(), s = stubIo();
+      expect(commitCore(() => d, 'Noop', x => { x.entries[0].amount = 1; }, { touch: ['entries'] }, s.io).changed, false, 'no-op reported'); expect(s.calls.length, 0, 'nothing happened');
+      commitCore(() => d, 'L', x => { x.entries[0].amount = 7; }, { touch: ['entries'], toast: r => r, }, s.io);                      // mutate returned undefined → no toast
+      expect(s.calls.join('|'), 'save|render', 'saved and rendered, no toast');
+      const s2 = stubIo(); commitCore(() => d, 'L', x => { x.entries[0].amount = 8; return 'custom msg'; }, { touch: ['entries'], toast: r => r, undo: false }, s2.io);
+      expect(s2.calls[2], 'toast:custom msg', 'message from the mutate result'); expect(s2.undo, null, 'undo:false → no Undo button');
+    });
+    test('commit: a collection that did not exist, and a key outside "touch"', () => {
+      const d = mkData(), s = stubIo();
+      commitCore(() => d, 'Add', x => { x.tires = [{ id:'t1' }]; x.note = 'changed'; }, { touch: ['tires'] }, s.io);
+      s.undo(); expect('tires' in d, false, 'a collection that did not exist is removed again'); expect(d.note, 'changed', 'untouched key is not Undo\'s business');
+      const s2 = stubIo(); commitCore(() => d, 'V', x => { x.fresh = 5; }, { touch: ['fresh'] }, s2.io); s2.undo(); expect('fresh' in d, false, 'a brand-new plain value is removed again');
+    });
+    test('actions: runAction finds data-action, ignores unknown names and clicks inside inputs', () => {
+      const hits = []; defineActions({ _t: (el) => hits.push(el.dataset.id) });
+      const mk = (name, extra) => ({ target: Object.assign({ closest: () => ({ getAttribute: () => name, dataset: { id: 'x1' } }) }, extra || {}) });
+      expect(runAction('click', mk('_t')), true, 'handled'); expect(hits.join(), 'x1', 'handler got the element and its data');
+      { const w = console.warn; console.warn = () => {}; try { expect(runAction('click', mk('nope')), false, 'unknown action → not handled'); } finally { console.warn = w; } }
+       expect(runAction('click', mk('_t', { tagName: 'INPUT' })), false, 'a click inside an input is ignored');
+      expect(runAction('click', { target: { closest: () => null } }), false, 'no data-action ancestor');
     });
 
     // ── Monthly report ──
