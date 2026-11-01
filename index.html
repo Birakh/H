@@ -1211,6 +1211,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div id="d-banners"></div>
       <div class="stat-grid" id="d-stats"></div>
 
+      <div class="card" id="reminders-card" style="display:none">
+        <div class="card-title">Coming up
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">car &amp; tax dates</span>
+        </div>
+        <div id="reminders-list"></div>
+      </div>
+
       <div class="card" id="insights-card">
         <div class="card-title">Insights
           <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">computed from your data, no AI involved</span>
@@ -2613,6 +2620,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="stat"><div class="stat-lbl">Last odometer</div><div class="stat-val" id="fs-odo">—</div></div>
       </div>
 
+      <div class="card" id="carcost-card">
+        <div class="card-title">True cost per km
+          <select id="carcost-period" onchange="renderCarCost()" style="font-size:12px;padding:2px 6px;width:auto;margin-left:8px;text-transform:none;letter-spacing:0;font-weight:400">
+            <option value="12m">Last 12 months</option><option value="ytd">This year</option><option value="all">All time</option>
+          </select>
+        </div>
+        <div id="carcost-body"></div>
+      </div>
+
       <!-- ── Hybrid / EV assist (only shows once any fill-up logs EV time or fuel saved) ── -->
       <div id="fuel-hybrid-card" style="display:none">
         <div class="card">
@@ -2812,6 +2828,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div id="svc-preview" style="font-size:12px;color:var(--ink2);margin-bottom:12px"></div>
+
+        <!-- Dates for the reminders on the Overview -->
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">📅 Dates for reminders</div>
+        <div class="g2" style="margin-bottom:6px">
+          <div class="fg" style="margin:0"><label>§57a Pickerl due (month on your sticker)</label>
+            <input type="month" id="svc-pickerl"></div>
+          <div class="fg" style="margin:0"><label>Vignette valid until</label>
+            <input type="date" id="svc-vignette"></div>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:12px">The Pickerl month is the one punched into the sticker. The app does not calculate it, because the rules change on 19 May 2027. Insurance renewal is set in the insurance card below.</div>
 
         <!-- Tyres (summer / winter sets) -->
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;margin-top:4px">
@@ -3143,6 +3169,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
   <div id="report-sheet"></div>
 </div>
+
+  <!-- ── Reconcile an account with the bank ── -->
+  <div class="modal-overlay" id="reconcile-overlay" onclick="if(event.target===this)closeReconcile()">
+    <div class="modal-box" style="width:min(520px,100%);max-height:90vh;overflow:auto">
+      <div class="modal-title">Reconcile with your bank</div>
+      <div class="modal-body" style="margin-bottom:10px">Enter the balance your bank shows. The vault compares it with what it has booked up to that date and looks for the usual causes of a difference. Nothing changes unless you press a fix.</div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Account</label><select id="rcn-acct" onchange="el('rcn-result').innerHTML=''"></select></div>
+        <div class="fg" style="margin:0"><label>Balance date</label><input type="date" id="rcn-date"></div>
+      </div>
+      <div class="fg" style="margin:0 0 8px"><label>Balance your bank shows (€)</label><input type="text" inputmode="decimal" id="rcn-bank" placeholder="e.g. 1.234,56" style="font-family:var(--mono)"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px">
+        <button class="btn sm ghost" onclick="closeReconcile()">Close</button>
+        <button class="btn sm primary" onclick="runReconcile()">Check</button>
+      </div>
+      <div id="rcn-result"></div>
+    </div>
+  </div>
 
 <script>
 'use strict';
@@ -4860,6 +4904,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderReminders(); } catch (e) { console.error('Reminders failed:', e); }    // like Insights: must never break the Overview
   try { renderInsights(); } catch (e) { console.error('Insights failed:', e); }   // a bug here must never break the Overview
 
   // Expensive cross-month renders — skip if entry count + account balances haven't changed
@@ -4942,7 +4987,8 @@ function renderAccountCards() {
         <div class="acct-bal ${bal>=0?'cg':'cr'}">${fmt(bal)}</div>
       </div>`;
     }).join('')
-  }</div>`;
+  }</div>
+  <div style="margin:4px 0 10px"><button class="btn xs ghost" data-action="open-reconcile" title="Compare an account with the balance your bank shows">⚖ Reconcile with bank</button></div>`;
 }
 
 function renderDashBanners(month, act, totalInc) {
@@ -7915,6 +7961,124 @@ async function explainInsights() {
 }
 
 // ══════════════════════════════════════════
+// RECONCILE — type the balance your bank shows; the vault compares it with what it has booked up to that date and looks
+// for the usual causes of a difference. reconcileAccount() is PURE (arguments in, result out) so it can be tested on any vault.
+// It never changes anything itself: every fix is a button the user presses (through commit(), so each can be undone).
+// The comparison is "as of a date" because a bank shows only what has posted — computeAcctBalance() counts future-dated entries too.
+// Causes it can point at (each matched to the cent): duplicate entry · very recent payment the bank may not have booked ·
+// entry on no/another account · entry dated just after the balance date · two digits swapped · income/expense flipped ·
+// the only entry of exactly that size. Last resort: adjust the opening balance.
+// ══════════════════════════════════════════
+const _rcnR2 = n => Math.round(n * 100) / 100;
+const _rcnNear = (a, b) => Math.abs(a - b) < 0.005;
+const _rcnNorm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const _rcnDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+// signed effect of an entry on THIS account's balance (0 if it does not touch it)
+function _rcnEffect(e, acctId) {
+  if (e.type === 'transfer') return (e.accountId === acctId ? -e.amount : 0) + (e.accountIdTo === acctId ? e.amount : 0);
+  if (e.accountId !== acctId) return 0;
+  return e.type === 'income' ? e.amount : (e.type === 'expense' || e.type === 'savings') ? -e.amount : 0;
+}
+// the effect an income / expense / savings entry WOULD have if it were booked on this account
+const _rcnAsIf = e => e.type === 'income' ? e.amount : (e.type === 'expense' || e.type === 'savings') ? -e.amount : 0;
+// the same arithmetic as computeAcctBalance(), limited to entries up to and including asOf (null = all)
+function acctBalanceAsOf(acct, entries, asOf) {
+  let delta = 0;
+  entries.forEach(e => { if (!asOf || e.date <= asOf) delta += _rcnEffect(e, acct.id); });
+  return _rcnR2((+acct.balance || 0) + delta);
+}
+// every amount you get by swapping two neighbouring digits of the cents value (54.30 → 45.30, 54.03 …)
+function _rcnSwaps(amount) {
+  const s = String(Math.round(amount * 100)), out = new Set();
+  for (let i = 0; i < s.length - 1; i++) { if (s[i] === s[i + 1]) continue; const t = s.slice(0, i) + s[i + 1] + s[i] + s.slice(i + 2); if (t[0] !== '0') out.add(+t / 100); }
+  return [...out];
+}
+
+function reconcileAccount(acct, entries, bankBalance, asOf, accounts = (typeof DATA !== 'undefined' && DATA ? DATA.accounts : [])) {
+  const app = acctBalanceAsOf(acct, entries, asOf), d = _rcnR2(bankBalance - app);          // d > 0: the bank has MORE than the vault
+  if (Math.abs(d) < 0.005) return { appBalance: app, bankBalance, diff: 0, status: 'match', hint: '', suggestions: [] };
+  const upto = entries.filter(e => !asOf || e.date <= asOf), mine = upto.filter(e => _rcnEffect(e, acct.id) !== 0);
+  const money = n => fmt(Math.abs(n)), label = e => `“${(e.desc || '(no description)').trim()}” (${e.date}, ${money(e.amount)})`;
+  const S = [], add = (rank, s) => S.push({ rank, ...s });
+
+  // an entry whose removal would close the gap: effect === −d
+  mine.forEach((e, idx) => {
+    if (!_rcnNear(_rcnEffect(e, acct.id), -d) || e.type === 'transfer') return;
+    const twin = mine.slice(0, idx).some(o => o.date === e.date && _rcnNear(_rcnEffect(o, acct.id), _rcnEffect(e, acct.id)) && _rcnNorm(o.desc) === _rcnNorm(e.desc));
+    if (twin) add(0, { kind: 'duplicate', entryId: e.id, text: `${label(e)} appears twice — deleting one of them closes the gap.`, action: { type: 'delete', label: 'Delete this one' } });
+    else if (asOf && _rcnDays(e.date, asOf) <= 3) add(1, { kind: 'pending', entryId: e.id, text: `${label(e)} is very recent — if the bank has not booked it yet, that explains the whole difference. Nothing to change; check again once it posts.` });
+    else add(6, { kind: 'extra', entryId: e.id, text: `${label(e)} is the only entry of exactly this size. If it never actually hit this account, removing it closes the gap.`, action: { type: 'delete', label: 'Delete entry' } });
+  });
+  // an entry that is booked on no account / another account but would close the gap here
+  upto.forEach(e => {
+    if (e.type === 'transfer' || e.accountId === acct.id || !_rcnNear(_rcnAsIf(e), d) || _rcnAsIf(e) === 0) return;
+    const other = e.accountId ? (accounts || []).find(a => a.id === e.accountId) : null;
+    add(2, { kind: 'misassigned', entryId: e.id, text: `${label(e)} is ${e.accountId ? 'booked on ' + (other ? '“' + other.name + '”' : 'another account') : 'not assigned to any account'}. Booking it here closes the gap.`, action: { type: 'assign', label: 'Book it on this account' } });
+  });
+  // dated just after the balance date, but would close the gap (the bank may already have posted it)
+  if (asOf) entries.forEach(e => {
+    const k = _rcnDays(asOf, e.date);
+    if (k >= 1 && k <= 7 && _rcnNear(_rcnEffect(e, acct.id), d) && e.type !== 'transfer') add(3, { kind: 'later', entryId: e.id, text: `${label(e)} is dated ${k} day${k > 1 ? 's' : ''} AFTER your balance date. If the bank already posted it, give it an earlier date (or check again with a later balance date).` });
+  });
+  // two neighbouring digits swapped: changing this amount would close the gap
+  mine.forEach(e => {
+    if (e.type === 'transfer') return;
+    const eff = _rcnEffect(e, acct.id), sign = eff < 0 ? -1 : 1;
+    _rcnSwaps(e.amount).forEach(a2 => { if (_rcnNear(sign * (a2 - e.amount), d)) add(4, { kind: 'digits', entryId: e.id, text: `${label(e)} — if two digits were swapped and it should be ${money(a2)}, the difference disappears.`, action: { type: 'amount', amount: a2, label: `Change to ${fmt(a2)}` } }); });
+  });
+  // recorded as income but really an expense (or the other way round): the error is twice the amount
+  mine.forEach(e => {
+    if (e.type !== 'income' && e.type !== 'expense') return;
+    if (_rcnNear(_rcnEffect(e, acct.id), -d / 2)) add(5, { kind: 'flip', entryId: e.id, text: `${label(e)} is booked as ${e.type}. If it is really ${e.type === 'income' ? 'an expense' : 'income'}, the error would be exactly twice its amount — your difference.`, action: { type: 'flip', label: e.type === 'income' ? 'Make it an expense' : 'Make it income' } });
+  });
+
+  const dateOf = id => (entries.find(e => e.id === id) || {}).date || '';
+  const per = {}, picked = S.sort((a, b) => a.rank - b.rank || dateOf(b.entryId).localeCompare(dateOf(a.entryId))).filter(s => (per[s.kind] = (per[s.kind] || 0) + 1) <= 3).slice(0, 8);
+  const hint = d > 0 ? `The bank shows ${money(d)} MORE than the vault: money that came in was not recorded, or an expense was recorded too high.`
+                     : `The vault shows ${money(d)} MORE than the bank: an expense is missing, or an income / transfer was recorded that has not (yet) arrived.`;
+  picked.push({ rank: 99, kind: 'opening', text: `Nothing fits? You can adjust the account's opening balance by ${d > 0 ? '+' : '−'}${money(d)} so the vault matches the bank. Your entries stay untouched.`, action: { type: 'opening', amount: d, label: `Adjust opening balance by ${d > 0 ? '+' : '−'}${money(d)}` } });
+  return { appBalance: app, bankBalance, diff: d, status: 'off', hint, suggestions: picked };
+}
+
+// ── The dialog ───────────────────────────────────────────────────────────────
+let _rcnAcctId = null;
+function openReconcile() {
+  if (!DATA.accounts.length) return toast('Add an account first (Settings → Accounts).', 1);
+  const pick = DATA.accounts.find(a => a.id !== 'cash_default') || DATA.accounts[0];
+  el('rcn-acct').innerHTML = DATA.accounts.map(a => `<option value="${esc(a.id)}"${a.id === pick.id ? ' selected' : ''}>${esc(a.name)}${a.bank ? ' · ' + esc(a.bank) : ''}</option>`).join('');
+  el('rcn-acct').value = pick.id; el('rcn-bank').value = ''; el('rcn-date').value = ymd(); el('rcn-result').innerHTML = '';
+  el('reconcile-overlay').classList.add('open');
+}
+function closeReconcile() { const o = el('reconcile-overlay'); if (o) o.classList.remove('open'); }
+function runReconcile() {
+  const acct = DATA.accounts.find(a => a.id === el('rcn-acct').value), bank = csvAmount(el('rcn-bank').value), asOf = el('rcn-date').value || ymd();
+  if (!acct) return;
+  _rcnAcctId = acct.id;
+  if (isNaN(bank)) { el('rcn-result').innerHTML = '<div class="ins-none">Enter the balance your bank shows (for example 1.234,56).</div>'; return; }
+  const r = reconcileAccount(acct, DATA.entries, bank, asOf, DATA.accounts);
+  const row = (k, v, cls) => `<tr><td style="padding:3px 0;color:var(--ink3)">${k}</td><td style="text-align:right;font-family:var(--mono);font-weight:600" class="${cls || ''}">${v}</td></tr>`;
+  let h = `<table style="width:100%;margin:8px 0;font-size:13px">${row('Your bank shows', fmt(bank))}${row(`Vault, booked up to ${esc(asOf)}`, fmt(r.appBalance))}${row('Difference', (r.diff > 0 ? '+' : r.diff < 0 ? '−' : '') + fmt(Math.abs(r.diff)), r.status === 'match' ? 'cg' : 'cr')}</table>`;
+  if (r.status === 'match') h += '<div class="ins ins-good"><span class="ins-ic">✅</span><div><div class="ins-t">It matches</div><div class="ins-x">The vault and your bank agree to the cent as of this date.</div></div></div>';
+  else {
+    h += `<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${esc(r.hint)}</div>`;
+    h += r.suggestions.map(s => `<div class="ins ins-${s.kind === 'opening' ? 'info' : 'warn'}"><span class="ins-ic" aria-hidden="true">${{ duplicate: '👯', pending: '⏳', misassigned: '🏦', later: '📅', digits: '🔢', flip: '↔️', extra: '❓', opening: '🧮' }[s.kind]}</span><div style="flex:1"><div class="ins-x" style="margin:0">${esc(s.text)}</div>${
+      s.action ? `<button class="btn xs ${s.kind === 'opening' ? 'ghost' : ''}" style="margin-top:6px" data-action="rc-${s.action.type}" data-id="${esc(s.entryId || '')}" data-amount="${esc(s.action.amount != null ? s.action.amount : '')}">${esc(s.action.label)}</button>` : ''}</div></div>`).join('');
+  }
+  el('rcn-result').innerHTML = h;
+}
+// every fix goes through commit(): one toast with Undo; the check is re-run afterwards (and after an Undo)
+function _rcnApply(label, mutate, touch) { commit(label, mutate, { touch, render: () => { render(); runReconcile(); } }); }
+defineActions({
+  'open-reconcile': () => openReconcile(),
+  'rc-recheck': () => runReconcile(),
+  'rc-delete': t => { deleteEntry(t.dataset.id); runReconcile(); },
+  'rc-assign': t => _rcnApply('Entry booked on this account', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.accountId = _rcnAcctId; }, ['entries']),
+  'rc-amount': t => _rcnApply('Amount corrected', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) { e.amount = +t.dataset.amount; e.formula = null; } }, ['entries']),
+  'rc-flip':   t => _rcnApply('Entry flipped', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.type = e.type === 'income' ? 'expense' : 'income'; }, ['entries']),
+  'rc-opening': t => _rcnApply('Opening balance adjusted', d => { const a = d.accounts.find(x => x.id === _rcnAcctId); if (a) a.balance = _rcnR2((+a.balance || 0) + (+t.dataset.amount)); }, ['accounts']),
+});
+
+// ══════════════════════════════════════════
 // SAVINGS STREAK
 // Counts consecutive months where actual savings ≥ 90% of target.
 // ══════════════════════════════════════════
@@ -10791,9 +10955,13 @@ function saveCarService() {
     // carService.tire* are deliberately NOT written here any more: tyres live in DATA.tires, and
     // these old fields are kept in step by syncLegacyTyreFields() for older copies of the app.
   });
+  // reminder dates: written only when their inputs exist, so a save can never blank a value whose input was not drawn
+  if (el('svc-pickerl'))   DATA.carService.inspectionMonth = el('svc-pickerl').value   || null;
+  if (el('svc-vignette'))  DATA.carService.vignetteEnd     = el('svc-vignette').value  || null;
   saveLocal();
   updateServicePreview();
   checkServiceAlert();
+  try { renderReminders(); } catch (e) { console.error(e); }
   toast('Service dates saved');
 }
 
@@ -11278,9 +11446,13 @@ function renderVerifyCard(today = ymd()) {
   const kDue = verifyDue(KEST_VERIFIED, today);
   const kStatus = kDue ? chip('Am', `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
   const kBody = `${(KEST_RATE * 100).toFixed(1)} % on realised gains and dividends (§ 27a EStG) · this build was checked on ${esc(KEST_VERIFIED)}. Interest on bank deposits is taxed at 25 %, which this app does not use.`;
+  const rDue = reminderRulesDue(REMINDER_RULES_VERIFIED, today);
+  const rStatus = rDue ? chip('Am', today >= '2027-05-19' && REMINDER_RULES_VERIFIED < '2027-05-19' ? '⚠ the §57a reform is now in force — re-check' : `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
+  const rBody = `Winter-tyre window (1 Nov – 15 Apr), §57a Pickerl rules, vignette purchase delay, tax deadlines — this build was checked on ${esc(REMINDER_RULES_VERIFIED)}.`;
   box.innerHTML = row('ECB meeting dates', ecbStatus, ecbBody, link(ECB_CALENDAR_URL, 'ECB meeting calendar'))
+                + row('Car & tax reminders', rStatus, rBody, Object.values(REMINDER_LINKS).map(x => link(x.url, x.label)).join(''))
                 + row('KESt rate', kStatus, kBody, KEST_SOURCES.map(x => link(x.url, x.label)).join(''))
-                + `<div style="font-size:11px;color:var(--ink3);margin-top:8px">Both are written into the app, not fetched. Once a year, open the links, and if something changed, ask for an updated build.</div>`;
+                + `<div style="font-size:11px;color:var(--ink3);margin-top:8px">These are written into the app, not fetched. Once a year, open the links, and if something changed, ask for an updated build.</div>`;
 }
 
 function renderCarServiceUI() {
@@ -11294,6 +11466,8 @@ function renderCarServiceUI() {
   set('svc-km',      s.serviceKm);
   set('svc-int-km',  s.serviceIntKm || 15000);
   set('svc-int-mo',  s.serviceIntMo || 12);
+  set('svc-pickerl', s.inspectionMonth);
+  set('svc-vignette', s.vignetteEnd);
   renderTyres();
   updateServicePreview();
   checkServiceAlert();
@@ -14214,6 +14388,7 @@ function renderFuel() {
 
   // ── Predictions + seasonal + charts ─────────────────────────────────────────
   renderFuelSmartStats(all);
+  try { renderCarCost(); } catch (e) { console.error('True cost per km failed:', e); }   // must never break the Fuel tab
   renderHybridStats(all);
   renderFuelPredictor();
   renderTransitComparison();
@@ -14290,6 +14465,205 @@ function renderFuel() {
     if (tbody) tbody.innerHTML = `<tr><td colspan="15" style="color:var(--Rm);font-size:12px;padding:12px">Fuel tab error: ${esc(e.message)} — check browser console for details.</td></tr>`;
     toast(e.message || 'Fuel tab error', 1);
   }
+}
+
+// ══════════════════════════════════════════
+// TRUE COST PER KM — everything the car cost over a period ÷ the kilometres driven in that SAME period.
+// carCostPerKm(data, period, today) is PURE (arguments in, result out).
+//   Distance : from refuel odometer readings (readings the app flags as mistyped are ignored), interpolated to the window's ends.
+//   Window   : the period, shortened to the span the odometer readings actually cover — costs and kilometres always describe the same days.
+//   Costs    : fuel log · service-cost log · tyre-set prices (counted when the set is first mounted) · ENTRIES carrying a car tag (CARCOST_BUCKETS).
+//   No double counting: a refuel and its linked expense count once; an entry that repeats a service-log item or tyre price (same day, same
+//   amount) is dropped; fuel-tagged entries with no refuel record are counted as fuel.
+//   NOT included (not tracked): depreciation, financing, and anything you have not logged or tagged.
+// ══════════════════════════════════════════
+const CARCOST_BUCKETS = [
+  { key: 'insurance', label: 'Insurance, tax & vignette', tags: ['insurance', 'versicherung', 'vignette', 'vignetten', 'tax', 'steuer', 'kfz-steuer'] },
+  { key: 'parking',   label: 'Parking & tolls',           tags: ['parking', 'parken', 'toll', 'maut'] },
+  { key: 'service',   label: 'Service & repairs',         tags: ['service', 'repair', 'reparatur', 'wash', '§57a', 'pickerl', 'mot'] },
+  { key: 'tyres',     label: 'Tyres',                     tags: ['tyres', 'tires', 'reifen'] },
+  { key: 'other',     label: 'Other car costs',           tags: ['car', 'auto'] },
+];
+const CARCOST_FUEL_TAGS = ['fuel', 'tanken'];
+const _ccDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+// odometer at a date: the reading on/before it, or a straight line between the readings around it
+function _ccOdoAt(readings, date) {
+  let before = null, after = null;
+  for (const r of readings) { if (r.date <= date) before = r; else { after = r; break; } }
+  if (!before) return null;
+  if (!after || before.date === date) return before.odo;
+  const span = _ccDays(before.date, after.date);
+  return span === 0 ? before.odo : before.odo + (after.odo - before.odo) * _ccDays(before.date, date) / span;
+}
+
+function carCostPerKm(data, period, today) {
+  const fuel = data.fuel || [], entries = data.entries || [];
+  const bad = new Set(odoAnomalies(fuel).map(a => a.id));
+  const readings = fuel.filter(f => f.odo > 0 && f.date && !bad.has(f.id)).sort((a, b) => a.date.localeCompare(b.date) || a.odo - b.odo);
+  const notEnough = reason => ({ status: 'insufficient', reason });
+  if (readings.length < 2) return notEnough('Log at least two refuels with an odometer reading, so the app knows how far you drove.');
+  let pFrom = '0000-01-01';
+  if (period === '12m') { const d = new Date(today + 'T00:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() - 1); pFrom = d.toISOString().slice(0, 10); }
+  else if (period === 'ytd') pFrom = today.slice(0, 4) + '-01-01';
+  const first = readings[0], last = readings[readings.length - 1];
+  const from = pFrom > first.date ? pFrom : first.date, to = last.date < today ? last.date : today;
+  if (to <= from) return notEnough('Your odometer readings do not cover this period yet.');
+  const days = _ccDays(from, to), startOdo = _ccOdoAt(readings, from), km = _ccOdoAt(readings, to) - startOdo;
+  if (startOdo == null || days < 45 || km < 300) return notEnough(`Only ${days} days and ${Math.max(0, Math.round(km || 0)).toLocaleString('de-AT')} km of readings fall in this period — too little for a meaningful per-km figure.`);
+
+  const inWin = d => d > from && d <= to;                                   // (from, to]: adjacent windows never count a cost twice
+  const amounts = { fuel: 0, insurance: 0, parking: 0, service: 0, tyres: 0, other: 0 };
+  const counted = [], notes = []; let unlinkedFuel = 0, dropped = 0;
+  const known = [];                                                         // service-log items and tyre prices, to catch the same cost entered again as an entry
+
+  fuel.forEach(f => { if (inWin(f.date)) amounts.fuel += f.total || 0; });
+  ((data.carService && data.carService.serviceCostLog) || []).forEach(s => { if (s.cost > 0 && inWin(s.date)) { amounts.service += s.cost; known.push({ date: s.date, amount: s.cost }); } });
+  (data.tires || []).forEach(t => {
+    const p = (t.periods || [])[0], date = p && p.from && p.from.date;
+    if (t.price > 0 && date && inWin(date)) { amounts.tyres += t.price; known.push({ date, amount: t.price }); }
+  });
+  entries.forEach(e => {
+    if (e.type !== 'expense' || !(e.amount > 0) || !inWin(e.date)) return;
+    const tags = (e.tags || []).map(t => String(t).toLowerCase());
+    if (e.fuelId || tags.some(t => CARCOST_FUEL_TAGS.includes(t))) {
+      if (!findFuelForEntry(e, fuel, entries)) { amounts.fuel += e.amount; unlinkedFuel++; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: 'fuel' }); }
+      return;                                                                // otherwise the refuel record already carries this cost
+    }
+    const b = CARCOST_BUCKETS.find(x => x.tags.some(t => tags.includes(t))); if (!b) return;
+    if (known.some(k => k.date === e.date && Math.abs(k.amount - e.amount) < 0.01)) { dropped++; return; }
+    amounts[b.key] += e.amount; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: b.key });
+  });
+
+  const total = Object.values(amounts).reduce((a, b) => a + b, 0);
+  const rows = [{ key: 'fuel', label: 'Fuel' }, ...CARCOST_BUCKETS].map(b => ({ key: b.key, label: b.label, amount: amounts[b.key], share: total > 0 ? amounts[b.key] / total : 0, perKm: amounts[b.key] / km }))
+    .filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount);
+  if (unlinkedFuel) notes.push(`${unlinkedFuel} fuel expense${unlinkedFuel > 1 ? 's' : ''} without a refuel record counted as fuel.`);
+  if (dropped) notes.push(`${dropped} entr${dropped > 1 ? 'ies' : 'y'} repeating a service-log item or tyre price counted once.`);
+  if (bad.size) notes.push(`${bad.size} odometer reading${bad.size > 1 ? 's' : ''} flagged as mistyped ${bad.size > 1 ? 'were' : 'was'} ignored for the distance.`);
+  return { status: 'ok', from, to, days, km, total, perKm: total / km, perMonth: total / days * 30.4375, perYear: total / days * 365, fuelPerKm: amounts.fuel / km,
+           rows, counted: counted.sort((a, b) => b.date.localeCompare(a.date)), notes };
+}
+
+// ── Card in the Fuel tab ─────────────────────────────────────────────────────
+function renderCarCost() {
+  const box = el('carcost-body'); if (!box) return;
+  const r = carCostPerKm(DATA, el('carcost-period')?.value || '12m', ymd());
+  if (r.status !== 'ok') { box.innerHTML = `<div class="ins-none">${esc(r.reason)}</div>`; return; }
+  const c = n => '€' + n.toFixed(2).replace('.', ',');
+  const bar = row => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(row.label)}</span><span style="font-family:var(--mono)">${fmt(row.amount)} · ${c(row.perKm)}/km · ${Math.round(row.share * 100)}%</span></div>
+    <div style="height:6px;background:var(--s2);border-radius:3px;overflow:hidden"><div style="width:${Math.max(2, Math.round(row.share * 100))}%;height:6px;background:var(--Bm)"></div></div></div>`;
+  box.innerHTML = `<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-size:26px;font-weight:700;font-family:var(--mono)">${c(r.perKm)}</span><span style="font-size:13px;color:var(--ink2)">per km</span></div>
+    <div style="font-size:12px;color:var(--ink2);margin:2px 0 8px">≈ ${fmt(r.perMonth)} a month · ${fmt(r.perYear)} a year · ${Math.round(r.km).toLocaleString('de-AT')} km between ${esc(r.from)} and ${esc(r.to)}</div>
+    <div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Fuel alone is ${c(r.fuelPerKm)}/km — ${Math.round(r.fuelPerKm / r.perKm * 100)}% of the true cost.</div>
+    ${r.rows.map(bar).join('')}
+    ${r.notes.map(n => `<div style="font-size:11px;color:var(--ink3);margin-top:4px">• ${esc(n)}</div>`).join('')}
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px">• Not included: depreciation, financing, and costs you have not logged or tagged. Tag entries <em>${esc(CARCOST_BUCKETS.flatMap(b => b.tags.slice(0, 2)).join(', '))}</em> … to include them.</div>
+    ${r.counted.length ? `<details style="margin-top:6px"><summary style="font-size:12px;cursor:pointer;color:var(--ink2)">Entries counted (${r.counted.length})</summary>${r.counted.slice(0, 40).map(x => `<div style="font-size:12px;display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span>${esc(x.date)} · ${esc(x.desc || '—')}</span><span style="font-family:var(--mono)">${fmt(x.amount)}</span></div>`).join('')}</details>` : ''}`;
+}
+
+// ══════════════════════════════════════════
+// REMINDERS — dates you should not miss. computeReminders(data, today) is PURE.
+// Car:  winter-tyre swap (Austria: situational duty 1 Nov – 15 Apr) · §57a "Pickerl" (the month punched on your sticker) ·
+//       vignette end (an online purchase only starts 18 days later) · insurance renewal.
+// Tax:  voluntary employee tax return (the oldest of the 5 open years expires on 31 Dec) · filing season. Shown only if you have a salary.
+// The rules below were checked on REMINDER_RULES_VERIFIED against ÖAMTC, ASFINAG, WKO, BMF and oesterreich.gv.at.
+// The app deliberately does NOT compute a Pickerl due date from the first registration: the 3-2-1 → 4-2-2-2-1 reform
+// (from 19 May 2027, no grace period afterwards) comes with transition rules — you enter the month on your sticker.
+// Nothing is stored about reminders themselves (no dismissals); each one only appears inside its own window.
+// ══════════════════════════════════════════
+const REMINDER_RULES_VERIFIED = '2026-11-01';
+const REMINDER_LINKS = {
+  winter:    { url: 'https://www.oeamtc.at/presse/oeamtc-ab-1-november-gilt-die-situative-winterausruestungspflicht-40778575', label: 'ÖAMTC: winter equipment duty' },
+  pickerl:   { url: 'https://www.oeamtc.at/pickerlrechner', label: 'ÖAMTC Pickerlrechner' },
+  vignette:  { url: 'https://www.oesterreich.gv.at/de/themen/mobilitaet/kfz/10/Vignette-und-Maut/Vignette-fuer-Fahrzeuge-bis-3%2C5-t', label: 'oesterreich.gv.at: vignette' },
+  tax:       { url: 'https://www.bmf.gv.at/themen/steuern/fristen-verfahren/fristen-faelligkeiten.html', label: 'BMF: deadlines' },
+};
+const _remPICKERL_NEW_RULES = '2027-05-19';
+const _remAdd  = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const _remDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const _remMonthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
+const _remValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(Date.parse(s));
+
+function computeReminders(data, today) {
+  const out = [], year = +today.slice(0, 4), md = today.slice(5), cs = (data && data.carService) || {};
+  const add = r => out.push(r);
+
+  // ── winter tyres ──────────────────────────────────────────────────────────
+  const mounted = mountedTyreSet((data && data.tires) || []);
+  if (mounted && mounted.season === 'summer' && (md >= '10-15' || md <= '04-15')) {
+    const duty = md >= '11-01' || md <= '04-15', stored = ((data.tires || []).find(s => s.season === 'winter' && s !== mounted));
+    add({ id: 'winter-swap', level: duty ? 'warn' : 'soon', icon: '❄️', date: duty ? today : `${year}-11-01`, link: REMINDER_LINKS.winter,
+      title: duty ? 'Winter-tyre period is on — summer tyres mounted' : 'Winter tyres: plan the swap',
+      text: `From 1 November to 15 April Austria requires winter tyres whenever the road is wintry (snow, slush or ice). Your summer set “${mounted.name}” is on the car. ${stored ? `Your winter set “${stored.name}” is in storage.` : 'No winter set is recorded yet.'} Since October 2024 only tyres with the Alpine symbol (three-peak snowflake) count as winter tyres; at least 4 mm of tread is recommended.` });
+  }
+  if (mounted && mounted.season === 'winter' && md >= '04-16' && md <= '06-15') {
+    add({ id: 'winter-end', level: 'info', icon: '🌷', date: `${year}-04-15`, link: REMINDER_LINKS.winter, title: 'Winter-tyre period has ended',
+      text: `The duty ended on 15 April. Wintry weather can still return in April, so the ÖAMTC advises against switching too early — many drivers wait until after Easter.` });
+  }
+
+  // ── §57a Pickerl ──────────────────────────────────────────────────────────
+  if (/^\d{4}-\d{2}$/.test(cs.inspectionMonth || '')) {
+    const [py, pm] = cs.inspectionMonth.split('-').map(Number), start = `${cs.inspectionMonth}-01`;
+    const end = new Date(Date.UTC(py, pm, 0)).toISOString().slice(0, 10), graceEnd = new Date(Date.UTC(py, pm - 1 + 5, 0)).toISOString().slice(0, 10);
+    const label = _remMonthLabel(cs.inspectionMonth), toStart = _remDiff(today, start), L = REMINDER_LINKS.pickerl;
+    if (toStart > 0 && toStart <= 90) add({ id: 'pickerl-soon', level: toStart <= 30 ? 'warn' : 'soon', icon: '🔧', date: start, link: L, title: `Pickerl due in ${label}`,
+      text: `Your §57a inspection is due in ${label}. Today it can be done from one month before the due month; from 19 May 2027 the window opens 4 months before. Check your vehicle in the Pickerlrechner — the reform may change your date.` });
+    else if (today >= start && today <= end) add({ id: 'pickerl-due', level: 'warn', icon: '🔧', date: start, link: L, title: 'Pickerl due this month', text: `Your §57a inspection is due in ${label} — book it now.` });
+    else if (today > end) {
+      if (today >= _remPICKERL_NEW_RULES) add({ id: 'pickerl-overdue', level: 'warn', icon: '🔧', date: end, link: L, title: 'Pickerl overdue',
+        text: `Under the new rules (from 19 May 2027) there is no grace period after the due month (${label}), and your due date may have moved. Check the Pickerlrechner and book an inspection.` });
+      else if (today <= graceEnd) add({ id: 'pickerl-overdue', level: 'warn', icon: '🔧', date: end, link: L, title: 'Pickerl overdue',
+        text: `The due month (${label}) has passed. The current rules still allow the inspection until ${graceEnd}; from 19 May 2027 there is no grace period. Don't wait.` });
+      else add({ id: 'pickerl-overdue', level: 'warn', icon: '🔧', date: end, link: L, title: 'Pickerl overdue beyond the grace period', text: `The grace period after ${label} ended on ${graceEnd}. Get the inspection done as soon as possible.` });
+    }
+  }
+
+  // ── vignette ──────────────────────────────────────────────────────────────
+  if (_remValidDate(cs.vignetteEnd)) {
+    const end = cs.vignetteEnd, lastBuy = _remAdd(end, -17), toEnd = _remDiff(today, end), toBuy = _remDiff(today, lastBuy), L = REMINDER_LINKS.vignette;
+    if (toEnd < 0) add({ id: 'vignette-expired', level: 'warn', icon: '🛣️', date: end, link: L, title: 'Vignette expired', text: `Your vignette ended on ${end}. A valid vignette is required on Austrian motorways and expressways.` });
+    else if (toBuy < 0) add({ id: 'vignette-late', level: 'warn', icon: '🛣️', date: end, link: L, title: `Vignette ends in ${toEnd} day${toEnd === 1 ? '' : 's'}`,
+      text: `A vignette bought online now only becomes valid 18 days after purchase. Buying at a point of sale (Trafik, ÖAMTC) usually starts immediately — otherwise there will be a gap after ${end}.` });
+    else if (toBuy <= 75) add({ id: 'vignette-soon', level: toBuy <= 14 ? 'warn' : 'soon', icon: '🛣️', date: lastBuy, link: L, title: `Vignette ends ${end}`,
+      text: `Bought online, a new vignette only becomes valid 18 days after purchase — buy by ${lastBuy} to be covered from ${_remAdd(end, 1)}.${end < '2028-01-01' ? ' From the 2027 vignette year only digital vignettes exist.' : ''}` });
+  }
+
+  // ── insurance ─────────────────────────────────────────────────────────────
+  const ren = data && data.insurance && data.insurance.renewalDate;
+  if (_remValidDate(ren)) {
+    const d = _remDiff(today, ren);
+    if (d >= 0 && d <= 45) add({ id: 'insurance', level: d <= 14 ? 'warn' : 'soon', icon: '🛡️', date: ren, link: null, title: `Car insurance renews ${ren}`,
+      text: `${d === 0 ? 'It renews today.' : `It renews in ${d} day${d === 1 ? '' : 's'}.`} Compare offers and check the notice period in your policy before it renews.` });
+  }
+
+  // ── tax (only for people with a salary on record) ─────────────────────────
+  const hasSalary = data && data.incomes && Object.values(data.incomes).some(i => i && i.amount > 0);
+  if (hasSalary) {
+    const month = +today.slice(5, 7);
+    if (month >= 10) add({ id: 'tax-anv', level: 'info', icon: '🧾', date: `${year}-12-31`, link: REMINDER_LINKS.tax, title: `Tax refund: ${year - 5} expires on 31 Dec ${year}`,
+      text: `An employee tax return (Arbeitnehmerveranlagung) can be filed voluntarily for up to five years back. The oldest year still open, ${year - 5}, closes on 31 December ${year}. If you paid too much tax that year, FinanzOnline is where to claim it.` });
+    if (month >= 2 && month <= 6) add({ id: 'tax-season', level: 'info', icon: '🧾', date: `${year}-06-30`, link: REMINDER_LINKS.tax, title: `Tax return for ${year - 1}`,
+      text: `If you are obliged to file for ${year - 1}, the deadline is 30 June via FinanzOnline (30 April on paper). If not, a voluntary return can be filed for up to five years.` });
+  }
+
+  const rank = { warn: 0, soon: 1, info: 2 };
+  return out.sort((a, b) => rank[a.level] - rank[b.level] || a.date.localeCompare(b.date));
+}
+
+// Yearly: re-check the rules above and bump REMINDER_RULES_VERIFIED. Also due once the §57a reform has taken effect.
+function reminderRulesDue(verifiedISO, todayISO) {
+  return verifyDue(verifiedISO, todayISO) || (todayISO >= _remPICKERL_NEW_RULES && String(verifiedISO) < _remPICKERL_NEW_RULES);
+}
+
+// ── Card on the Overview ─────────────────────────────────────────────────────
+function renderReminders(today = ymd()) {
+  const card = el('reminders-card'), box = el('reminders-list'); if (!card || !box) return;
+  const list = computeReminders(DATA, today);
+  card.style.display = list.length ? '' : 'none';
+  box.innerHTML = list.map(r => `<div class="ins ins-${r.level === 'warn' ? 'warn' : 'info'}"><span class="ins-ic" aria-hidden="true">${r.icon}</span><div style="flex:1">
+    <div class="ins-t">${esc(r.title)}</div><div class="ins-x">${esc(r.text)}</div>
+    ${r.link ? `<div style="margin-top:3px;font-size:12px"><a href="${esc(r.link.url)}" target="_blank" rel="noopener">${esc(r.link.label)} ↗</a></div>` : ''}</div></div>`).join('')
+    + (list.length ? '<div style="font-size:11px;color:var(--ink3);margin-top:4px">Dates are for orientation, from public sources (ÖAMTC, ASFINAG, BMF) — please confirm for your own case. Not legal or tax advice.</div>' : '');
 }
 
 // ── Price-per-litre trend line chart ─────────────────────────────────────────
@@ -15659,6 +16033,167 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Reminders (car & tax dates) ──
+    const _rt = (name, season, open = true) => ({ id: name, name, season, periods: [{ from: { date: '2025-01-01', odo: 1 }, to: open ? null : { date: '2025-02-01', odo: 2 } }] });
+    const _rd = (o) => ({ tires: [], carService: {}, insurance: {}, incomes: {}, ...(o || {}) });
+    const _rids = (data, today) => computeReminders(data, today).map(r => r.id).join();
+    test('reminders: winter tyres — plan from 15 Oct, warn once the duty is on (1 Nov – 15 Apr), nothing outside, nothing for all-season', () => {
+      const sum = _rd({ tires: [_rt('Summer 26', 'summer'), _rt('Winter 25', 'winter', false)] });
+      const oct = computeReminders(sum, '2026-10-20')[0]; expect(oct.id, 'winter-swap', 'planning reminder'); expect(oct.level, 'soon', 'not yet the duty'); expect(oct.date, '2026-11-01', 'points at 1 November');
+      expectTrue(/Winter 25/.test(oct.text) && /in storage/.test(oct.text), 'names the stored winter set'); expectTrue(/Alpine symbol/.test(oct.text) && /4 mm/.test(oct.text), 'states the Alpine-symbol rule and the tread advice');
+      expect(computeReminders(sum, '2026-11-02')[0].level, 'warn', 'duty period'); expect(computeReminders(sum, '2027-01-15')[0].level, 'warn', 'mid-winter, still on summer tyres'); expect(computeReminders(sum, '2027-04-15')[0].level, 'warn', '15 April is the last day of the period');
+      expect(_rids(sum, '2027-04-16'), '', 'after 15 April: no reminder'); expect(_rids(sum, '2026-10-14'), '', 'before 15 October: none');
+      expectTrue(/No winter set is recorded/.test(computeReminders(_rd({ tires: [_rt('Summer 26', 'summer')] }), '2026-11-05')[0].text), 'tells you when no winter set exists');
+      expect(_rids(_rd({ tires: [_rt('AS', 'all')] }), '2026-12-01'), '', 'all-season set: nothing'); expect(_rids(_rd(), '2026-12-01'), '', 'no tyre sets: nothing');
+    });
+    test('reminders: winter set still mounted after the period ends', () => {
+      const w = _rd({ tires: [_rt('Winter 25', 'winter')] });
+      expect(_rids(w, '2027-04-20'), 'winter-end', 'info after 15 April'); expect(_rids(w, '2027-04-10'), '', 'still inside the period'); expect(_rids(w, '2027-06-20'), '', 'not forever');
+      expect(computeReminders(w, '2027-04-20')[0].level, 'info', 'only information'); expectTrue(/ÖAMTC advises against switching too early/.test(computeReminders(w, '2027-04-20')[0].text), 'with the official advice');
+    });
+    test('reminders: Pickerl — window of 90 days, due month, grace period until the reform, then no grace', () => {
+      const d = m => _rd({ carService: { inspectionMonth: m } });
+      expect(_rids(d('2027-03'), '2026-11-30'), '', '91 days before the due month: too early'); expect(computeReminders(d('2027-03'), '2026-12-01')[0].level, 'soon', '90 days before: soon');
+      expect(computeReminders(d('2027-03'), '2027-02-15')[0].level, 'warn', 'within 30 days: warn'); expect(_rids(d('2027-03'), '2027-03-10'), 'pickerl-due', 'in the due month');
+      const grace = computeReminders(d('2027-03'), '2027-04-20')[0]; expect(grace.id, 'pickerl-overdue', 'overdue'); expectTrue(/until 2027-07-31/.test(grace.text) && /19 May 2027/.test(grace.text), 'current rules: grace until the end of July, then none from 19 May 2027');
+      expectTrue(/no grace period/.test(computeReminders(d('2027-03'), '2027-06-10')[0].text) && /may have moved/.test(computeReminders(d('2027-03'), '2027-06-10')[0].text), 'after the reform date: no grace period, due date may have moved');
+      expectTrue(/beyond the grace period/.test(computeReminders(d('2026-05'), '2026-10-01')[0].title) && /2026-09-30/.test(computeReminders(d('2026-05'), '2026-10-01')[0].text), 'May + 4 months = 30 September');
+      expect(_rids(d('banana'), '2027-03-10'), '', 'garbage input ignored'); expect(_rids(d(null), '2027-03-10'), '', 'not set: nothing'); expect(computeReminders(d('2027-03'), '2026-12-20')[0].link.url, 'https://www.oeamtc.at/pickerlrechner', 'links to the official calculator');
+    });
+    test('reminders: vignette — buy by 14 Jan for a 31 Jan end, because online purchases start 18 days later', () => {
+      const v = e => _rd({ carService: { vignetteEnd: e } });
+      const soon = computeReminders(v('2027-01-31'), '2026-11-01')[0]; expect(soon.id, 'vignette-soon', 'inside 75 days of the last buying day'); expect(soon.level, 'soon', 'not urgent yet'); expect(soon.date, '2027-01-14', 'the last day to buy online');
+      expectTrue(/2027-01-14/.test(soon.text) && /2027-02-01/.test(soon.text) && /digital/.test(soon.text), 'text: buy by 14 Jan, covered from 1 Feb, digital-only from 2027');
+      expect(_rids(v('2027-01-31'), '2026-10-01'), '', '105 days before the last buying day: too early'); expect(computeReminders(v('2027-01-31'), '2027-01-05')[0].level, 'warn', '9 days left to buy: warn');
+      const late = computeReminders(v('2027-01-31'), '2027-01-20')[0]; expect(late.id, 'vignette-late', 'too late for an online purchase to be valid in time'); expectTrue(/Trafik/.test(late.text) && /18 days/.test(late.text), 'suggests a point of sale');
+      expect(computeReminders(v('2027-01-31'), '2027-02-02')[0].id, 'vignette-expired', 'expired'); expectTrue(!/digital/.test(computeReminders(v('2028-01-31'), '2027-11-10')[0].text), 'the "digital from 2027" note is dropped for later years');
+      expect(_rids(v('31.01.2027'), '2027-01-20'), '', 'a malformed date is ignored');
+    });
+    test('reminders: insurance renewal within 45 days; nothing for past or far dates', () => {
+      const i = r => _rd({ insurance: { renewalDate: r } });
+      expect(computeReminders(i('2026-12-15'), '2026-11-01')[0].level, 'soon', '44 days'); expect(computeReminders(i('2026-12-15'), '2026-12-05')[0].level, 'warn', '10 days');
+      expectTrue(/renews today/.test(computeReminders(i('2026-12-15'), '2026-12-15')[0].text), 'today'); expect(_rids(i('2026-12-15'), '2026-10-30'), '', '46 days: too early'); expect(_rids(i('2026-10-01'), '2026-11-01'), '', 'past');
+    });
+    test('reminders: tax — the oldest open year expires on 31 Dec; filing season; only for people with a salary', () => {
+      const sal = _rd({ incomes: { '2026-05': { amount: 3000 } } });
+      const anv = computeReminders(sal, '2026-11-01').find(r => r.id === 'tax-anv'); expectTrue(!!anv && /2021/.test(anv.title) && /31 Dec 2026/.test(anv.title), 'in 2026 the oldest open year is 2021'); expect(anv.level, 'info', 'information only');
+      expectTrue(/five years/.test(anv.text) && anv.link.url === 'https://www.bmf.gv.at/themen/steuern/fristen-verfahren/fristen-faelligkeiten.html', 'explains the 5 years and links to the BMF');
+      const season = computeReminders(sal, '2027-03-10').find(r => r.id === 'tax-season'); expectTrue(!!season && /2026/.test(season.title) && /30 June/.test(season.text) && /30 April/.test(season.text), 'filing season for the previous year');
+      expect(_rids(sal, '2026-08-10'), '', 'July–September: nothing'); expect(_rids(_rd(), '2026-11-01'), '', 'no salary on record: no tax reminders'); expect(_rids(_rd({ incomes: { '2026-05': { amount: 0 } } }), '2026-11-01'), '', 'zero income is no salary');
+    });
+    test('reminders: most urgent first, then by date; inputs are not modified', () => {
+      const data = _rd({ tires: [_rt('Summer 26', 'summer')], incomes: { '2026-05': { amount: 3000 } }, carService: { inspectionMonth: '2026-11', vignetteEnd: '2027-01-31' }, insurance: { renewalDate: '2026-11-20' } }), snap = JSON.stringify(data);
+      const r = computeReminders(data, '2026-11-02'); expect(r.map(x => x.level).join(), ['warn', 'warn', 'soon', 'soon', 'info'].join(), 'winter + Pickerl warn; vignette (73 days) and insurance (18 days) are soon; tax is info');
+      expectTrue(r.slice(0, 2).every((x, i, a) => i === 0 || a[i - 1].date <= x.date), 'same level: earlier date first'); expect(JSON.stringify(data), snap, 'vault untouched');
+    });
+    test('reminders: the yearly re-check is due after a new year or once the Pickerl reform is in force', () => {
+      expect(reminderRulesDue('2026-11-01', '2026-12-31'), false, 'same year'); expect(reminderRulesDue('2026-11-01', '2027-01-01'), true, 'new year');
+      expect(reminderRulesDue('2027-03-01', '2027-06-01'), true, 'checked before 19 May 2027, now after it'); expect(reminderRulesDue('2027-06-01', '2027-12-01'), false, 'checked after the reform: fine until next year');
+    });
+
+    // ── True cost per km ──
+    const _cf = (i, date, odo, total = 60, x) => ({ id: 'f' + i, date, odo, liters: 40, total, type: 'petrol', ...(x || {}) });
+    const _monthly = () => Array.from({ length: 12 }, (_, i) => { const m = i + 11, y = 2025 + Math.floor((m - 1) / 12), mm = ((m - 1) % 12) + 1; return _cf(i, `${y}-${String(mm).padStart(2, '0')}-01`, 50000 + i * 1000); });   // 2025-11-01 … 2026-10-01, 50,000 … 61,000 km
+    const _ce = (id, date, amount, tags, x) => ({ id, date, amount, type: 'expense', category: 'needs', desc: 'd' + id, tags, ...(x || {}) });
+    test('true cost: every source counted once, over the window the odometer covers', () => {
+      const fuel = _monthly(), fuelEntryLinked = _ce('ef', '2026-06-01', 60, ['fuel'], { fuelId: 'f7' });
+      const data = { fuel, entries: [
+        _ce('i1', '2026-01-05', 600, ['insurance']), _ce('i2', '2026-02-01', 96, ['vignette']), _ce('p1', '2026-06-06', 40, ['parking']),
+        _ce('s1', '2026-03-10', 300, ['service']),                                     // repeats the service-log item below → counted once
+        fuelEntryLinked,                                                               // its refuel already carries this cost
+        _ce('u1', '2026-05-05', 50, ['fuel']),                                         // fuel expense with no refuel record → counted as fuel
+        _ce('x1', '2026-05-06', 100, ['food']), _ce('x2', '2026-05-07', 500, ['car'], { type: 'income' }), _ce('x3', '2026-05-08', 200, ['car'], { type: 'savings' }),
+        _ce('old', '2025-10-01', 777, ['insurance']),                                  // before the window
+        _ce('o1', '2026-08-08', 25, ['car']) ],
+        carService: { serviceCostLog: [{ id: 'l1', date: '2026-03-10', cost: 300 }, { id: 'l2', date: '2025-06-01', cost: 999 }] },
+        tires: [{ id: 't1', price: 480, periods: [{ from: { date: '2026-04-12', odo: 55000 }, to: null }] }, { id: 't2', price: 300, periods: [{ from: { date: '2025-01-01', odo: 30000 }, to: null }] }] };
+      const snap = JSON.stringify(data), r = carCostPerKm(data, '12m', '2026-10-28');
+      expect(r.status, 'ok', 'status'); expect(r.from + ' → ' + r.to, '2025-11-01 → 2026-10-01', 'window = what the odometer covers, not the full 12 months'); expect(r.km, 11000, '61,000 − 50,000');
+      const by = Object.fromEntries(r.rows.map(x => [x.key, x.amount]));
+      expect(by.fuel, 710, '11 refuels after the first reading (660) + the unlinked fuel expense (50)'); expect(by.service, 300, 'service log once; the repeated entry dropped; the 2025 item outside');
+      expect(by.tyres, 480, 'tyre set bought in the window; the 2025 set is outside'); expect(by.insurance, 696, 'insurance 600 + vignette 96'); expect(by.parking, 40, 'parking'); expect(by.other, 25, 'other');
+      expect(r.total, 2251, 'total'); expectClose(r.perKm, 2251 / 11000, 1e-9, '€/km'); expectClose(r.fuelPerKm, 710 / 11000, 1e-9, 'fuel alone');
+      expectClose(r.perYear, 2251 / 334 * 365, 1e-6, 'per year follows the window length'); expect(r.rows[0].key, 'fuel', 'biggest first');
+      expectTrue(r.notes.some(n => /without a refuel record/.test(n)) && r.notes.some(n => /counted once/.test(n)), 'both adjustments are explained');
+      expect(JSON.stringify(data), snap, 'the vault is not modified');
+    });
+    test('true cost: distance is interpolated at the window ends', () => {
+      const data = { fuel: [_cf(1, '2025-06-01', 10000), _cf(2, '2026-01-01', 18000), _cf(3, '2026-06-01', 22000)], entries: [] };
+      const r = carCostPerKm(data, '12m', '2026-04-01');
+      expect(r.from, '2025-06-01', 'first reading'); expect(r.to, '2026-04-01', 'today, between two readings');
+      expectClose(r.km, 18000 + 4000 * 90 / 151 - 10000, 1e-6, '90 of the 151 days between the last two readings');
+    });
+    test('true cost: says "not enough" instead of a misleading number', () => {
+      expect(carCostPerKm({ fuel: [_cf(1, '2026-01-01', 1000)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', 'one reading');
+      expect(carCostPerKm({ fuel: [_cf(1, '2026-10-01', 1000), _cf(2, '2026-10-20', 1600)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', '19 days is too short');
+      expect(carCostPerKm({ fuel: [_cf(1, '2026-01-01', 1000), _cf(2, '2026-06-01', 1100)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', '100 km is too few');
+      const old = carCostPerKm({ fuel: [_cf(1, '2025-01-01', 1000), _cf(2, '2025-12-01', 9000)], entries: [] }, 'ytd', '2026-10-28');
+      expect(old.status, 'insufficient', 'readings all from last year cannot describe "this year"'); expectTrue(/do not cover/.test(old.reason), 'and says why');
+    });
+    test('true cost: a mistyped odometer reading cannot poison the distance; periods filter costs', () => {
+      const fuel = [..._monthly(), _cf(99, '2026-03-15', 999999)];                       // typo between two sane readings
+      const r = carCostPerKm({ fuel, entries: [] }, '12m', '2026-10-28');
+      expect(r.km, 11000, 'distance unchanged'); expectTrue(r.notes.some(n => /ignored for the distance/.test(n)), 'the typo is mentioned');
+      const two = { fuel: [_cf(1, '2024-01-01', 0 + 1000), _cf(2, '2024-07-01', 7000), _cf(3, '2025-01-01', 13000), _cf(4, '2025-07-01', 19000), _cf(5, '2026-01-01', 25000), _cf(6, '2026-07-01', 31000)],
+                    entries: [_ce('a', '2024-09-09', 400, ['insurance']), _ce('b', '2026-02-02', 700, ['insurance'])] };
+      const all = carCostPerKm(two, 'all', '2026-10-28'), ytd = carCostPerKm(two, 'ytd', '2026-10-28'), y12 = carCostPerKm(two, '12m', '2026-10-28');
+      expect(all.rows.find(x => x.key === 'insurance').amount, 1100, 'all time includes both'); expect(ytd.rows.find(x => x.key === 'insurance').amount, 700, 'this year only');
+      expect(y12.from, '2025-10-28', '12 months back from today, as the readings cover it'); expect(y12.rows.find(x => x.key === 'insurance').amount, 700, 'only the 2026 premium falls in the last 12 months');
+    });
+
+    // ── Reconcile ──
+    const _A = { id: 'a', name: 'Checking', balance: 1000 }, _B = { id: 'b', name: 'Savings', balance: 0 }, _ACC = [_A, _B], _ASOF = '2026-10-20';
+    const _re = (id, date, amount, type, accountId, desc, extra) => ({ id, date, amount, type, accountId, desc: desc || id, ...(extra || {}) });
+    const _base = () => [_re('e1', '2026-10-01', 500, 'income', 'a', 'Salary'), _re('e2', '2026-10-03', 120, 'expense', 'a', 'Rent'), _re('e3', '2026-10-10', 45.3, 'expense', 'a', 'Spar'),
+                         { ..._re('t1', '2026-10-12', 200, 'transfer', 'a', 'To savings'), accountIdTo: 'b' }];                // vault: 1000+500−120−45.30−200 = 1134.70
+    const _kinds = r => r.suggestions.map(s => s.kind).join();
+    test('reconcile: as-of balance matches computeAcctBalance with no date, handles transfers, and ignores later entries', () => {
+      const es = [..._base(), _re('f1', '2026-11-05', 99, 'expense', 'a', 'Future')], keep = DATA;
+      DATA = { ...DATA, entries: es, accounts: _ACC };
+      try { expect(acctBalanceAsOf(_A, es, null), computeAcctBalance(_A), 'same arithmetic as the Overview when no date is given'); expect(acctBalanceAsOf(_B, es, null), computeAcctBalance(_B), 'incoming transfer counted'); } finally { DATA = keep; }
+      expect(acctBalanceAsOf(_A, es, _ASOF), 1134.7, 'the future entry is not counted as of the 20th'); expect(acctBalanceAsOf(_B, es, _ASOF), 200, 'savings account got the transfer');
+    });
+    test('reconcile: equal to the cent → match, nothing suggested', () => {
+      const r = reconcileAccount(_A, _base(), 1134.7, _ASOF, _ACC); expect(r.status, 'match', 'status'); expect(r.diff, 0, 'diff'); expect(r.suggestions.length, 0, 'no suggestions');
+    });
+    test('reconcile: a duplicate entry is found (and only one of the twins is offered)', () => {
+      const es = [..._base(), _re('e3b', '2026-10-10', 45.3, 'expense', 'a', ' spar ')], r = reconcileAccount(_A, es, 1134.7, _ASOF, _ACC);
+      expect(r.diff, 45.3, 'the bank has 45.30 more'); expect(_kinds(r).split(',')[0], 'duplicate', 'duplicate first'); expect(r.suggestions[0].entryId, 'e3b', 'the later twin'); expect(r.suggestions.filter(s => s.kind === 'duplicate').length, 1, 'one twin only');
+      expect(r.suggestions[0].action.type, 'delete', 'fix = delete');
+    });
+    test('reconcile: a very recent payment is "pending", an older lone one is "extra"', () => {
+      const pend = reconcileAccount(_A, [..._base(), _re('c1', '2026-10-19', 33.33, 'expense', 'a', 'Card')], 1134.7, _ASOF, _ACC);
+      expect(pend.suggestions[0].kind, 'pending', 'yesterday → may not be booked yet'); expect(pend.suggestions[0].action, undefined, 'nothing to change for a pending payment');
+      const old = reconcileAccount(_A, [..._base(), _re('c1', '2026-10-05', 33.33, 'expense', 'a', 'Card')], 1134.7, _ASOF, _ACC);
+      expect(old.suggestions[0].kind, 'extra', 'two weeks old → just the only entry of that size'); expect(old.suggestions[0].action.type, 'delete', 'offers delete');
+    });
+    test('reconcile: an entry on no account / another account that would close the gap', () => {
+      const none = reconcileAccount(_A, [..._base(), _re('n1', '2026-10-08', 75, 'income', null, 'Refund')], 1134.7 + 75 + 0, _ASOF, _ACC);
+      expect(none.suggestions[0].kind, 'misassigned', 'unassigned income'); expect(/not assigned to any account/.test(none.suggestions[0].text), true, 'says so'); expect(none.suggestions[0].action.type, 'assign', 'fix = assign');
+      const other = reconcileAccount(_A, [..._base(), _re('o1', '2026-10-08', 20, 'expense', 'b', 'Gym')], 1134.7 - 20, _ASOF, _ACC);
+      expectTrue(other.suggestions.some(s => s.kind === 'misassigned' && /Savings/.test(s.text)), 'booked on "Savings" by mistake');
+    });
+    test('reconcile: dated just after the balance date', () => {
+      const r = reconcileAccount(_A, [..._base(), _re('l1', '2026-10-22', 60, 'expense', 'a', 'Dentist')], 1134.7 - 60, _ASOF, _ACC);
+      const l = r.suggestions.find(s => s.kind === 'later'); expectTrue(!!l && /2 days AFTER/.test(l.text), 'found, 2 days after'); expect(r.diff, -60, 'the bank already took it');
+    });
+    test('reconcile: two swapped digits, and income/expense flipped', () => {
+      const dg = reconcileAccount(_A, [..._base(), _re('d1', '2026-10-06', 54.3, 'expense', 'a', 'Shell')], 1134.7 - 45.3, _ASOF, _ACC);                         // the bank took 45.30; the vault has 54.30
+      const s = dg.suggestions.find(x => x.kind === 'digits'); expectTrue(!!s, 'digits found'); expect(s.action.amount, 45.3, 'suggests 45.30');
+      const fl = reconcileAccount(_A, [..._base(), _re('x1', '2026-10-06', 80, 'income', 'a', 'Gift')], 1134.7 + 80 - 160, _ASOF, _ACC);
+      expectTrue(fl.suggestions.some(x => x.kind === 'flip' && x.entryId === 'x1'), 'flip found: error = 2 × 80');
+    });
+    test('reconcile: with no explanation the only offer is the opening balance; nothing is ever mutated', () => {
+      const es = _base(), snap = JSON.stringify([es, _ACC]), r = reconcileAccount(_A, es, 1134.7 + 13.37, _ASOF, _ACC);
+      expect(_kinds(r), 'opening', 'no false explanations'); expect(r.suggestions[0].action.amount, 13.37, 'amount to adjust'); expectTrue(/MORE than the vault/.test(r.hint), 'hint says which way');
+      expect(JSON.stringify([es, _ACC]), snap, 'inputs untouched'); expect(reconcileAccount(_A, es, 1134.7 - 13.37, _ASOF, _ACC).suggestions[0].action.amount, -13.37, 'negative direction');
+    });
+    test('reconcile: at most 3 per kind, most recent first', () => {
+      const many = Array.from({ length: 6 }, (_, i) => _re('m' + i, `2026-10-0${i + 1}`, 10, 'income', null, 'Cash ' + i));
+      const r = reconcileAccount(_A, [..._base(), ...many], 1134.7 + 10, _ASOF, _ACC), mis = r.suggestions.filter(s => s.kind === 'misassigned');
+      expect(mis.length, 3, 'capped'); expect(mis[0].entryId, 'm5', 'newest first');
     });
 
     // ── Insights engine ──
