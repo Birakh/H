@@ -1923,7 +1923,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
           <button class="btn primary sm" onclick="saveSplits()">Save splits &amp; goals</button>
           <span id="split-err" style="font-size:12px;color:var(--R);display:none">Splits must sum to 100%</span>
+          <button class="btn xs ghost" onclick="renderSplitSuggestion()" title="Compare your targets with what you actually spent — you decide what to change">💡 Compare with my real spending</button>
         </div>
+        <div id="split-suggest" style="display:none;margin-top:12px"></div>
       </div>
 
       <div class="card">
@@ -2045,7 +2047,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Point-in-time restore
           <button class="btn xs ghost" onclick="loadCommitHistory()">↻ Load history</button>
         </div>
-        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Every push creates a commit on GitHub. Browse your commit history, preview any snapshot, and restore it if needed. Your current vault is always backed up before a restore.</div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Every push creates a commit on GitHub. Browse your commit history and preview what a snapshot would change before you restore it. Restoring pushes the snapshot as a new commit; the version you have now stays in this list, so a restore can be undone by restoring that commit.</div>
         <div id="pit-list"><div style="font-size:13px;color:var(--ink3)">Click "Load history" to fetch commit history from GitHub.</div></div>
       </div>
 
@@ -3009,12 +3011,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="modal-box" style="width:min(480px,100%)">
       <div style="font-size:14px;font-weight:600;margin-bottom:6px">Restore snapshot</div>
       <div id="pit-meta" style="font-size:12px;color:var(--ink3);margin-bottom:12px"></div>
-      <div id="pit-preview" style="font-size:12px;color:var(--ink2);background:var(--s1);border-radius:var(--rs);padding:10px;margin-bottom:14px;max-height:200px;overflow-y:auto;font-family:var(--mono)">Loading…</div>
+      <div id="pit-preview" style="font-size:12px;color:var(--ink2);background:var(--s1);border-radius:var(--rs);padding:10px;margin-bottom:14px;max-height:260px;overflow-y:auto">Loading…</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm danger" id="pit-confirm-btn" onclick="confirmPitRestore()" disabled>⚠ Restore this snapshot</button>
+        <button class="btn sm danger" id="pit-confirm-btn" onclick="confirmPitRestore()" disabled>⚠ Restore and push to GitHub</button>
         <button class="btn sm ghost" onclick="closePit()">Cancel</button>
       </div>
-      <div style="font-size:11px;color:var(--ink3);margin-top:8px">A backup of your current vault will be saved locally before restoring.</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:8px">Restoring replaces the vault on GitHub with this snapshot as a NEW commit (no merging). The version you have now stays in the history list, so you can restore it again if you change your mind.</div>
     </div>
   </div>
 
@@ -3930,7 +3932,7 @@ async function doPull(silent=false) {
   return true;
 }
 
-async function doPush() {
+async function doPush(message) {
   if (!PASS) throw new Error('Set a vault passphrase first — go to Settings → Sync and click Migrate now.');
   const { owner, repo, path } = CFG;
   // Pass null for existingSalt → fresh salt + new derived key on every remote push.
@@ -3938,7 +3940,7 @@ async function doPush() {
   SALT = salt;
   DATA.meta.lastSync = new Date().toISOString();
   const body = {
-    message: `vault sync ${ymd()}`,
+    message: message || `vault sync ${ymd()}`,
     content: btoa(b64),
     ...(DATA.meta.sha ? { sha: DATA.meta.sha } : {})
   };
@@ -4060,33 +4062,85 @@ function silentSelfTest() {
 }
 
 // ══════════════════════════════════════════
-// POINT-IN-TIME RESTORE
+// POINT-IN-TIME RESTORE — go back to an earlier push.
+// Restoring PUSHES the chosen snapshot as a NEW commit on top of the current GitHub version. It must not "merge":
+// mergeVaultData() keeps everything from both sides, so a merge would bring back exactly what the restore is meant to remove
+// (e.g. the rows of a bad import). The version you had a moment ago stays in the history list, so a restore can itself be undone
+// by restoring that commit. The preview says what would change before anything happens.
+// diffVaults() is PURE.
 // ══════════════════════════════════════════
-let _pitCommits = [];     // cached commit list
-let _pitSelected = null;  // {sha, message, date} of commit currently being previewed
-let _pitPreviewData = null; // decrypted DATA from the selected commit
+let _pitCommits = [];        // commits loaded so far (newest first)
+let _pitPage = 0, _pitMore = false;
+let _pitSelected = null;     // {sha, message, date} of the commit being previewed
+let _pitPreviewData = null;  // decrypted + migrated DATA of that commit
 
-async function loadCommitHistory() {
+const _PIT_LISTS = [['entries', 'entries'], ['fuel', 'refuels'], ['accounts', 'accounts'], ['recurring', 'recurring items'], ['installments', 'installments'],
+                    ['savingsGoals', 'savings goals'], ['stocks', 'stocks'], ['tires', 'tyre sets'], ['fxAccounts', 'FX accounts'], ['grocery', 'grocery items'], ['cashLog', 'cash-log items']];
+const _pitStable = v => JSON.stringify(Array.isArray(v) ? v.map(_pitStableObj) : _pitStableObj(v));
+function _pitStableObj(v) { return Array.isArray(v) ? v.map(_pitStableObj) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, _pitStableObj(v[k])])) : v; }
+// a short human description of a record, for the "would be removed / would come back" lists
+function pitDescribe(r) {
+  const label = r.desc || r.name || r.station || r.ticker || r.id, amt = r.amount != null ? r.amount : r.total != null ? r.total : r.balance;
+  return `${r.date ? r.date + ' · ' : ''}${label}${amt != null && isFinite(amt) ? ' · ' + fmt(amt) : ''}`;
+}
+// What would change if `snapshot` replaced `current`:  lost = exists now, not in the snapshot · regained = in the snapshot, not now ·
+// changed = in both, different. Records are matched by id; income months by month.
+function diffVaults(current, snapshot) {
+  const lists = _PIT_LISTS.map(([name, label]) => {
+    const cur = (current && current[name]) || [], snap = (snapshot && snapshot[name]) || [];
+    const curMap = new Map(cur.map(r => [r.id, r])), snapMap = new Map(snap.map(r => [r.id, r]));
+    const byDate = (a, b) => String(b.date || '').localeCompare(String(a.date || ''));
+    return { name, label,
+      lost:     cur.filter(r => !snapMap.has(r.id)).sort(byDate),
+      regained: snap.filter(r => !curMap.has(r.id)).sort(byDate),
+      changed:  cur.filter(r => snapMap.has(r.id) && _pitStable(r) !== _pitStable(snapMap.get(r.id))) };
+  });
+  const ci = (current && current.incomes) || {}, si = (snapshot && snapshot.incomes) || {};
+  const incomes = { lost: Object.keys(ci).filter(m => !(m in si)), regained: Object.keys(si).filter(m => !(m in ci)), changed: Object.keys(ci).filter(m => m in si && _pitStable(ci[m]) !== _pitStable(si[m])) };
+  const sum = k => lists.reduce((a, l) => a + l[k].length, 0) + incomes[k].length;
+  const d = { lists, incomes, lostTotal: sum('lost'), regainedTotal: sum('regained'), changedTotal: sum('changed') };
+  d.identical = !d.lostTotal && !d.regainedTotal && !d.changedTotal;
+  return d;
+}
+// The preview shown before restoring. Everything that comes from the vault is escaped.
+function pitPreviewHtml(d) {
+  if (d.identical) return '<div>This snapshot is identical to your current vault in everything the app can compare. Restoring it would change nothing.</div>';
+  const counts = side => [...d.lists.filter(l => l[side].length).map(l => `${l[side].length} ${l.label}`), ...(d.incomes[side].length ? [`${d.incomes[side].length} income month${d.incomes[side].length > 1 ? 's' : ''}`] : [])].join(', ');
+  const sample = side => d.lists.flatMap(l => l[side]).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 4).map(r => `<div style="color:var(--ink3);padding-left:14px">${esc(pitDescribe(r))}</div>`).join('');
+  const block = (icon, n, txt, side) => n ? `<div style="margin-bottom:8px"><div>${icon} <b>${n}</b> ${txt}: ${esc(counts(side))}</div>${sample(side)}${n > 4 && d.lists.flatMap(l => l[side]).length > 4 ? '<div style="color:var(--ink3);padding-left:14px">…and more</div>' : ''}</div>` : '';
+  return block('🗑', d.lostTotal, 'item(s) you have NOW would be removed', 'lost')
+       + block('↩', d.regainedTotal, 'item(s) that were deleted since would come back', 'regained')
+       + (d.changedTotal ? `<div style="margin-bottom:4px">✎ <b>${d.changedTotal}</b> item(s) were edited since and would go back to the snapshot's version: ${esc(counts('changed'))}</div>` : '');
+}
+
+function _pitRenderList() {
+  const box = el('pit-list');
+  box.innerHTML = _pitCommits.map((c, i) => {
+    const msg  = c.commit?.message || '(no message)';
+    const date = c.commit?.author?.date ? new Date(c.commit.author.date).toLocaleString() : '?';
+    const isCurrent = i === 0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:${isCurrent ? '600' : '400'};color:var(--ink)">${esc(msg)}${isCurrent ? ' <span style="color:var(--Gm);font-size:11px">← current</span>' : ''}</div>
+        <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">${esc(date)} · ${esc(c.sha.slice(0, 7))}</div>
+      </div>
+      ${!isCurrent ? `<button class="btn xs ghost" data-action="pit-preview" data-sha="${esc(c.sha)}" data-msg="${esc(msg)}" data-date="${esc(date)}">Preview</button>` : '<span style="font-size:11px;color:var(--ink3)">live</span>'}
+    </div>`;
+  }).join('') + (_pitMore ? '<div style="padding-top:8px"><button class="btn xs ghost" data-action="pit-more">Load 30 older</button></div>' : '');
+}
+
+async function loadCommitHistory(more = false) {
   if (!PAT || !CFG?.owner) return toast('Set up GitHub sync first (Settings → Sync).', true);
   const box = el('pit-list');
-  box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Fetching commit history…</div>';
+  if (!more) { _pitCommits = []; _pitPage = 0; _pitMore = false; box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Fetching commit history…</div>'; }
   try {
-    const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/commits?path=${CFG.path}&per_page=30`, PAT);
+    const page = _pitPage + 1;
+    const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/commits?path=${CFG.path}&per_page=30&page=${page}`, PAT);
     if (!r.ok) throw new Error(`GitHub ${r.status}`);
-    _pitCommits = await r.json();
+    const batch = await r.json();
+    _pitCommits.push(...batch); _pitPage = page; _pitMore = batch.length === 30;
     if (!_pitCommits.length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No commits found for this vault file.</div>'; return; }
-    box.innerHTML = _pitCommits.map((c, i) => {
-      const msg  = c.commit?.message || '(no message)';
-      const date = c.commit?.author?.date ? new Date(c.commit.author.date).toLocaleString() : '?';
-      const isCurrent = i === 0;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--bdr);font-size:12px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:${isCurrent?'600':'400'};color:var(--ink)">${esc(msg)}${isCurrent ? ' <span style="color:var(--Gm);font-size:11px">← current</span>' : ''}</div>
-          <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">${date} · ${c.sha.slice(0,7)}</div>
-        </div>
-        ${!isCurrent ? `<button class="btn xs ghost" onclick="previewCommit('${c.sha}',${jsAttr(msg)},'${date}')">Preview</button>` : '<span style="font-size:11px;color:var(--ink3)">live</span>'}
-      </div>`;
-    }).join('');
+    _pitRenderList();
   } catch(e) { box.innerHTML = `<div style="font-size:13px;color:var(--Rm)">Error: ${esc(e.message)}</div>`; }
 }
 
@@ -4102,6 +4156,7 @@ async function previewCommit(sha, message, date) {
     const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/contents/${CFG.path}?ref=${sha}`, PAT);
     if (!r.ok) throw new Error(`GitHub ${r.status}`);
     const j = await r.json();
+    if (!j.content) throw new Error('GitHub did not return the file (snapshots over 1 MB are not available through this API)');
     const b64str = atob(j.content.replace(/\n/g,''));
     let data;
     try { ({ data } = await CX.open(b64str, PASS)); }
@@ -4109,39 +4164,58 @@ async function previewCommit(sha, message, date) {
     _pitPreviewData = migrate(data);
     const s = _pitPreviewData;
     el('pit-preview').innerHTML =
-      `Entries: <b>${s.entries?.length||0}</b> · Accounts: <b>${s.accounts?.length||0}</b> · Stocks: <b>${s.stocks?.length||0}</b> · Recurring: <b>${s.recurring?.length||0}</b>\n` +
-      `Schema: v${s.v}\n` +
-      `Last synced: ${s.meta?.lastSync ? new Date(s.meta.lastSync).toLocaleString() : '?'}\n\n` +
-      `Most recent entries:\n` +
-      (s.entries||[]).slice(0,5).map(e => `  ${e.date}  ${(e.desc||'(no desc)').slice(0,30).padEnd(30)}  ${e.type==='income'?'+':'−'}${e.amount?.toFixed(2)||'?'}`).join('\n');
+      `<div style="margin-bottom:8px;color:var(--ink3)">Snapshot: ${s.entries?.length||0} entries · ${s.accounts?.length||0} accounts · ${s.fuel?.length||0} refuels · ${s.stocks?.length||0} stocks · data format v${esc(s.v)}</div>`
+      + `<div style="font-weight:600;margin-bottom:6px">If you restore this version:</div>` + pitPreviewHtml(diffVaults(DATA, s));
     el('pit-confirm-btn').disabled = false;
   } catch(e) {
-    el('pit-preview').textContent = `Could not decrypt this snapshot: ${e.message}`;
+    el('pit-preview').textContent = `Could not read this snapshot: ${e.message}`;
   }
 }
 
 async function confirmPitRestore() {
-  if (!_pitPreviewData) return;
-  // Save a local backup of current vault before overwriting
+  if (!_pitPreviewData || !_pitSelected || _isSyncing) return;
+  const snap = _pitSelected, data = _pitPreviewData;
+  _isSyncing = true; setSyncBadge('restoring…');
   try {
-    const backupKey = `vault_backup_${ymd()}`;
-    localStorage.setItem(backupKey, localStorage.getItem('vault_local') || '');
-  } catch(e) { /* backup is best-effort */ }
+    // 1) Only THIS part may end in "Nothing was restored": it runs before anything is changed.
+    // The file's CURRENT version on GitHub: our push has to be a plain overwrite on top of it. (Clearing meta.sha instead — as this used to —
+    // makes GitHub refuse the push, and the app's answer to that is "pull / merge", which undoes the restore.)
+    let head;
+    try {
+      const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/contents/${CFG.path}`, PAT);
+      if (!r.ok) throw new Error(`GitHub ${r.status} while reading the current version`);
+      head = await r.json();
+    } catch (e) { setSyncBadge('error'); return toast(`Nothing was restored: ${e.message}`, 1); }
 
-  DATA = _pitPreviewData;
-  DATA.meta = DATA.meta || {};
-  DATA.meta.sha = null; // Clear SHA so next push creates a new commit rather than trying to update the restored SHA
-  await saveLocalNow();
-  nav(VIEW);
-  closePit();
-  toast(`Restored snapshot from ${_pitSelected.date}`);
-  _pitSelected = null; _pitPreviewData = null;
+    // 2) From here the snapshot IS the vault on this device.
+    DATA = data; DATA.meta = DATA.meta || {}; DATA.meta.sha = head.sha;
+    renderDash._cacheKey = null;
+    closePit();
+    try {
+      await doPush(`vault restore ← ${snap.sha.slice(0, 7)} (${snap.date})`);
+      auditRecord('restore', `from ${snap.sha.slice(0, 7)}`);
+      markClean(); updateLastSync(); setSyncBadge('');
+      toast(`Restored the snapshot from ${snap.date} and pushed it. The previous version is still in the history list.`);
+    } catch (e) {
+      markDirty(); await saveLocalNow();            // the restored data is kept here and counts as unsynced; GitHub still has the previous version
+      setSyncBadge('error');
+      toast(`Restored here, but pushing to GitHub failed: ${e.message} — press Push to retry.`, 1);
+    }
+    // 3) Redraw — a drawing problem must never be reported as a failed restore.
+    try { nav(VIEW); } catch (e) { console.error('Redraw after restore failed:', e); }
+    try { loadCommitHistory(); } catch (e) { console.error('History reload after restore failed:', e); }
+  } finally { _isSyncing = false; }
 }
 
 function closePit() {
   el('pit-overlay').classList.remove('open');
   _pitSelected = null; _pitPreviewData = null;
 }
+
+defineActions({
+  'pit-preview': t => previewCommit(t.dataset.sha, t.dataset.msg, t.dataset.date),
+  'pit-more':    () => loadCommitHistory(true),
+});
 
 
 
@@ -7409,6 +7483,7 @@ async function saveSplits() {
     const s=parseInt(el('split-savings').value)||0;
     if (n+w+s!==100) return toast('Splits must add up to 100%.',1);
     DATA.splits={
+      ...DATA.splits,          // keep settings that have no input here (alertThreshold) — a save must never reset them
       needs:n, wants:w, savings:s,
       rollover: {
         needs:   !!(el('rollover-needs')?.checked),
@@ -7425,6 +7500,70 @@ async function saveSplits() {
     if (VIEW==='dash') renderDash();
   } catch(e) { toast(e.message || 'Failed to save splits.', 1); }
 }
+
+// ══════════════════════════════════════════
+// SPLIT SUGGESTION — what you really spent, next to your 50/30/20 targets. YOU decide.
+// suggestSplits(data, today) is PURE. It describes what happened (median share of income per bucket over your last complete months)
+// and offers two ways to turn that into a split that adds up to 100 — it never changes anything itself.
+//   A "Match my spending"  — needs and wants follow reality; savings = whatever is left (unspent money is planned as saving)
+//   B "Protect my savings" — savings stays at the current %; the rest is divided between needs and wants the way you really spend it
+// The MEDIAN (not the average) is used so a single big purchase does not move the picture. Needs ≥3 complete months with an income.
+// ══════════════════════════════════════════
+const _ssMedian = a => { const s = [...a].sort((x, y) => x - y), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+// three non-negative numbers → whole numbers that add up to exactly 100 (largest remainder)
+function _ssRound100(v) {
+  if (!v.some(x => x > 0)) return [0, 0, 100];                              // nothing to divide: everything is saving, the split still adds up
+  const t = v.reduce((a, b) => a + b, 0), raw = v.map(x => Math.max(0, x) / t * 100), fl = raw.map(Math.floor);
+  let left = 100 - fl.reduce((a, b) => a + b, 0);
+  raw.map((x, i) => [x - fl[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { fl[i]++; left--; } });
+  return fl;
+}
+function suggestSplits(data, today, monthsWanted = 6) {
+  const entries = (data && data.entries) || [], cur = (data && data.splits) || { needs: 50, wants: 30, savings: 20 };
+  const months = _insMonthsBefore(today.slice(0, 7), monthsWanted).filter(m => _insIncome(data, m) > 0 && _insAgg(entries, m, 31).n > 0).sort();
+  if (months.length < 3) return { status: 'insufficient', months, reason: `Needs at least 3 finished months with an income and entries (found ${months.length}). Come back once a few more months are filled in.` };
+  const rows = months.map(m => { const inc = _insIncome(data, m), a = _insAgg(entries, m, 31); return { month: m, income: inc, needs: a.act.needs / inc * 100, wants: a.act.wants / inc * 100, savings: a.act.savings / inc * 100, allocated: a.allocated / inc * 100 }; });
+  const col = k => rows.map(r => r[k]);
+  const actual = { needs: _ssMedian(col('needs')), wants: _ssMedian(col('wants')), savings: _ssMedian(col('savings')), allocated: _ssMedian(col('allocated')) };
+  const ranges = Object.fromEntries(['needs', 'wants', 'savings'].map(k => [k, [Math.min(...col(k)), Math.max(...col(k))]]));
+  const avgIncome = col('income').reduce((a, b) => a + b, 0) / rows.length;
+  // A: needs and wants as they really are, savings = the rest (if needs+wants already exceed 100 they are scaled down, savings 0)
+  const aRaw = [actual.needs, actual.wants, Math.max(0, 100 - actual.needs - actual.wants)];
+  // B: keep the current savings %, divide the remainder like you really spend it
+  const sv = cur.savings || 0, rem = 100 - sv, nw = actual.needs + actual.wants, ratio = nw > 0 ? actual.needs / nw : 0.5;
+  const options = [
+    { key: 'match', label: 'A · Match my spending', split: (([n, w, s]) => ({ needs: n, wants: w, savings: s }))(_ssRound100(aRaw)), note: 'Needs and wants follow what you really spend; whatever you do not spend is planned as saving.' },
+    { key: 'keep-savings', label: 'B · Protect my savings', split: (([n, w, s]) => ({ needs: n, wants: w, savings: s }))(_ssRound100([rem * ratio, rem * (1 - ratio), sv])), note: `Savings stay at ${sv}%; the rest is divided between needs and wants the way you really spend it.` },
+  ].map(o => ({ ...o, same: o.split.needs === cur.needs && o.split.wants === cur.wants && o.split.savings === cur.savings }));
+  const warnings = [];
+  if (actual.allocated < 60) warnings.push(`In a typical month you recorded only ${Math.round(actual.allocated)}% of your income as spending or saving. If not everything is logged, option A would plan a saving rate that is too high — check your entries first.`);
+  const wide = ['needs', 'wants', 'savings'].filter(k => ranges[k][1] - ranges[k][0] > 20);
+  if (wide.length) warnings.push(`${wide.map(k => k[0].toUpperCase() + k.slice(1)).join(' and ')} varied by more than 20 points between months, so the median is only a rough guide.`);
+  return { status: 'ok', months, rows, actual, ranges, current: { needs: cur.needs, wants: cur.wants, savings: cur.savings }, avgIncome, options, warnings };
+}
+
+function renderSplitSuggestion() {
+  const box = el('split-suggest'); if (!box) return;
+  box.style.display = 'block';
+  const r = suggestSplits(DATA, ymd());
+  if (r.status !== 'ok') { box.innerHTML = `<div class="ins-none">${esc(r.reason)}</div>`; return; }
+  const p = n => Math.round(n) + '%', e = pct => fmt(r.avgIncome * pct / 100);
+  const row = (k, label) => `<tr><td>${label}</td><td class="r">${r.current[k]}%</td><td class="r"><b>${p(r.actual[k])}</b> <span style="color:var(--ink3)">(${p(r.ranges[k][0])}–${p(r.ranges[k][1])})</span></td>${r.options.map(o => `<td class="r">${o.split[k]}%<div style="font-size:10px;color:var(--ink3)">${e(o.split[k])}</div></td>`).join('')}</tr>`;
+  box.innerHTML = `<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Based on your last ${r.months.length} finished months (${esc(r.months[0])} … ${esc(r.months[r.months.length - 1])}), as a share of your income. Euro amounts use your average income of ${fmt(r.avgIncome)}.</div>
+    <div style="overflow-x:auto"><table style="width:100%;font-size:12.5px"><thead><tr><th></th><th class="r">Target now</th><th class="r">You really spent<br><span style="font-weight:400;color:var(--ink3)">median (range)</span></th>${r.options.map(o => `<th class="r">${esc(o.label.split(' · ')[0])}</th>`).join('')}</tr></thead>
+      <tbody>${row('needs', 'Needs')}${row('wants', 'Wants')}${row('savings', 'Savings')}</tbody></table></div>
+    ${r.warnings.map(w => `<div class="ins ins-warn" style="margin-top:8px"><span class="ins-ic">⚠️</span><div class="ins-x">${esc(w)}</div></div>`).join('')}
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">${r.options.map(o => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn xs ${o.same ? 'ghost' : ''}" ${o.same ? 'disabled' : ''} data-action="split-apply" data-n="${o.split.needs}" data-w="${o.split.wants}" data-s="${o.split.savings}">${o.same ? 'Already your split' : `Use ${o.split.needs} / ${o.split.wants} / ${o.split.savings}`}</button><span style="font-size:12px;color:var(--ink2);flex:1;min-width:200px"><b>${esc(o.label)}.</b> ${esc(o.note)}</span></div>`).join('')}</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:10px">This describes what you did, not what you should do — a 50/30/20 split is a rule of thumb, not a requirement. Nothing changes until you press a button, and you can undo it. A new split applies to every month in the Overview, past ones included.</div>`;
+}
+defineActions({
+  'split-apply': t => {
+    const n = +t.dataset.n, w = +t.dataset.w, s = +t.dataset.s;
+    if (![n, w, s].every(Number.isInteger) || n + w + s !== 100 || [n, w, s].some(v => v < 0)) return toast('Those numbers do not add up to 100%.', 1);
+    commit(`Budget split set to ${n} / ${w} / ${s}`, d => { d.splits = { ...d.splits, needs: n, wants: w, savings: s }; },   // keeps rollover and alertThreshold
+      { touch: ['splits'], restored: 'Previous split restored', render: () => { render(); renderSplitSuggestion(); } });
+  },
+});
 
 // ══════════════════════════════════════════
 // CONFIRM MODAL  —  replaces native confirm()
@@ -12679,8 +12818,8 @@ const OIL_COLOURS   = { wti: 'var(--Am)', brent: 'var(--Bm)' };
 
 function _parseYahooChart(j) {
   const result = j?.chart?.result?.[0];
-  if (!result) throw new Error('No data in response');
-  const meta       = result.meta;
+  if (!result) throw new Error(j?.chart?.error?.description || 'No data in response');
+  const meta       = result.meta || {};
   const timestamps = result.timestamp || [];
   const closes     = result.indicators?.quote?.[0]?.close || [];
   const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
@@ -12688,7 +12827,7 @@ function _parseYahooChart(j) {
   if (!pts.length) throw new Error('Empty price series');
   return {
     pts,
-    current: meta.regularMarketPrice,
+    current: isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : pts[pts.length - 1].p,   // a response without the live price must not break the badges
     prev:    meta.chartPreviousClose || meta.previousClose,
     currency: meta.currency || 'USD',
     ts: Date.now(),
@@ -12702,78 +12841,95 @@ async function _fetchWithTimeout(url, opts={}, ms=7000) {
   finally { clearTimeout(tid); }
 }
 
+// Where the prices come from, and why this is deliberately short.
+// Browsers may not call Yahoo directly (no CORS), so the request goes through ONE free public relay, allorigins.win,
+// which is documented as open to everyone. Two paths are tried: its JSON wrapper to Yahoo's query1 host, then its raw mode to query2.
+// Removed on purpose: corsproxy.io (its free tier is for development origins only — it cannot work from a deployed page) and a direct
+// call with credentials (a browser refuses credentialed requests to a wildcard-CORS server). Every failed attempt is recorded in
+// err.attempts so the panel can say WHY, instead of a vague "all sources failed".
+const _OIL_RELAY = 'https://api.allorigins.win';
+async function _oilViaWrapper(url) {
+  const r = await _fetchWithTimeout(`${_OIL_RELAY}/get?url=${encodeURIComponent(url)}`, {}, 8000);
+  if (!r.ok) throw new Error(`relay HTTP ${r.status}`);
+  const w = await r.json();
+  if (w?.status?.http_code !== 200) throw new Error(`Yahoo answered HTTP ${w?.status?.http_code ?? '?'} through the relay`);
+  return _parseYahooChart(JSON.parse(w.contents));
+}
+async function _oilViaRaw(url) {
+  const r = await _fetchWithTimeout(`${_OIL_RELAY}/raw?url=${encodeURIComponent(url)}`, {}, 8000);
+  if (!r.ok) throw new Error(`relay HTTP ${r.status}`);
+  return _parseYahooChart(await r.json());
+}
+
 async function _fetchOilSeries(type, range) {
-  const symbol   = OIL_SYMBOLS[type];
-  const interval = OIL_INTERVALS[range] || '1d';
-  const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
-
-  // Strategy 1: allorigins.win CORS proxy — wraps any public URL with CORS headers
-  // Response format: { contents: "<json string>", status: { http_code: 200 } }
-  try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(chartUrl)}`;
-    const r = await _fetchWithTimeout(proxyUrl, {}, 8000);
-    if (!r.ok) throw new Error(`proxy HTTP ${r.status}`);
-    const wrapper = await r.json();
-    if (wrapper?.status?.http_code !== 200) throw new Error(`upstream HTTP ${wrapper?.status?.http_code}`);
-    const j = JSON.parse(wrapper.contents);
-    return _parseYahooChart(j);
-  } catch(e1) {
-    console.warn('[oil] allorigins proxy failed:', e1.message);
+  const symbol = OIL_SYMBOLS[type], interval = OIL_INTERVALS[range] || '1d';
+  const q = host => `https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
+  const attempts = [];
+  for (const [label, run] of [['relay → Yahoo query1', () => _oilViaWrapper(q('query1'))], ['relay (raw) → Yahoo query2', () => _oilViaRaw(q('query2'))]]) {
+    try { return await run(); }
+    catch (e) { attempts.push({ label, message: e.name === 'AbortError' ? 'timed out' : (e.message || String(e)) }); console.warn('[oil]', type, label, 'failed:', e.message); }
   }
+  const err = new Error('Live oil prices are not available right now.'); err.attempts = attempts; throw err;
+}
 
-  // Strategy 2: corsproxy.io — alternative free CORS proxy
-  try {
-    const proxyUrl2 = `https://corsproxy.io/?${encodeURIComponent(chartUrl)}`;
-    const r = await _fetchWithTimeout(proxyUrl2, {}, 8000);
-    if (!r.ok) throw new Error(`proxy2 HTTP ${r.status}`);
-    return _parseYahooChart(await r.json());
-  } catch(e2) {
-    console.warn('[oil] corsproxy.io failed:', e2.message);
-  }
-
-  // Strategy 3: direct fetch with session cookie (works if user has visited yahoo.com recently)
-  try {
-    const r = await _fetchWithTimeout(chartUrl, { credentials: 'include' }, 6000);
-    if (!r.ok) throw new Error(`direct HTTP ${r.status}`);
-    return _parseYahooChart(await r.json());
-  } catch(e3) {
-    console.warn('[oil] direct fetch failed:', e3.message);
-    throw new Error('All oil price sources failed — enter price manually');
-  }
+let _oilInFlight = false, _oilFailedAt = 0;
+// Called whenever the Fuel tab is drawn: loads the chart by itself, but never in a retry storm —
+// not while a request is running, not while offline, and not for 5 minutes after a failure (↻ Refresh always tries).
+function maybeAutoFetchOil() {
+  if (_oilInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+  if (Date.now() - _oilFailedAt < 5 * 60 * 1000) return;
+  fetchOilPrices();
 }
 
 async function fetchOilPrices(force=false) {
+  if (_oilInFlight) return;
+  _oilInFlight = true;
   const btn = el('oil-refresh-btn');
   if (btn) btn.textContent = '⏳';
-  const TTL = _oilRange === '1d' ? MS_PER_HOUR / 4 : MS_PER_HOUR; // 15min for 24h, 1hr otherwise
-  const needsWti   = force || !_oilCache.wti   || Date.now() - _oilFetched.wti   > TTL;
-  const needsBrent = force || !_oilCache.brent || Date.now() - _oilFetched.brent > TTL;
-  const fetches = [];
-  let  fetchErr  = null;
-  if (needsBrent) fetches.push(
-    _fetchOilSeries('brent', _oilRange)
-      .then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); })
-      .catch(e => { fetchErr = e; })
-  );
-  if (needsWti)   fetches.push(
-    _fetchOilSeries('wti', _oilRange)
-      .then(d => { _oilCache.wti = d; _oilFetched.wti = Date.now(); })
-      .catch(e => { if (!fetchErr) fetchErr = e; })
-  );
-  await Promise.allSettled(fetches);
-  if (btn) btn.textContent = '↻ Refresh';
+  try {
+    const TTL = _oilRange === '1d' ? MS_PER_HOUR / 4 : MS_PER_HOUR; // 15min for 24h, 1hr otherwise
+    const needsWti   = force || !_oilCache.wti   || Date.now() - _oilFetched.wti   > TTL;
+    const needsBrent = force || !_oilCache.brent || Date.now() - _oilFetched.brent > TTL;
+    const fetches = [];
+    let  fetchErr  = null;
+    if (needsBrent) fetches.push(
+      _fetchOilSeries('brent', _oilRange)
+        .then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); })
+        .catch(e => { fetchErr = e; })
+    );
+    if (needsWti)   fetches.push(
+      _fetchOilSeries('wti', _oilRange)
+        .then(d => { _oilCache.wti = d; _oilFetched.wti = Date.now(); })
+        .catch(e => { if (!fetchErr) fetchErr = e; })
+    );
+    await Promise.allSettled(fetches);
+    if (btn) btn.textContent = '↻ Refresh';
 
-  // Show manual entry if both fetches failed and we have no cached data
-  if (fetchErr && !_oilCache.brent && !_oilCache.wti) {
-    const chartEl = el('oil-chart');
-    if (chartEl) chartEl.innerHTML = `
+    // Nothing to show: say why, and offer manual entry
+    if (fetchErr && !_oilCache.brent && !_oilCache.wti) {
+      _oilFailedAt = Date.now();
+      const chartEl = el('oil-chart');
+      if (chartEl) chartEl.innerHTML = _oilFailureHtml(fetchErr);
+      return;
+    }
+    if (!fetchErr) _oilFailedAt = 0;
+    updateOilBadges();
+    renderOilChart();
+    updateOilCalc();
+  } finally { _oilInFlight = false; if (btn && btn.textContent === '⏳') btn.textContent = '↻ Refresh'; }
+}
+
+// The panel shown when no price could be loaded. Everything that came from the network is escaped.
+function _oilFailureHtml(err) {
+  const rows = (err.attempts || []).map(a => `<div>• ${esc(a.label)}: ${esc(a.message)}</div>`).join('');
+  return `
       <div style="font-size:12px;color:var(--ink2);padding:8px 0">
-        <div style="color:var(--Am);margin-bottom:8px">⚠ ${fetchErr.message}</div>
-        <div style="color:var(--ink3);font-size:11px;margin-bottom:10px">
-          Yahoo Finance requires a valid session. Visit
-          <a href="https://finance.yahoo.com/quote/BZ=F/" target="_blank" rel="noopener" style="color:var(--B)">finance.yahoo.com</a>
-          then click ↻ Refresh — or enter prices manually below.
+        <div style="color:var(--Am);margin-bottom:6px">⚠ ${esc(err.message)}</div>
+        <div style="color:var(--ink3);font-size:11px;margin-bottom:6px">
+          The prices come from Yahoo Finance through a free public relay (allorigins.win), which is sometimes down or throttled.
+          Try ↻ Refresh later — or enter the prices by hand below; the crude-cost calculator works with them either way.
         </div>
+        ${rows ? `<details style="font-size:11px;color:var(--ink3);margin-bottom:10px"><summary style="cursor:pointer">What was tried</summary>${rows}</details>` : ''}
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <label style="font-size:12px;color:var(--ink2);margin:0;text-transform:none;letter-spacing:0;font-weight:400">Brent (USD/bbl)
             <input type="number" step="0.01" placeholder="82.00" style="width:90px;font-family:var(--mono);margin-left:6px"
@@ -12783,11 +12939,6 @@ async function fetchOilPrices(force=false) {
               oninput="_oilManual('wti',this.value)"></label>
         </div>
       </div>`;
-    return;
-  }
-  updateOilBadges();
-  renderOilChart();
-  updateOilCalc();
 }
 
 function _oilManual(type, val) {
@@ -14389,6 +14540,7 @@ function renderFuel() {
   // ── Predictions + seasonal + charts ─────────────────────────────────────────
   renderFuelSmartStats(all);
   try { renderCarCost(); } catch (e) { console.error('True cost per km failed:', e); }   // must never break the Fuel tab
+  try { maybeAutoFetchOil(); } catch (e) { console.error('Oil auto-load failed:', e); }   // the chart loads by itself (throttled); never breaks the tab
   renderHybridStats(all);
   renderFuelPredictor();
   renderTransitComparison();
@@ -16033,6 +16185,81 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Split suggestion ──
+    const _sm = (needs, wants, savings) => ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].flatMap((m, i) => [
+      { id: 'n' + i, date: m + '-02', amount: needs[i], type: 'expense', category: 'needs', desc: 'n', tags: [] }, { id: 'w' + i, date: m + '-09', amount: wants[i], type: 'expense', category: 'wants', desc: 'w', tags: [] },
+      { id: 's' + i, date: m + '-15', amount: savings[i], type: 'savings', category: 'savings', desc: 's', tags: [] }]);
+    const _sd = (entries, splits) => ({ entries, incomes: Object.fromEntries(['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].map(m => [m, { amount: 3000 }])), splits: splits || { needs: 50, wants: 30, savings: 20 }, fuel: [] });
+    test('split suggestion: medians per bucket, ranges, and both options add up to exactly 100', () => {
+      const d = _sd(_sm([1500, 1500, 1440, 1560, 1500, 1500], [600, 600, 660, 540, 600, 900], [300, 300, 300, 300, 300, 300]));
+      const r = suggestSplits(d, '2026-10-15');
+      expect(r.status, 'ok', 'status'); expect(r.months.length, 6, 'six finished months (the running month is left out)');
+      expect(r.actual.needs + '/' + r.actual.wants + '/' + r.actual.savings, '50/20/10', 'median shares — the €900 wants month (30%) does not move the median');
+      expect(r.ranges.needs.map(Math.round).join('-') + ' ' + r.ranges.wants.map(Math.round).join('-'), '48-52 18-30', 'ranges are reported'); expect(r.avgIncome, 3000, 'average income');
+      const a = r.options[0].split, b = r.options[1].split;
+      expect(a.needs + '/' + a.wants + '/' + a.savings, '50/20/30', 'A: reality for needs and wants, the rest is saving');
+      expect(b.needs + '/' + b.wants + '/' + b.savings, '57/23/20', 'B: savings stay at 20; 80 divided 5:2 like real spending (largest remainder)');
+      expect(r.options.every(o => o.split.needs + o.split.wants + o.split.savings === 100 && Object.values(o.split).every(Number.isInteger)), true, 'whole numbers adding up to 100');
+      expect(r.warnings.length, 0, 'a normal history raises no warning'); expect(r.current.needs + '/' + r.current.wants + '/' + r.current.savings, '50/30/20', 'the current split is shown');
+    });
+    test('split suggestion: not enough history → says so; "same as now" is detected', () => {
+      const two = suggestSplits({ entries: _sm([1500, 1500, 1500, 1500, 1500, 1500], [600, 600, 600, 600, 600, 600], [300, 300, 300, 300, 300, 300]).filter(e => e.date < '2026-06'), incomes: { '2026-04': { amount: 3000 }, '2026-05': { amount: 3000 } }, splits: { needs: 50, wants: 30, savings: 20 } }, '2026-10-15');
+      expect(two.status, 'insufficient', '2 months'); expectTrue(/at least 3 finished months/.test(two.reason), 'explains');
+      expect(suggestSplits({ entries: [], incomes: {}, splits: {} }, '2026-10-15').status, 'insufficient', 'empty vault');
+      const same = suggestSplits(_sd(_sm([1500, 1500, 1500, 1500, 1500, 1500], [600, 600, 600, 600, 600, 600], [300, 300, 300, 300, 300, 300]), { needs: 50, wants: 20, savings: 30 }), '2026-10-15');
+      expect(same.options[0].same, true, 'A equals the current split'); expect(same.options[1].same, true, 'so does B here: savings already 30 and the 5:2 needs:wants ratio already matches');
+      const other = suggestSplits(_sd(_sm([1500, 1500, 1500, 1500, 1500, 1500], [600, 600, 600, 600, 600, 600], [300, 300, 300, 300, 300, 300]), { needs: 50, wants: 30, savings: 20 }), '2026-10-15');
+      expect(other.options[0].same, false, 'a different current split is not "same"');
+    });
+    test('split suggestion: warns when little is logged, or when spending swings widely', () => {
+      const thin = suggestSplits(_sd(_sm([600, 600, 600, 600, 600, 600], [300, 300, 300, 300, 300, 300], [300, 300, 300, 300, 300, 300])), '2026-10-15');
+      expectTrue(thin.warnings.some(w => /only 40%/.test(w) && /check your entries/.test(w)), 'under-logging warning'); expect(thin.options[0].split.savings, 70, 'and A would indeed plan 70% saving — hence the warning');
+      const swing = suggestSplits(_sd(_sm([1500, 1500, 1500, 1500, 1500, 1500], [300, 1200, 300, 1200, 300, 1200], [300, 300, 300, 300, 300, 300])), '2026-10-15');
+      expectTrue(swing.warnings.some(w => /Wants/.test(w) && /more than 20 points/.test(w)), 'variability warning');
+    });
+    test('split suggestion: rounding always adds up to 100, even when needs + wants already exceed it', () => {
+      expect(_ssRound100([33.333, 33.333, 33.334]).join(), '33,33,34', 'thirds'); expect(_ssRound100([70, 50, 0]).join(), '58,42,0', 'scaled down to 100'); expect(_ssRound100([0, 0, 0]).join(), '0,0,100', 'nothing to divide');
+      const over = suggestSplits(_sd(_sm([2100, 2100, 2100, 2100, 2100, 2100], [1500, 1500, 1500, 1500, 1500, 1500], [0, 0, 0, 0, 0, 0])), '2026-10-15');
+      expect(over.options[0].split.needs + '/' + over.options[0].split.wants + '/' + over.options[0].split.savings, '58/42/0', '70% + 50% of income: scaled to 100, no savings');
+    });
+
+    // ── Restore: what would change ──
+    const _pr = (id, date, desc, amount, extra) => ({ id, date, desc, amount, type: 'expense', ...(extra || {}) });
+    test('restore diff: lost / regained / changed are told apart by id', () => {
+      const cur = { entries: [_pr('a', '2026-10-01', 'Rent', 900), _pr('b', '2026-10-28', 'Spar', 12.5), _pr('c', '2026-10-05', 'Edited now', 60)], fuel: [{ id: 'f1', date: '2026-10-02', station: 'Shell', total: 60 }], incomes: { '2026-09': { amount: 3000 }, '2026-10': { amount: 3400 } } };
+      const snap = { entries: [_pr('a', '2026-10-01', 'Rent', 900), _pr('c', '2026-10-05', 'Edited before', 60), _pr('d', '2026-09-15', 'Deleted since', 5)], fuel: [], incomes: { '2026-09': { amount: 3000 }, '2026-08': { amount: 2900 } } };
+      const d = diffVaults(cur, snap), e = d.lists.find(l => l.name === 'entries');
+      expect(e.lost.map(r => r.id).join(), 'b', 'Spar exists now but not in the snapshot → would be removed'); expect(e.regained.map(r => r.id).join(), 'd', 'only in the snapshot → comes back'); expect(e.changed.map(r => r.id).join(), 'c', 'same id, other content');
+      expect(d.lists.find(l => l.name === 'fuel').lost.length, 1, 'the refuel would be removed too');
+      expect(d.incomes.lost.join() + '|' + d.incomes.regained.join(), '2026-10|2026-08', 'income months'); expect(d.lostTotal + '/' + d.regainedTotal + '/' + d.changedTotal, '3/2/1', 'totals incl. the income month'); expect(d.identical, false, 'not identical');
+    });
+    test('restore diff: key order alone is not a change; identical vaults say so; missing collections are fine', () => {
+      const a = { entries: [{ id: 'x', date: '2026-01-01', desc: 'A', amount: 1, tags: [] }] }, b = { entries: [{ tags: [], amount: 1, desc: 'A', date: '2026-01-01', id: 'x' }] };
+      expect(diffVaults(a, b).identical, true, 'same content, different key order'); expect(diffVaults({}, {}).identical, true, 'empty vaults'); expect(diffVaults(a, {}).lostTotal, 1, 'snapshot without the collection');
+      expectTrue(/identical/.test(pitPreviewHtml(diffVaults(a, b))), 'the preview says nothing would change');
+    });
+    test('restore preview: counts, samples (newest first, max 4) and escaping', () => {
+      const many = Array.from({ length: 6 }, (_, i) => _pr('n' + i, `2026-10-0${i + 1}`, i === 5 ? '<img src=x onerror=alert(1)> "Q"' : 'Row ' + i, 10 + i));
+      const html = pitPreviewHtml(diffVaults({ entries: many }, { entries: [] }));
+      expectTrue(/<b>6<\/b> item\(s\) you have NOW would be removed: 6 entries/.test(html), 'count + kind'); expectTrue(html.indexOf('2026-10-06') < html.indexOf('2026-10-03') && !/2026-10-01/.test(html), 'newest four shown, oldest left out');
+      expectTrue(/and more/.test(html), 'says there is more'); expectTrue(html.indexOf('<img') < 0 && /&lt;img/.test(html), 'a hostile description is escaped');
+    });
+
+    // ── Oil price parsing ──
+    const _yj = (meta, ts, closes) => ({ chart: { result: [{ meta, timestamp: ts, indicators: { quote: [{ close: closes }] } }] } });
+    test('oil: a Yahoo response is parsed; nulls are dropped; a missing live price falls back to the last close', () => {
+      const r = _parseYahooChart(_yj({ regularMarketPrice: 82.5, chartPreviousClose: 81, currency: 'USD' }, [1000, 2000, 3000], [80, null, 82.5]));
+      expect(r.pts.length, 2, 'the null close is dropped'); expect(r.current, 82.5, 'live price'); expect(r.prev, 81, 'previous close'); expect(r.pts[0].t, 1000000, 'seconds → milliseconds');
+      const noLive = _parseYahooChart(_yj({}, [1000, 2000], [79, 80.25]));
+      expect(noLive.current, 80.25, 'no regularMarketPrice → last close, so the badge cannot break'); expect(noLive.currency, 'USD', 'default currency');
+    });
+    test('oil: errors say what is wrong', () => {
+      let m = ''; try { _parseYahooChart({ chart: { result: null, error: { description: 'Too Many Requests' } } }); } catch (e) { m = e.message; }
+      expect(m, 'Too Many Requests', 'Yahoo\'s own error text is passed on');
+      try { _parseYahooChart(_yj({}, [1], [null])); } catch (e) { m = e.message; } expect(m, 'Empty price series', 'only nulls = empty');
+      try { _parseYahooChart(null); } catch (e) { m = e.message; } expect(m, 'No data in response', 'garbage');
     });
 
     // ── Reminders (car & tax dates) ──
