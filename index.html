@@ -2624,9 +2624,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card" id="carcost-card">
         <div class="card-title">True cost per km
-          <select id="carcost-period" onchange="renderCarCost()" style="font-size:12px;padding:2px 6px;width:auto;margin-left:8px;text-transform:none;letter-spacing:0;font-weight:400">
-            <option value="12m">Last 12 months</option><option value="ytd">This year</option><option value="all">All time</option>
+          <select id="carcost-period" onchange="carCostPeriodChanged()" style="font-size:12px;padding:2px 6px;width:auto;margin-left:8px;text-transform:none;letter-spacing:0;font-weight:400">
+            <option value="lastmonth">Last month</option><option value="3m">Last 3 months</option><option value="12m" selected>Last 12 months</option>
+            <option value="ytd">This year</option><option value="all">All time</option><option value="custom">Custom dates…</option>
           </select>
+        </div>
+        <div id="carcost-custom" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--ink2)">
+          <label style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">From <input type="date" id="carcost-from" onchange="renderCarCost()" style="width:auto"></label>
+          <label style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">To <input type="date" id="carcost-to" onchange="renderCarCost()" style="width:auto"></label>
+          <span style="color:var(--ink3)">both days included</span>
         </div>
         <div id="carcost-body"></div>
       </div>
@@ -14648,20 +14654,36 @@ function _ccOdoAt(readings, date) {
   return span === 0 ? before.odo : before.odo + (after.odo - before.odo) * _ccDays(before.date, date) / span;
 }
 
-function carCostPerKm(data, period, today) {
+const _ccAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// A period as [lower bound EXCLUSIVE, upper bound INCLUSIVE] — the same (from, to] convention the costs use, so "last month" is exactly
+// 1st … last day of that month and 'ytd' includes 1 January. Returns null for an unusable custom range.
+function _ccPeriod(period, today, custom) {
+  const firstOfThis = today.slice(0, 7) + '-01';
+  if (period === '12m') { const d = new Date(today + 'T00:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() - 1); return { from: d.toISOString().slice(0, 10), to: today }; }
+  if (period === '3m')  { const d = new Date(today + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 3); return { from: d.toISOString().slice(0, 10), to: today }; }
+  if (period === 'lastmonth') { const [y, m] = today.slice(0, 7).split('-').map(Number), firstPrev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10); return { from: _ccAddDays(firstPrev, -1), to: _ccAddDays(firstOfThis, -1) }; }
+  if (period === 'ytd') return { from: (+today.slice(0, 4) - 1) + '-12-31', to: today };
+  if (period === 'custom') {
+    const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(Date.parse(s));
+    if (!custom || !ok(custom.from) || !ok(custom.to) || custom.from > custom.to) return null;
+    return { from: _ccAddDays(custom.from, -1), to: custom.to };                       // both dates inclusive
+  }
+  return { from: '0000-01-01', to: today };                                            // 'all'
+}
+
+function carCostPerKm(data, period, today, custom) {
   const fuel = data.fuel || [], entries = data.entries || [];
   const bad = new Set(odoAnomalies(fuel).map(a => a.id));
   const readings = fuel.filter(f => f.odo > 0 && f.date && !bad.has(f.id)).sort((a, b) => a.date.localeCompare(b.date) || a.odo - b.odo);
   const notEnough = reason => ({ status: 'insufficient', reason });
   if (readings.length < 2) return notEnough('Log at least two refuels with an odometer reading, so the app knows how far you drove.');
-  let pFrom = '0000-01-01';
-  if (period === '12m') { const d = new Date(today + 'T00:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() - 1); pFrom = d.toISOString().slice(0, 10); }
-  else if (period === 'ytd') pFrom = today.slice(0, 4) + '-01-01';
+  const P = _ccPeriod(period, today, custom);
+  if (!P) return notEnough('Choose a start date and an end date, with the start on or before the end.');
   const first = readings[0], last = readings[readings.length - 1];
-  const from = pFrom > first.date ? pFrom : first.date, to = last.date < today ? last.date : today;
+  const from = P.from > first.date ? P.from : first.date, to = [last.date, P.to, today].sort()[0];
   if (to <= from) return notEnough('Your odometer readings do not cover this period yet.');
   const days = _ccDays(from, to), startOdo = _ccOdoAt(readings, from), km = _ccOdoAt(readings, to) - startOdo;
-  if (startOdo == null || days < 45 || km < 300) return notEnough(`Only ${days} days and ${Math.max(0, Math.round(km || 0)).toLocaleString('de-AT')} km of readings fall in this period — too little for a meaningful per-km figure.`);
+  if (startOdo == null || days < 14 || km < 150) return notEnough(`Only ${days} days and ${Math.max(0, Math.round(km || 0)).toLocaleString('de-AT')} km of readings fall in this period — too little for a meaningful per-km figure.`);
 
   const inWin = d => d > from && d <= to;                                   // (from, to]: adjacent windows never count a cost twice
   const amounts = { fuel: 0, insurance: 0, parking: 0, service: 0, tyres: 0, other: 0 };
@@ -14689,6 +14711,12 @@ function carCostPerKm(data, period, today) {
   const total = Object.values(amounts).reduce((a, b) => a + b, 0);
   const rows = [{ key: 'fuel', label: 'Fuel' }, ...CARCOST_BUCKETS].map(b => ({ key: b.key, label: b.label, amount: amounts[b.key], share: total > 0 ? amounts[b.key] / total : 0, perKm: amounts[b.key] / km }))
     .filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount);
+  // Say so when a meaningful part of the chosen period has no odometer readings (a few days of slack is normal and not worth a note).
+  const startGap = _ccDays(P.from, from), endGap = _ccDays(to, P.to);
+  if (period !== 'all' && startGap > 7) notes.push(`Odometer readings start on ${from}, so the first ${startGap} days of the period you chose are not counted.`);
+  if (P.to < today && endGap > 7) notes.push(`The last odometer reading in the period is from ${to}, so its last ${endGap} days are not counted.`);
+  if (P.to === today && endGap > 30) notes.push(`Your last odometer reading is from ${to} — log a refuel for a current figure.`);
+  if (days < 60) notes.push(`Short period (${days} days): fuel counts when it is bought, not when it is burned, so this figure can swing from one refuel to the next. A period of 3 months or more is steadier.`);
   if (unlinkedFuel) notes.push(`${unlinkedFuel} fuel expense${unlinkedFuel > 1 ? 's' : ''} without a refuel record counted as fuel.`);
   if (dropped) notes.push(`${dropped} entr${dropped > 1 ? 'ies' : 'y'} repeating a service-log item or tyre price counted once.`);
   if (bad.size) notes.push(`${bad.size} odometer reading${bad.size > 1 ? 's' : ''} flagged as mistyped ${bad.size > 1 ? 'were' : 'was'} ignored for the distance.`);
@@ -14697,9 +14725,20 @@ function carCostPerKm(data, period, today) {
 }
 
 // ── Card in the Fuel tab ─────────────────────────────────────────────────────
+// Switching to "Custom dates" reveals the two date fields and pre-fills them (last 3 months), so the card is never empty.
+function carCostPeriodChanged() {
+  const sel = el('carcost-period'), row = el('carcost-custom'); if (!sel) return;
+  if (row) row.style.display = sel.value === 'custom' ? 'flex' : 'none';
+  if (sel.value === 'custom' && el('carcost-from') && !el('carcost-from').value) {
+    const to = ymd(), d = new Date(to + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 3);
+    el('carcost-from').value = _ccAddDays(d.toISOString().slice(0, 10), 1); el('carcost-to').value = to;
+  }
+  renderCarCost();
+}
 function renderCarCost() {
   const box = el('carcost-body'); if (!box) return;
-  const r = carCostPerKm(DATA, el('carcost-period')?.value || '12m', ymd());
+  const period = el('carcost-period')?.value || '12m';
+  const r = carCostPerKm(DATA, period, ymd(), { from: el('carcost-from')?.value, to: el('carcost-to')?.value });
   if (r.status !== 'ok') { box.innerHTML = `<div class="ins-none">${esc(r.reason)}</div>`; return; }
   const c = n => '€' + n.toFixed(2).replace('.', ',');
   const bar = row => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(row.label)}</span><span style="font-family:var(--mono)">${fmt(row.amount)} · ${c(row.perKm)}/km · ${Math.round(row.share * 100)}%</span></div>
@@ -16354,7 +16393,9 @@ function runSmokeTest() {
     });
     test('true cost: says "not enough" instead of a misleading number', () => {
       expect(carCostPerKm({ fuel: [_cf(1, '2026-01-01', 1000)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', 'one reading');
-      expect(carCostPerKm({ fuel: [_cf(1, '2026-10-01', 1000), _cf(2, '2026-10-20', 1600)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', '19 days is too short');
+      expect(carCostPerKm({ fuel: [_cf(1, '2026-10-01', 1000), _cf(2, '2026-10-08', 1600)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', '7 days is too short');
+      const short = carCostPerKm({ fuel: [_cf(1, '2026-10-01', 1000), _cf(2, '2026-10-20', 1600, 60)], entries: [] }, '12m', '2026-10-28');
+      expect(short.status, 'ok', '19 days and 600 km are enough to show a figure…'); expectTrue(short.notes.some(n => /Short period \(19 days\)/.test(n)), '…with a warning that it can swing');
       expect(carCostPerKm({ fuel: [_cf(1, '2026-01-01', 1000), _cf(2, '2026-06-01', 1100)], entries: [] }, '12m', '2026-10-28').status, 'insufficient', '100 km is too few');
       const old = carCostPerKm({ fuel: [_cf(1, '2025-01-01', 1000), _cf(2, '2025-12-01', 9000)], entries: [] }, 'ytd', '2026-10-28');
       expect(old.status, 'insufficient', 'readings all from last year cannot describe "this year"'); expectTrue(/do not cover/.test(old.reason), 'and says why');
@@ -16368,6 +16409,34 @@ function runSmokeTest() {
       const all = carCostPerKm(two, 'all', '2026-10-28'), ytd = carCostPerKm(two, 'ytd', '2026-10-28'), y12 = carCostPerKm(two, '12m', '2026-10-28');
       expect(all.rows.find(x => x.key === 'insurance').amount, 1100, 'all time includes both'); expect(ytd.rows.find(x => x.key === 'insurance').amount, 700, 'this year only');
       expect(y12.from, '2025-10-28', '12 months back from today, as the readings cover it'); expect(y12.rows.find(x => x.key === 'insurance').amount, 700, 'only the 2026 premium falls in the last 12 months');
+    });
+
+    test('true cost: "last month" is exactly the 1st to the last day of the previous month', () => {
+      const data = { fuel: [_cf(1, '2026-09-28', 10000), _cf(2, '2026-10-15', 10500, 60), _cf(3, '2026-11-05', 11000)], entries: [
+        _ce('a', '2026-09-30', 999, ['insurance']), _ce('b', '2026-10-01', 100, ['insurance']), _ce('c', '2026-10-31', 50, ['insurance']), _ce('d', '2026-11-01', 888, ['insurance']) ] };
+      const r = carCostPerKm(data, 'lastmonth', '2026-11-10');
+      expect(r.status, 'ok', 'status'); expect(r.from + ' → ' + r.to, '2026-09-30 → 2026-10-31', 'window = the day before the 1st (exclusive) … the 31st'); expect(r.days, 31, 'days');
+      expect(r.total, 210, 'the refuel of 15 Oct (60) + insurance on the 1st (100) and the 31st (50); the 30 Sep and 1 Nov items are outside');
+      expectClose(r.km, 10500 + 500 * 16 / 21 - (10000 + 500 * 2 / 17), 1e-6, 'km interpolated at both ends'); expectTrue(r.notes.some(n => /Short period \(31 days\)/.test(n)), 'one month is flagged as short');
+    });
+    test('true cost: "last 3 months" counts back from today; custom dates are both inclusive', () => {
+      const m = _monthly();
+      const r3 = carCostPerKm({ fuel: m, entries: [] }, '3m', '2026-10-28');
+      expect(r3.from + ' → ' + r3.to, '2026-07-28 → 2026-10-01', '3 months back from today, shortened to the last reading'); expect(r3.rows[0].amount, 180, 'refuels of 1 Aug, 1 Sep, 1 Oct'); expectClose(r3.km, 61000 - (58000 + 1000 * 27 / 31), 1e-6, 'km');
+      const c = carCostPerKm({ fuel: m, entries: [_ce('x', '2026-02-01', 70, ['parking']), _ce('y', '2026-04-30', 30, ['parking']), _ce('z', '2026-01-31', 500, ['parking']), _ce('w', '2026-05-01', 500, ['parking'])] }, 'custom', '2026-10-28', { from: '2026-02-01', to: '2026-04-30' });
+      expect(c.from + ' → ' + c.to, '2026-01-31 → 2026-04-30', 'from is included (the bound is the day before)'); expect(c.rows.find(x => x.key === 'parking').amount, 100, 'costs on the first and the last day are counted, the days around them are not');
+      expect(c.rows.find(x => x.key === 'fuel').amount, 180, 'refuels of 1 Feb, 1 Mar, 1 Apr');
+    });
+    test('true cost: custom range must be valid; "this year" includes 1 January; gaps in the readings are mentioned', () => {
+      const m = _monthly();
+      for (const bad of [null, {}, { from: '2026-05-01' }, { from: '2026-05-01', to: '2026-04-01' }, { from: 'x', to: 'y' }]) expect(carCostPerKm({ fuel: m, entries: [] }, 'custom', '2026-10-28', bad).status, 'insufficient', 'unusable range: ' + JSON.stringify(bad));
+      expectTrue(/Choose a start date/.test(carCostPerKm({ fuel: m, entries: [] }, 'custom', '2026-10-28', {}).reason), 'asks for the dates');
+      const ytd = carCostPerKm({ fuel: m, entries: [_ce('j1', '2026-01-01', 400, ['insurance'])] }, 'ytd', '2026-10-28');
+      expect(ytd.rows.find(x => x.key === 'insurance').amount, 400, 'a cost dated 1 January belongs to this year (it used to be left out)');
+      const clipped = carCostPerKm({ fuel: [_cf(1, '2026-08-01', 1000), _cf(2, '2026-09-20', 2000), _cf(3, '2026-10-20', 2600)], entries: [] }, 'lastmonth', '2026-11-10');
+      expectTrue(clipped.status === 'ok' && clipped.notes.some(n => /last odometer reading in the period is from 2026-10-20/.test(n)), 'last month with no refuel after the 20th says its last 11 days are not counted');
+      const startClip = carCostPerKm({ fuel: [_cf(1, '2026-05-01', 1000), _cf(2, '2026-10-01', 6000)], entries: [] }, '12m', '2026-10-28');
+      expectTrue(startClip.notes.some(n => /Odometer readings start on 2026-05-01/.test(n)), 'readings that start late are mentioned'); expectTrue(!carCostPerKm({ fuel: _monthly(), entries: [] }, '12m', '2026-10-28').notes.some(n => /not counted/.test(n)), 'a few days of slack is not worth a note');
     });
 
     // ── Reconcile ──
