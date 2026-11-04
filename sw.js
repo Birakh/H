@@ -2,8 +2,9 @@
 // Network-first, cache-fallback: always try to get the latest version when
 // online (so a bug fix or new feature isn't hidden behind a stale cache), and
 // only fall back to whatever was last cached when there's no connection.
-// Bump CACHE_NAME whenever you want to force old caches to be evicted.
-const CACHE_NAME = 'vault-finance-v33';
+// The cache name below is a PLACEHOLDER: `node release.js` stamps release/sw.js with a name derived from the content, so it changes exactly
+// when the app changes (and old caches are evicted). Do not edit it by hand.
+const CACHE_NAME = 'vault-finance-cc8166a9';
 const APP_SHELL  = ['./', './index.html', './manifest.webmanifest'];
 // Third-party libraries the app depends on at runtime (currently just the Excel
 // export library). Cached separately from APP_SHELL and best-effort per-file —
