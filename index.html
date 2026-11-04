@@ -2099,6 +2099,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">About</div>
         <div id="about-line" style="font-size:13px;color:var(--ink2)"></div>
+        <div id="vault-size-line" style="font-size:12px;color:var(--ink2);margin-top:4px"></div>
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">If the "files" version isn't the one you just deployed, you're looking at a cached copy — hard-refresh (Ctrl/Cmd+Shift+R).</div>
       </div>
 
@@ -3906,13 +3907,35 @@ function ghReq(endpoint, pat, opts={}) {
   });
 }
 
-async function doPull(silent=false) {
+// Size of the vault FILE on GitHub as last read or written (bytes of our b64 text), for Settings → About. null until the first sync.
+let _vaultBytes = null;
+const VAULT_SIMPLE_API_LIMIT = 1000000;   // GitHub's contents API returns no file body above ~1 MB
+
+// Reads the vault file (or the file as of commit `ref`). GitHub's contents API answers with an EMPTY body for files over ~1 MB — the app
+// used to feed that to the decryptor and report "Wrong passphrase". For those files the blob API (up to 100 MB) is used instead.
+// Returns null if the file does not exist; otherwise { b64str, sha } where b64str is our own base64 text (what CX.open expects).
+async function ghReadVault(ref) {
   const { owner, repo, path } = CFG;
-  const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT);
-  if (r.status === 404) return false;
+  const r = await ghReq(`repos/${owner}/${repo}/contents/${path}${ref ? '?ref=' + ref : ''}`, PAT);
+  if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GitHub ${r.status}`);
   const j = await r.json();
-  const b64str = atob(j.content.replace(/\n/g,'')); // decode GitHub's outer base64 → get our b64 string
+  let content = j.content;
+  if (!content && j.sha) {                                   // large file: fetch it as a blob
+    const b = await ghReq(`repos/${owner}/${repo}/git/blobs/${j.sha}`, PAT);
+    if (!b.ok) throw new Error(`GitHub ${b.status} while reading a large vault file`);
+    content = (await b.json()).content;
+  }
+  if (!content) throw new Error('GitHub returned an empty vault file');
+  const b64str = atob(content.replace(/\n/g, ''));         // decode GitHub's outer base64 → our b64 string
+  _vaultBytes = b64str.length;
+  return { b64str, sha: j.sha };
+}
+
+async function doPull(silent=false) {
+  const f = await ghReadVault();
+  if (!f) return false;
+  const { b64str } = f, j = { sha: f.sha };
   let data, salt;
   try {
     ({ data, salt } = await CX.open(b64str, PASS));
@@ -3944,6 +3967,7 @@ async function doPush(message) {
   // Pass null for existingSalt → fresh salt + new derived key on every remote push.
   const { b64, salt } = await CX.seal(DATA, PASS, null);
   SALT = salt;
+  _vaultBytes = b64.length;
   DATA.meta.lastSync = new Date().toISOString();
   const body = {
     message: message || `vault sync ${ymd()}`,
@@ -4159,11 +4183,9 @@ async function previewCommit(sha, message, date) {
   el('pit-overlay').classList.add('open');
   try {
     // Fetch the file at this specific commit SHA
-    const r = await ghReq(`repos/${CFG.owner}/${CFG.repo}/contents/${CFG.path}?ref=${sha}`, PAT);
-    if (!r.ok) throw new Error(`GitHub ${r.status}`);
-    const j = await r.json();
-    if (!j.content) throw new Error('GitHub did not return the file (snapshots over 1 MB are not available through this API)');
-    const b64str = atob(j.content.replace(/\n/g,''));
+    const f = await ghReadVault(sha);
+    if (!f) throw new Error('that snapshot no longer exists');
+    const b64str = f.b64str;
     let data;
     try { ({ data } = await CX.open(b64str, PASS)); }
     catch { ({ data } = await CX.openLegacy(b64str, PAT)); }
@@ -11559,17 +11581,37 @@ applyAppVersion();
 
 // Settings → About: which build is actually running. The cache name is the service worker's —
 // if it isn't the one you just deployed, you're looking at a cached copy (hard-refresh).
+// Which files are running. The cache name changes with every release (release.js derives it from the content), so the check for
+// "I don't see my change" is: does the DEPLOYED sw.js name a cache that already exists on this device? If not, an update is waiting.
+function aboutFilesText(deployedName, cacheNames) {
+  const mine = (cacheNames || []).filter(n => n.startsWith('vault-finance-'));
+  if (deployedName) return mine.includes(deployedName) ? ` · files ${deployedName}` : ` · files ${deployedName} (update downloaded or waiting — close and reopen the app)`;
+  return mine.length ? ` · files ${mine[mine.length - 1]}` : '';
+}
 async function renderAbout() {
   const e = el('about-line'); if (!e) return;
   let sw = '';
   try {
-    if (typeof caches !== 'undefined') {
-      const ver = n => parseInt(String(n).split('-v')[1], 10) || 0;
-      const names = (await caches.keys()).filter(n => n.startsWith('vault-finance-')).sort((a, b) => ver(a) - ver(b));
-      if (names.length) sw = ` · files ${names[names.length - 1]}`;
-    }
+    const names = typeof caches !== 'undefined' ? await caches.keys() : [];
+    let deployed = null;
+    try { const t = await (await fetch('./sw.js', { cache: 'no-store' })).text(); deployed = (t.match(/CACHE_NAME\s*=\s*'([^']+)'/) || [])[1] || null; } catch (_) {}
+    sw = aboutFilesText(deployed, names);
   } catch (_) {}
   e.textContent = `${APP_NAME} ${APP_VERSION} · data format v${SCHEMA_VERSION}${sw}`;
+  renderVaultSize();
+}
+// Size of the encrypted vault file on GitHub (measured at the last pull/push).
+function vaultSizeInfo(bytes) {
+  if (bytes == null) return { text: 'Vault file: not synced yet in this session.', level: 'ok' };
+  const kb = Math.round(bytes / 1024), pct = Math.round(bytes / VAULT_SIMPLE_API_LIMIT * 100);
+  if (bytes >= VAULT_SIMPLE_API_LIMIT) return { text: `Vault file: ${(bytes / 1048576).toFixed(1)} MB — above GitHub's 1 MB simple read limit. The app switches to the large-file API automatically, so syncing keeps working.`, level: 'warn' };
+  if (pct >= 70) return { text: `Vault file: ${kb} KB (${pct}% of the 1 MB where GitHub's simple read API stops). Above that the app switches to the large-file API automatically.`, level: 'soon' };
+  return { text: `Vault file: ${kb} KB (${pct}% of the 1 MB where GitHub's simple read API stops — plenty of room).`, level: 'ok' };
+}
+function renderVaultSize() {
+  const box = el('vault-size-line'); if (!box) return;
+  const i = vaultSizeInfo(_vaultBytes);
+  box.textContent = i.text; box.style.color = i.level === 'warn' ? 'var(--Rm)' : i.level === 'soon' ? 'var(--Am)' : 'var(--ink2)';
 }
 
 // Settings → Yearly checks: the two facts the app hard-codes (ECB meeting dates, KESt rate), whether they
@@ -17071,10 +17113,9 @@ async function mergeAndPush() {
   try {
     // 1. Fetch and decrypt the remote vault
     const { owner, repo, path } = CFG;
-    const r = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT);
-    if (!r.ok) throw new Error(`GitHub ${r.status} while fetching remote for merge`);
-    const j = await r.json();
-    const b64str = atob(j.content.replace(/\n/g, ''));
+    const f = await ghReadVault();
+    if (!f) throw new Error('GitHub has no vault file to merge with');
+    const j = { sha: f.sha }, b64str = f.b64str;
     let remoteData;
     try { ({ data: remoteData } = await CX.open(b64str, PASS)); }
     catch { ({ data: remoteData } = await CX.openLegacy(b64str, PAT)); }
@@ -17087,7 +17128,7 @@ async function mergeAndPush() {
     // 3. Push merged result
     DATA = merged;
     const { b64, salt } = await CX.seal(DATA, PASS, null);
-    SALT = salt;
+    SALT = salt; _vaultBytes = b64.length;
     DATA.meta.lastSync = new Date().toISOString();
     const pushBody = { message: `vault merge ${ymd()}`, content: btoa(b64), sha: DATA.meta.sha };
     const pr = await ghReq(`repos/${owner}/${repo}/contents/${path}`, PAT, { method:'PUT', body: JSON.stringify(pushBody) });
