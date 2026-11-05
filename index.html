@@ -4980,6 +4980,12 @@ function renderDash() {
     ? `<div class="stat ${wantsOver?'danger-hi':''}"><div class="stat-lbl">Left in Wants</div><div class="stat-val ${wantsOver?'cr':'cg'}">${wantsOver?'−':''}${fmt(Math.abs(wantsLeft))}</div></div>`
     : '';
 
+  // Current month: "safe to spend per day" (left minus recurring bills not yet applied). Another month — or no income to measure against — keeps the plain tile.
+  const oldPerDayTile = `<div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : '€/day (budget)'}</div><div class="stat-val ${isCurrentMonth?(dailyLeft>=0?'cg':'cr'):(dailyBudget>0?'cb':'')}">${isCurrentMonth ? fmtBare(dailyLeft)+'/d' : dailyBudget>0 ? fmtBare(dailyBudget)+'/d' : '—'}</div></div>`;
+  let safe = null;
+  try { safe = isCurrentMonth ? safeToSpend(DATA, month, ymdOf(now)) : null; } catch (err) { console.error('Safe to spend failed:', err); }   // a bug here falls back to the plain tile, never breaks the Overview
+  const perDayTile = safe && safe.status !== 'no-income' ? safeTileHtml(safe) : oldPerDayTile;
+
   el('d-stats').innerHTML = `
     <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val cb">${fmt(totalInc)}</div>${momDelta(totalInc,prevInc,false)}</div>
     <div class="stat"><div class="stat-lbl">Total allocated</div><div class="stat-val cr">${fmt(spent)}</div>${momDelta(spent,prevSpent,true)}</div>
@@ -4987,7 +4993,7 @@ function renderDash() {
     ${needsStat}
     ${wantsStat}
     <div class="stat"><div class="stat-lbl">Savings rate</div><div class="stat-val ${savePct>=20?'cg':savePct>=10?'ca':'cr'}">${budgetInc>0?savePct+'%':'—'}</div></div>
-    <div class="stat"><div class="stat-lbl">${isCurrentMonth ? `€/day · ${daysLeft}d left` : '€/day (budget)'}</div><div class="stat-val ${isCurrentMonth?(dailyLeft>=0?'cg':'cr'):(dailyBudget>0?'cb':'')}">${isCurrentMonth ? fmtBare(dailyLeft)+'/d' : dailyBudget>0 ? fmtBare(dailyBudget)+'/d' : '—'}</div></div>
+    ${perDayTile}
     <div class="stat"><div class="stat-lbl">Saved this month</div><div class="stat-val cg">${fmt(act.savings)}</div>${momDelta(act.savings,prevSaved,false)}</div>
     ${nwStat}`;
 
@@ -5493,6 +5499,41 @@ function hmTip(e, cat, mon, val) {
   tip.style.top  = (e.clientY - 8)  + 'px';
 }
 function hmHide() { el('d-heatmap-tip').style.display = 'none'; }
+
+// ══════════════════════════════════════════
+// SAFE TO SPEND — what you can still spend per day without going over, for the CURRENT month.
+//   safe per day = ( Left to spend − recurring bills that are due but not yet in your Entries ) ÷ days left INCLUDING today
+// "Left to spend" (the Overview tile, unchanged) only knows what is already in Entries. Recurring items reach Entries only when you press
+// "Apply now", so until then it overstates what is free: rent due on the 28th is not deducted yet. Only items that WOULD reduce
+// "Left to spend" once applied are subtracted (expenses in your buckets, and savings) — recurring income never is. A weekly item
+// that has been applied once but is due four times counts the three that are missing. Entries already dated later this month
+// (planned by hand) are already inside "Left to spend", so they are not subtracted twice.
+// safeToSpend(data, month, today) is PURE (today = the local date, 'YYYY-MM-DD'). Returns null for any month but the current one.
+// ══════════════════════════════════════════
+function safeToSpend(data, month, today) {
+  if (month !== today.slice(0, 7)) return null;
+  const income = _insIncome(data, month);
+  if (!(income > 0)) return { status: 'no-income' };
+  const [y, m] = month.split('-').map(Number), dim = new Date(y, m, 0).getDate();
+  const days = dim - +today.slice(8, 10) + 1;                               // today still counts: you can spend today too
+  const left = income - _insAgg(data.entries || [], month, 31).allocated;   // exactly the Overview's "Left to spend"
+  const items = [];
+  (data.recurring ? getRecurringStatus(month, data) : []).forEach(s => {
+    const r = s.recur, counts = r.type === 'savings' || (r.type === 'expense' && ['needs', 'wants', 'savings'].includes(r.category));
+    const missing = s.status === 'missing' ? s.expectedTotal : s.status === 'partial' ? Math.max(0, s.expectedTotal - s.actualTotal) : 0;
+    if (counts && missing > 0.004) items.push({ name: r.desc || 'Recurring item', amount: missing });
+  });
+  const pending = items.reduce((a, b) => a + b.amount, 0), available = left - pending;
+  return { status: available >= 0 ? 'ok' : 'over', left, pending, items, available, days, perDay: available / days };
+}
+// The Overview tile for the current month (it replaces the plain "left ÷ days" tile there).
+function safeTileHtml(r) {
+  const per = (r.perDay < 0 ? '−' : '') + fmtBare(Math.abs(r.perDay)) + '/d';          // fmtBare drops the sign: say "−" explicitly when over budget
+  const note = r.status === 'over' ? `over by ${fmt(-r.available)} once ${fmt(r.pending)} of bills still to come are paid`
+    : r.pending > 0 ? `${r.days}d incl. today · after ${fmt(r.pending)} of bills still to come` : `${r.days}d incl. today`;
+  return `<div class="stat ${r.status === 'over' ? 'danger-hi' : ''}" title="${esc('Left to spend minus recurring bills not yet applied, divided by the days left including today')}">
+    <div class="stat-lbl">Safe to spend / day</div><div class="stat-val ${r.status === 'over' ? 'cr' : r.pending > 0 ? 'ca' : 'cg'}">${per}</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">${esc(note)}</div></div>`;
+}
 
 // ══════════════════════════════════════════
 // TAG ANALYTICS
@@ -13966,16 +14007,16 @@ function bvaTip(e, cat, month, spent, budget, pct) {
 // the month-close wizard, and the "Recurring vs Actual" card below so none
 // of them can disagree about what's still pending — this consolidates three
 // previously-separate, inconsistent "is it applied" checks into one.
-function getRecurringStatus(month) {
+function getRecurringStatus(month, data = DATA) {
   const [yr, mo] = month.split('-').map(Number);
   const lastDay = new Date(yr, mo, 0).getDate();
-  return DATA.recurring.map(r => {
+  return data.recurring.map(r => {
     const freq = r.freq || 'monthly';
-    const actualEntries = DATA.entries.filter(e => ym(e.date) === month && e.recurId === r.id);
+    const actualEntries = data.entries.filter(e => ym(e.date) === month && e.recurId === r.id);
 
     let expectedCount;
     if (freq === 'quarterly') {
-      const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
+      const firstApp = data.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
       const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
       expectedCount = (mo - originMo + 12) % 3 !== 0 ? 0 : 1;
     } else if (freq === 'weekly') {
@@ -16266,6 +16307,56 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Safe to spend ──
+    const _sE = (id, date, amount, type, category, extra) => ({ id, date, amount, type, category, desc: id, tags: [], ...(extra || {}) });
+    const _sR = (id, desc, amount, type, category, extra) => ({ id, desc, amount, type, category, day: 28, freq: 'monthly', ...(extra || {}) });
+    const _sBase = () => ({
+      incomes: { '2026-10': { amount: 3000 } },
+      entries: [_sE('n1', '2026-10-05', 1000, 'expense', 'needs'), _sE('w1', '2026-10-06', 466, 'expense', 'wants'),
+                _sE('nf', '2026-10-05', 14, 'expense', 'wants', { recurId: 'r2' }), _sE('gy', '2026-10-03', 20, 'expense', 'wants', { recurId: 'r3' })],       // allocated 1500 → left 1500
+      recurring: [
+        _sR('r1', 'Rent', 900, 'expense', 'needs'),                                          // not applied → 900 still to come
+        _sR('r2', 'Netflix', 14, 'expense', 'wants'),                                        // applied → nothing
+        _sR('r3', 'Gym', 20, 'expense', 'wants', { freq: 'weekly', day: 3 }),                // due 4×, applied once → 3 × 20 = 60
+        _sR('r4', 'Salary', 3000, 'income', 'needs'),                                        // income is never subtracted
+        _sR('r5', 'ETF', 200, 'savings', 'savings'),                                         // savings count (they are allocated too) → 200
+        _sR('r6', 'Odd', 50, 'expense', 'misc') ] });                                        // a category outside your buckets would not reduce "Left to spend" either
+    test('safe to spend: left minus recurring bills still to come, over the days left INCLUDING today', () => {
+      const r = safeToSpend(_sBase(), '2026-10', '2026-10-20');
+      expect(r.status, 'ok', 'status'); expect(r.left, 1500, '"Left to spend" exactly as the Overview computes it'); expect(r.pending, 1160, '900 rent + 60 weekly gym + 200 saving');
+      expect(r.items.map(i => i.name).join(), 'Rent,Gym,ETF', 'which items'); expect(r.days, 12, '20 Oct … 31 Oct inclusive'); expect(r.available, 340, 'left − pending');
+      expectClose(r.perDay, 340 / 12, 1e-9, 'per day');
+    });
+    test('safe to spend: applying the recurring items does NOT change the per-day figure (they were already subtracted)', () => {
+      const before = safeToSpend(_sBase(), '2026-10', '2026-10-20'), d = _sBase();
+      d.entries.push(_sE('a1', '2026-10-28', 900, 'expense', 'needs', { recurId: 'r1' }), _sE('a2', '2026-10-10', 20, 'expense', 'wants', { recurId: 'r3' }), _sE('a3', '2026-10-17', 20, 'expense', 'wants', { recurId: 'r3' }),
+        _sE('a4', '2026-10-24', 20, 'expense', 'wants', { recurId: 'r3' }), _sE('a5', '2026-10-28', 200, 'savings', 'savings', { recurId: 'r5' }));
+      const after = safeToSpend(d, '2026-10', '2026-10-20');
+      expect(after.pending, 0, 'nothing left to apply'); expect(after.left, 1500 - 1160, '"Left to spend" itself dropped by exactly the bills'); expectClose(after.perDay, before.perDay, 1e-9, 'safe per day is the same before and after pressing "Apply now"');
+    });
+    test('safe to spend: a manually planned later entry is not subtracted twice; over-budget and edge days', () => {
+      const d = _sBase(); d.entries.push(_sE('p1', '2026-10-25', 100, 'expense', 'wants'));
+      expectClose(safeToSpend(d, '2026-10', '2026-10-20').perDay, (1500 - 100 - 1160) / 12, 1e-9, 'a future-dated entry is already inside "Left to spend"');
+      const over = _sBase(); over.incomes['2026-10'].amount = 1200;
+      const o = safeToSpend(over, '2026-10', '2026-10-20'); expect(o.status, 'over', 'status'); expectClose(o.perDay, (-300 - 1160) / 12, 1e-9, 'negative per day');
+      expect(safeToSpend(_sBase(), '2026-10', '2026-10-31').days, 1, 'on the last day there is one day left (today)'); expect(safeToSpend(_sBase(), '2026-10', '2026-10-01').days, 31, 'on the 1st, 31 days');
+    });
+    test('safe to spend: only the current month; no income → no figure; no recurring list is fine; quarterly items off-cycle are ignored', () => {
+      expect(safeToSpend(_sBase(), '2026-09', '2026-10-20'), null, 'a past month'); expect(safeToSpend(_sBase(), '2026-11', '2026-10-20'), null, 'a future month');
+      expect(safeToSpend({ incomes: {}, entries: [], recurring: [] }, '2026-10', '2026-10-20').status, 'no-income', 'nothing to measure against');
+      const noRec = { incomes: { '2026-10': { amount: 3000 } }, entries: [_sE('n1', '2026-10-05', 1000, 'expense', 'needs')] };
+      expect(safeToSpend(noRec, '2026-10', '2026-10-20').pending, 0, 'a vault without recurring items');
+      const q = { incomes: { '2026-10': { amount: 3000 }, '2026-11': { amount: 3000 } }, entries: [_sE('qa', '2026-08-15', 300, 'expense', 'needs', { recurId: 'q1' })], recurring: [_sR('q1', 'Insurance', 300, 'expense', 'needs', { freq: 'quarterly' })] };
+      expect(safeToSpend(q, '2026-10', '2026-10-20').pending, 0, 'applied in August → next due in November, nothing now'); expect(safeToSpend(q, '2026-11', '2026-11-20').pending, 300, 'in November it is due and not applied');
+    });
+    test('safe to spend: the tile says what it did, and the vault is not modified', () => {
+      const d = _sBase(), snap = JSON.stringify(d), r = safeToSpend(d, '2026-10', '2026-10-20');
+      const html = safeTileHtml(r); expectTrue(/Safe to spend \/ day/.test(html) && /12d incl\. today/.test(html) && /of bills still to come/.test(html) && /class="stat-val ca"/.test(html), 'amber tile with the explanation');
+      expectTrue(/class="stat-val cg"/.test(safeTileHtml(safeToSpend(_sBase().entries && { incomes: { '2026-10': { amount: 3000 } }, entries: [], recurring: [] }, '2026-10', '2026-10-20'))), 'green when nothing is pending');
+      expectTrue(/danger-hi/.test(safeTileHtml(safeToSpend({ ..._sBase(), incomes: { '2026-10': { amount: 1200 } } }, '2026-10', '2026-10-20'))) && /over by/.test(safeTileHtml(safeToSpend({ ..._sBase(), incomes: { '2026-10': { amount: 1200 } } }, '2026-10', '2026-10-20'))), 'over budget: red, says by how much');
+      expect(JSON.stringify(d), snap, 'inputs untouched');
     });
 
     // ── Split suggestion ──
