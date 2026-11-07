@@ -858,6 +858,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .ins-t{font-size:13px;font-weight:600}
 .ins-x{font-size:12.5px;color:var(--ink2);line-height:1.45;margin-top:1px}
 .ins-none{font-size:12px;color:var(--ink3);padding:4px 0}
+/* Overview layout: hide / fold / reorder cards (state is kept in the vault: DATA.settings.overview) */
+#d-cards .ov-hidden{display:none!important}
+#d-cards .card-title{cursor:pointer;-webkit-user-select:none;user-select:none}
+#d-cards .card-title::before{content:'▾';display:inline-block;width:1.1em;font-size:10px;opacity:.45}
+#d-cards .ov-folded > :not(.card-title){display:none!important}
+#d-cards .ov-folded .card-title::before{content:'▸'}
+.ov-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:.5px solid var(--bdr);font-size:13px}
+.ov-row .ov-name{flex:1;min-width:0}
+.ov-row .ov-off{color:var(--ink3);text-decoration:line-through}
+.ov-row button{min-width:34px;min-height:30px}
 </style>
 </head>
 <body>
@@ -1204,6 +1214,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button type="button" class="btn xs ghost" onclick="jumpMonthToToday()" title="Jump to current month">Today</button>
           <button class="btn xs info" onclick="openWhatIf()" title="What-if planner">What-if</button>
           <button class="btn xs ghost" onclick="openMonthReport()" title="Printable monthly report — save it as a PDF">📄 Report</button>
+          <button class="btn xs ghost" data-action="ov-customize-toggle" title="Choose which Overview cards to show, fold or reorder">⚙ Customize</button>
         </div>
       </div>
 
@@ -1211,15 +1222,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div id="d-banners"></div>
       <div class="stat-grid" id="d-stats"></div>
 
+      <!-- Overview cards: one container, so they can be hidden, folded and reordered without touching anything above them -->
+      <div id="ov-customize" class="card" style="display:none"></div>
+      <div id="d-cards">
       <div class="card" id="reminders-card" style="display:none">
-        <div class="card-title">Coming up
+        <div class="card-title" data-action="ov-title-fold" data-id="reminders-card">Coming up
           <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">car &amp; tax dates</span>
         </div>
         <div id="reminders-list"></div>
       </div>
 
       <div class="card" id="insights-card">
-        <div class="card-title">Insights
+        <div class="card-title" data-action="ov-title-fold" data-id="insights-card">Insights
           <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)">computed from your data, no AI involved</span>
         </div>
         <div id="insights-list"></div>
@@ -1230,36 +1244,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="insights-ai-out" style="display:none;margin-top:8px;font-size:13px;line-height:1.5;white-space:pre-wrap"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">This week
+      <div class="card" id="ov-week">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-week">This week
           <span id="week-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="d-week"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">50 / 30 / 20 breakdown</div>
+      <div class="card" id="ov-split">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-split">50 / 30 / 20 breakdown</div>
         <div id="d-bars-split"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Spending by category</div>
+      <div class="card" id="ov-category">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-category">Spending by category</div>
         <div id="d-bars-cat"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Monthly history — last 12 months</div>
+      <div class="card" id="ov-history">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-history">Monthly history — last 12 months</div>
         <div class="chart-wrap" id="d-chart"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Spending heatmap — last 12 months</div>
+      <div class="card" id="ov-heatmap">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-heatmap">Spending heatmap — last 12 months</div>
         <div id="d-heatmap"></div>
         <div id="d-heatmap-tip" class="heatmap-tip"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">
+      <div class="card" id="ov-tags">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-tags">
           Spending by tag
           <span id="tag-month-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
@@ -1272,27 +1286,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="d-tags"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title" id="bill-cal-title">Bill calendar</div>
+      <div class="card" id="ov-bills">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-bills" id="bill-cal-title">Bill calendar</div>
         <div id="d-bill-cal"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Spending forecast · this month
+      <div class="card" id="ov-forecast">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-forecast">Spending forecast · this month
           <span id="forecast-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="d-forecast"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Top merchants
+      <div class="card" id="ov-merchants">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-merchants">Top merchants
           <span id="merchant-month-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="d-merchants"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Savings goals
+      <div class="card" id="ov-goals">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-goals">Savings goals
           <button class="btn xs success" onclick="toggleGoalForm()">+ Add goal</button>
         </div>
         <div id="d-goals"></div>
@@ -1333,33 +1347,33 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Budget vs actual — last 12 months</div>
+      <div class="card" id="ov-bva">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-bva">Budget vs actual — last 12 months</div>
         <div id="d-bva"></div>
         <div id="d-bva-tip" class="heatmap-tip"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Net worth timeline</div>
+      <div class="card" id="ov-networth">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-networth">Net worth timeline</div>
         <div class="nw-chart-wrap"><div id="d-nw-timeline"></div></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Savings rate trend
+      <div class="card" id="ov-savingsrate">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-savingsrate">Savings rate trend
           <span style="font-size:11px;font-weight:400;color:var(--ink3)">12 months · savings ÷ income</span>
         </div>
         <div id="d-savings-rate"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title" id="notes-card-title">Notes</div>
+      <div class="card" id="ov-notes">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-notes" id="notes-card-title">Notes</div>
         <textarea class="notes-ta" id="d-notes" placeholder="Add a note for this month — e.g. paid annual insurance, unusual expenses…" oninput="scheduleNoteSave()"></textarea>
         <div class="notes-saved" id="notes-saved">✓ Saved</div>
       </div>
 
       <!-- ── Cash purchase log ── -->
-      <div class="card">
-        <div class="card-title">💵 Cash purchases
+      <div class="card" id="ov-cash">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-cash">💵 Cash purchases
           <div style="display:flex;gap:6px;align-items:center">
             <select id="cash-filter-month" style="width:auto;font-size:12px;padding:3px 8px" onchange="renderCashLog()">
               <option value="">All time</option>
@@ -1398,7 +1412,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div class="card" id="steps-card">
-        <div class="card-title">💡 5 steps to grow your money
+        <div class="card-title" data-action="ov-title-fold" data-id="steps-card">💡 5 steps to grow your money
           <button class="btn xs ghost" onclick="toggleStepsCard()" id="steps-toggle-btn">Collapse</button>
         </div>
         <div id="steps-body">
@@ -1445,6 +1459,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
           <div style="font-size:11px;color:var(--ink3);margin-top:10px;padding-top:10px;border-top:.5px solid var(--bdr)">This is general information, not personalised financial advice. Consult a qualified advisor for your specific situation.</div>
         </div>
+      </div>
       </div>
     </section>
 
@@ -5014,6 +5029,7 @@ function renderDash() {
   renderSavingsGoals();
   try { renderReminders(); } catch (e) { console.error('Reminders failed:', e); }    // like Insights: must never break the Overview
   try { renderInsights(); } catch (e) { console.error('Insights failed:', e); }   // a bug here must never break the Overview
+  try { applyOverviewLayout(); } catch (e) { console.error('Overview layout failed:', e); }   // hide / fold / reorder — never breaks the Overview either
 
   // Expensive cross-month renders — skip if entry count + account balances haven't changed
   const _dashKey = `${DATA.entries.length}|${DATA.accounts.map(a=>a.id+a.balance).join(',')}|${DATA.stocks.length}|${DATA.fxAccounts?.length}`;
@@ -5534,6 +5550,102 @@ function safeTileHtml(r) {
   return `<div class="stat ${r.status === 'over' ? 'danger-hi' : ''}" title="${esc('Left to spend minus recurring bills not yet applied, divided by the days left including today')}">
     <div class="stat-lbl">Safe to spend / day</div><div class="stat-val ${r.status === 'over' ? 'cr' : r.pending > 0 ? 'ca' : 'cg'}">${per}</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">${esc(note)}</div></div>`;
 }
+
+// ══════════════════════════════════════════
+// OVERVIEW LAYOUT — hide, fold and reorder the cards of the Overview. Kept in the VAULT (DATA.settings.overview), so it follows you to
+// every device and survives incognito; a conflict merge keeps the local settings as they are.
+//   { order: [card ids], hidden: [ids], folded: [ids] }   — no saved layout = the default order, everything shown and open.
+// resolveOverviewLayout / editOverviewLayout are PURE. A saved layout is always "repaired" against the cards that exist now:
+// unknown or repeated ids are dropped, and a card added by a later update (not in the saved order) slots in right after the card
+// that precedes it by default — so a new feature shows up where it belongs instead of vanishing.
+// Hiding and folding use CSS classes (.ov-hidden / .ov-folded), never style.display: other code (the reminders card) sets
+// style.display itself and must not be able to un-hide a card you hid. Everything lives inside #d-cards, so reordering can never
+// disturb the header, the account cards or the stat tiles above it.
+// ══════════════════════════════════════════
+const OVERVIEW_CARDS = [      // default order — a test checks it against the markup
+  { id: 'reminders-card', label: 'Coming up (car & tax dates)' },
+  { id: 'insights-card',  label: 'Insights' },
+  { id: 'ov-week',        label: 'This week' },
+  { id: 'ov-split',       label: '50 / 30 / 20 breakdown' },
+  { id: 'ov-category',    label: 'Spending by category' },
+  { id: 'ov-history',     label: 'Monthly history' },
+  { id: 'ov-heatmap',     label: 'Spending heatmap' },
+  { id: 'ov-tags',        label: 'Spending by tag' },
+  { id: 'ov-bills',       label: 'Bill calendar' },
+  { id: 'ov-forecast',    label: 'Spending forecast' },
+  { id: 'ov-merchants',   label: 'Top merchants' },
+  { id: 'ov-goals',       label: 'Savings goals' },
+  { id: 'ov-bva',         label: 'Budget vs actual' },
+  { id: 'ov-networth',    label: 'Net worth timeline' },
+  { id: 'ov-savingsrate', label: 'Savings rate trend' },
+  { id: 'ov-notes',       label: 'Notes' },
+  { id: 'ov-cash',        label: 'Cash purchases' },
+  { id: 'steps-card',     label: '5 steps to grow your money' },
+];
+const _ovIds = () => OVERVIEW_CARDS.map(c => c.id);
+
+function resolveOverviewLayout(saved, ids) {
+  const known = new Set(ids), s = saved && typeof saved === 'object' ? saved : {};
+  const clean = a => (Array.isArray(a) ? a : []).filter((id, i, arr) => known.has(id) && arr.indexOf(id) === i);
+  const order = clean(s.order);
+  ids.forEach((id, i) => {
+    if (order.includes(id)) return;
+    const prev = ids.slice(0, i).reverse().find(p => order.includes(p));
+    order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, id);
+  });
+  return { order, hidden: clean(s.hidden), folded: clean(s.folded) };
+}
+// op: 'hide' | 'fold' (toggle) · 'up' | 'down' (swap with the neighbour in the list). Returns a new layout; the input is not modified.
+function editOverviewLayout(layout, op, id) {
+  const L = { order: [...layout.order], hidden: [...layout.hidden], folded: [...layout.folded] };
+  const toggle = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...arr, x];
+  if (op === 'hide') L.hidden = toggle(L.hidden, id);
+  else if (op === 'fold') L.folded = toggle(L.folded, id);
+  else if (op === 'up' || op === 'down') {
+    const i = L.order.indexOf(id), j = op === 'up' ? i - 1 : i + 1;
+    if (i >= 0 && j >= 0 && j < L.order.length) [L.order[i], L.order[j]] = [L.order[j], L.order[i]];
+  }
+  return L;
+}
+
+function applyOverviewLayout() {
+  const box = el('d-cards'); if (!box) return;
+  const L = resolveOverviewLayout(DATA && DATA.settings && DATA.settings.overview, _ovIds());
+  const now = [...(box.children || [])].map(c => c.id);
+  if (now.join() !== L.order.join()) L.order.forEach(id => { const c = el(id); if (c) box.appendChild(c); });   // only touch the DOM when the order really differs
+  L.order.forEach(id => { const c = el(id); if (!c) return; c.classList.toggle('ov-hidden', L.hidden.includes(id)); c.classList.toggle('ov-folded', L.folded.includes(id)); });
+}
+
+function renderOverviewCustomize() {
+  const box = el('ov-customize'); if (!box || box.style.display === 'none') return;
+  const L = resolveOverviewLayout(DATA && DATA.settings && DATA.settings.overview, _ovIds()), label = Object.fromEntries(OVERVIEW_CARDS.map(c => [c.id, c.label]));
+  const btn = (action, id, text, extra = '') => `<button class="btn xs ghost" data-action="${action}" data-id="${esc(id)}" ${extra}>${text}</button>`;
+  box.innerHTML = `<div class="card-title" style="cursor:default">Customize the Overview
+      <span style="margin-left:auto;display:inline-flex;gap:6px"><button class="btn xs ghost" data-action="ov-reset">Reset</button><button class="btn xs" data-action="ov-customize-toggle">Done</button></span></div>
+    <div style="font-size:12px;color:var(--ink3);margin:-4px 0 8px">Hide cards you do not need, fold the ones you only glance at (you can also tap a card's title to fold it), and move them up or down. This is saved in your vault, so it follows you to every device.</div>`
+    + L.order.map((id, i) => `<div class="ov-row"><span class="ov-name ${L.hidden.includes(id) ? 'ov-off' : ''}">${esc(label[id])}</span>
+      ${btn('ov-hide', id, L.hidden.includes(id) ? 'Show' : 'Hide')}${btn('ov-fold', id, L.folded.includes(id) ? 'Open' : 'Fold')}
+      ${btn('ov-up', id, '↑', (i === 0 ? 'disabled ' : '') + 'aria-label="Move up"')}${btn('ov-down', id, '↓', (i === L.order.length - 1 ? 'disabled ' : '') + 'aria-label="Move down"')}</div>`).join('');
+}
+
+// Every change goes through commit() (one write path); no toast — the panel and the page change under your finger, and "Reset" is right there.
+function _ovCommit(mutate) {
+  commit('Overview layout changed', d => { d.settings = d.settings || {}; mutate(d.settings); }, { touch: ['settings'], toast: null, render: () => { applyOverviewLayout(); renderOverviewCustomize(); } });
+}
+const _ovEdit = (op, id) => _ovCommit(st => { st.overview = editOverviewLayout(resolveOverviewLayout(st.overview, _ovIds()), op, id); });
+defineActions({
+  'ov-customize-toggle': () => { const b = el('ov-customize'); if (!b) return; b.style.display = b.style.display === 'none' ? '' : 'none'; renderOverviewCustomize(); },
+  'ov-hide': t => _ovEdit('hide', t.dataset.id),
+  'ov-fold': t => _ovEdit('fold', t.dataset.id),
+  'ov-up':   t => _ovEdit('up',   t.dataset.id),
+  'ov-down': t => _ovEdit('down', t.dataset.id),
+  'ov-reset': () => _ovCommit(st => { delete st.overview; }),
+  // a click on the title text folds the card; a click on a button/link/field inside the title is that control's own business
+  'ov-title-fold': (t, ev) => {
+    if (ev && ev.target && ev.target.closest && ev.target.closest('button,a,select,input,textarea,label')) return;
+    _ovEdit('fold', t.dataset.id);
+  },
+});
 
 // ══════════════════════════════════════════
 // TAG ANALYTICS
@@ -16307,6 +16419,26 @@ function runSmokeTest() {
     test('a duplicated entry never inherits a refuel link', () => {
       const copy = cloneEntryForDuplicate({ id:'e1', date:'2026-06-01', desc:'Shell', amount:60, type:'expense', tags:['fuel'], fuelId:'f1' });
       expectTrue(copy.fuelId === undefined, 'link not copied');
+    });
+
+    // ── Overview layout ──
+    test('overview layout: no saved layout = default order, all shown, none folded', () => {
+      const r = resolveOverviewLayout(undefined, ['a', 'b', 'c']);
+      expect(r.order.join() + '|' + r.hidden.length + '|' + r.folded.length, 'a,b,c|0|0', 'defaults'); expect(resolveOverviewLayout(null, ['a']).order.join(), 'a', 'null'); expect(resolveOverviewLayout('junk', ['a']).order.join(), 'a', 'a string');
+      expect(new Set(OVERVIEW_CARDS.map(c => c.id)).size, OVERVIEW_CARDS.length, 'registry ids are unique'); expectTrue(OVERVIEW_CARDS.every(c => c.id && c.label), 'every card has an id and a label');
+    });
+    test('overview layout: a saved layout is repaired against the cards that exist now', () => {
+      const r = resolveOverviewLayout({ order: ['b', 'zzz', 'a', 'a'], hidden: ['a', 'nope', 'a'], folded: 'x' }, ['a', 'b', 'c']);
+      expect(r.order.join(), 'b,c,a', 'unknown and repeated ids dropped; the card the saved order lacks (c) goes right after its default predecessor (b)'); expect(r.hidden.join(), 'a', 'hidden: unknown and repeated ids dropped'); expect(r.folded.length, 0, 'a non-list is ignored');
+      expect(resolveOverviewLayout({ order: ['d', 'a', 'b'] }, ['a', 'b', 'c', 'd']).order.join(), 'd,a,b,c', 'a card added by an update lands after the one before it');
+      expect(resolveOverviewLayout({ order: ['b', 'a'] }, ['x', 'a', 'b']).order.join(), 'x,b,a', 'a new FIRST card goes to the top');
+    });
+    test('overview layout: editing toggles, swaps, stops at the ends, and never modifies its input', () => {
+      const L = { order: ['a', 'b', 'c'], hidden: [], folded: [] }, snap = JSON.stringify(L);
+      expect(editOverviewLayout(L, 'hide', 'b').hidden.join(), 'b', 'hide'); expect(editOverviewLayout(editOverviewLayout(L, 'hide', 'b'), 'hide', 'b').hidden.length, 0, 'hide again = show');
+      expect(editOverviewLayout(L, 'fold', 'c').folded.join(), 'c', 'fold'); expect(editOverviewLayout(L, 'up', 'c').order.join(), 'a,c,b', 'up'); expect(editOverviewLayout(L, 'down', 'a').order.join(), 'b,a,c', 'down');
+      expect(editOverviewLayout(L, 'up', 'a').order.join(), 'a,b,c', 'the first card cannot go up'); expect(editOverviewLayout(L, 'down', 'c').order.join(), 'a,b,c', 'the last cannot go down'); expect(editOverviewLayout(L, 'up', 'nope').order.join(), 'a,b,c', 'unknown id');
+      expect(JSON.stringify(L), snap, 'input untouched');
     });
 
     // ── Safe to spend ──
