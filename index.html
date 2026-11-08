@@ -1347,6 +1347,53 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
       </div>
 
+      <div class="card" id="ov-sinking">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-sinking">Sinking funds
+          <span style="display:inline-flex;gap:6px;margin-left:auto">
+            <button class="btn xs ghost" data-action="sf-suggest-toggle">From my data</button>
+            <button class="btn xs success" data-action="sf-new">+ Fund</button>
+          </span>
+        </div>
+        <div class="goal-add-form" id="sf-suggest"></div>
+        <div id="d-sinking"></div>
+
+        <div class="goal-add-form" id="sf-form">
+          <div id="sf-form-title" style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">New fund</div>
+          <input type="hidden" id="sf-id">
+          <div class="g2" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Name</label><input type="text" id="sf-name" maxlength="60" placeholder="Insurance, Tyres, Holiday…"></div>
+            <div class="fg" style="margin:0"><label>Full cost (€)</label><input type="number" id="sf-amount" placeholder="600" step="1" min="0" style="font-family:var(--mono)"></div>
+          </div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Due date</label><input type="date" id="sf-due" style="width:100%"></div>
+            <div class="fg" style="margin:0"><label>Paid</label>
+              <select id="sf-every"><option value="12">every year</option><option value="6">every 6 months</option><option value="3">every 3 months</option><option value="0">one-off</option></select></div>
+            <div class="fg" style="margin:0"><label>Date follows</label>
+              <select id="sf-link"><option value="">— my own date</option><option value="insurance">Insurance renewal</option><option value="vignette">Vignette end</option><option value="pickerl">Pickerl month</option></select></div>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">With “Date follows”, the due date is read from your car settings and the date above is only a fallback.</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" data-action="sf-save">Save</button>
+            <button class="btn sm ghost" data-action="sf-cancel">Cancel</button>
+            <button class="btn sm ghost" id="sf-delete" data-action="sf-delete" style="margin-left:auto;display:none">Delete fund</button>
+          </div>
+        </div>
+
+        <div class="goal-add-form" id="sf-aside-form">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Set aside</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Fund</label><select id="sf-aside-fund" data-action-change="sf-aside-fund"></select></div>
+            <div class="fg" style="margin:0"><label>Amount (€)</label><input type="number" id="sf-aside-amount" step="1" min="0" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Date</label><input type="date" id="sf-aside-date" style="width:100%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">This logs a savings entry linked to the fund. It counts in your Savings share. It is not tied to an account, so no account balance changes (set the account on the entry in your list if you want that).</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" data-action="sf-aside-save">Set aside</button>
+            <button class="btn sm ghost" data-action="sf-aside-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card" id="ov-bva">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-bva">Budget vs actual — last 12 months</div>
         <div id="d-bva"></div>
@@ -5027,6 +5074,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderSinking(); } catch (e) { console.error('Sinking funds failed:', e); }    // like Insights: must never break the Overview
   try { renderReminders(); } catch (e) { console.error('Reminders failed:', e); }    // like Insights: must never break the Overview
   try { renderInsights(); } catch (e) { console.error('Insights failed:', e); }   // a bug here must never break the Overview
   try { applyOverviewLayout(); } catch (e) { console.error('Overview layout failed:', e); }   // hide / fold / reorder — never breaks the Overview either
@@ -5575,6 +5623,7 @@ const OVERVIEW_CARDS = [      // default order — a test checks it against the 
   { id: 'ov-forecast',    label: 'Spending forecast' },
   { id: 'ov-merchants',   label: 'Top merchants' },
   { id: 'ov-goals',       label: 'Savings goals' },
+  { id: 'ov-sinking',     label: 'Sinking funds' },
   { id: 'ov-bva',         label: 'Budget vs actual' },
   { id: 'ov-networth',    label: 'Net worth timeline' },
   { id: 'ov-savingsrate', label: 'Savings rate trend' },
@@ -5941,6 +5990,26 @@ function csvImport() {
   });
   el('csv-paste').value=''; el('csv-map-area').style.display='none'; _csvRows=[];
 }
+
+// ══════════════════════════════════════════
+// RECURRING SCHEDULE — which months a recurring item falls in
+// ONE place for this rule. applyRecurring, getRecurringStatus (banner, month wizard, Safe-to-spend) and the 12-month
+// calendar all call it, so they cannot disagree. (They used to carry three copies; "yearly", offered in the edit
+// dialog, was in none of them and fell through to "every month".)
+// ══════════════════════════════════════════
+const RECUR_CYCLE_MONTHS = { quarterly: 3, yearly: 12 };   // freqs that fire once per N months; everything else fires every month (weekly/biweekly add several dates inside the month)
+
+// Pure. r = recurring item, month = 'YYYY-MM', entries = DATA.entries.
+// The cycle is anchored on the month of the item's FIRST applied entry; with none yet, the month being looked at counts as due.
+function recurFiresInMonth(r, month, entries) {
+  const cycle = RECUR_CYCLE_MONTHS[r.freq || 'monthly'];
+  if (!cycle) return true;
+  const mo = parseInt(month.slice(5, 7), 10);
+  let first = null;
+  (entries || []).forEach(e => { if (e.recurId === r.id && (first === null || e.date < first)) first = e.date; });
+  const origin = first ? parseInt(first.slice(5, 7), 10) : mo;
+  return (mo - origin + 12) % cycle === 0;
+}
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
   try {
@@ -5951,15 +6020,8 @@ async function applyRecurring(month) {
   DATA.recurring.forEach(r => {
     const freq = r.freq || 'monthly';
 
-    // Quarterly: only apply if this month is in the right quarter slot
-    if (freq === 'quarterly') {
-      // Apply on the same month-of-quarter as the entry was first created (day is used as anchor)
-      // We use the month index mod 3 to determine quarter alignment
-      // Find first applied entry to get its origin month
-      const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
-      const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
-      if ((mo - originMo + 12) % 3 !== 0) return; // not this quarter
-    }
+    // Quarterly / yearly: only in the months of their cycle (see recurFiresInMonth)
+    if (!recurFiresInMonth(r, month, DATA.entries)) return;
 
     // Determine which dates to create for this freq in this month
     const dates = [];
@@ -5973,7 +6035,7 @@ async function applyRecurring(month) {
         if (d <= lastDay) dates.push(clamp(d));
       });
     } else {
-      // monthly or quarterly
+      // monthly, quarterly or yearly
       dates.push(clamp(r.day||1));
     }
 
@@ -6152,7 +6214,7 @@ function renderRecurList() {
     el('recur-list').innerHTML = '<div style="font-size:13px;color:var(--ink3)">No recurring entries. Check "Save as recurring" when adding.</div>';
     return;
   }
-  const freqLabel = { monthly:'monthly', weekly:'weekly', biweekly:'bi-weekly', quarterly:'quarterly' };
+  const freqLabel = { monthly:'monthly', weekly:'weekly', biweekly:'bi-weekly', quarterly:'quarterly', yearly:'yearly' };
   const month = curMonth();
   el('recur-list').innerHTML = list.map(r => {
     const alreadyApplied = DATA.entries.some(e=>e.recurId===r.id&&ym(e.date)===month);
@@ -9757,6 +9819,220 @@ function renderSavingsGoals() {
     </div>`;
   }).join('');
 }
+
+// ══════════════════════════════════════════
+// SINKING FUNDS — "set aside €X a month" for lumpy costs (insurance, vignette, Pickerl, tyres, holidays).
+// Stored in the VAULT: DATA.settings.sinking = { funds: [ { id, name, amount, due, every, link, from } ] }   (optional key, no migration)
+//   amount  the full cost            due    next due date 'YYYY-MM-DD' (the fallback when a link has no date)
+//   every   months between payments (12, 6, 3) or 0 = one-off     from   the day the fund was created
+//   link    null | 'insurance' | 'vignette' | 'pickerl' — the due date is then READ from the car settings (never copied), so it
+//           cannot drift from the "Coming up" card.
+// What is set aside = SAVINGS entries that carry fund.id in entry.fundId (written only by "Set aside" below). The link lives on the
+// entry itself, so it survives edits and exports; an entry whose type is changed to expense no longer counts. A repeating fund counts only
+// the current cycle (the year before its due date), so it starts again by itself once the due date has passed.
+// sinkingPlan / suggestSinkingFunds / validateSinkingFund are PURE (data and today are parameters). Not financial advice.
+// ══════════════════════════════════════════
+const SINKING_LINKS = {
+  insurance: { label: 'Car insurance renewal', date: d => d.insurance && d.insurance.renewalDate },
+  vignette:  { label: 'Vignette end',          date: d => d.carService && d.carService.vignetteEnd },
+  pickerl:   { label: '§57a Pickerl month',    date: d => { const m = d.carService && d.carService.inspectionMonth; return /^\d{4}-\d{2}$/.test(m || '') ? m + '-01' : null; } },
+};
+const SINKING_EVERY = [12, 6, 3, 0];          // months between payments; 0 = one-off
+const SINKING_SLACK_MONTHS = 1;               // "behind" only once you are more than one monthly instalment short of the straight-line plan
+const _sfDay  = iso => Date.parse(iso + 'T00:00:00Z');
+const _sfDiff = (a, b) => Math.round((_sfDay(b) - _sfDay(a)) / 864e5);
+const _sfCents = x => Math.round(x * 100) / 100;
+const _sfCeilCents = x => Math.ceil(x * 100 - 1e-9) / 100;
+function _sfValid(s) {                        // a real calendar date (rejects 2026-02-31)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
+  const [y, m, d] = s.split('-').map(Number), t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+function _sfAddMonths(iso, n) {               // end-of-month safe: 31 Jan + 1 month = 28/29 Feb
+  const [y, m, d] = iso.split('-').map(Number), t = y * 12 + (m - 1) + n, ny = Math.floor(t / 12), nm = t % 12;
+  const day = Math.min(d, new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate());
+  return `${String(ny).padStart(4, '0')}-${String(nm + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+const _sfEvery = f => (Number.isInteger(+f.every) && +f.every > 0 && +f.every <= 120) ? +f.every : 0;
+
+// The next due date of a fund: from the linked car setting when it has a date, else the stored date. A repeating fund whose date has
+// passed rolls forward by whole periods (from the ORIGINAL date, so 31 Jan never drifts). A one-off stays in the past = overdue.
+function sinkingDue(fund, data, today) {
+  const L = fund.link && SINKING_LINKS[fund.link], fromLink = L ? L.date(data || {}) : null, linked = !!(L && _sfValid(fromLink));
+  const anchor = linked ? fromLink : (_sfValid(fund.due) ? fund.due : null);
+  if (!anchor) return null;
+  const every = _sfEvery(fund); let due = anchor, rolled = false;
+  if (due < today && every > 0) { for (let k = 1; k <= 1200 && due < today; k++) due = _sfAddMonths(anchor, k * every); rolled = true; }
+  return { due, anchor, rolled, linked, every };
+}
+
+function sinkingPlan(data, today) {
+  const list = Array.isArray(((data || {}).settings || {}).sinking && data.settings.sinking.funds) ? data.settings.sinking.funds : [];
+  const entries = Array.isArray((data || {}).entries) ? data.entries : [];
+  const rows = list.filter(f => f && typeof f === 'object').map(f => {
+    const amount = +f.amount, base = { fund: f, id: f.id, name: String(f.name || 'Fund'), amount };
+    if (!(Number.isFinite(amount) && amount > 0)) return { ...base, status: 'invalid', problem: 'The amount is missing or not a positive number.' };
+    const d = sinkingDue(f, data, today);
+    if (!d) return { ...base, status: 'nodate', problem: f.link ? 'No date in your car settings yet — set it there, or enter a date for this fund.' : 'No valid due date.' };
+    const cycleStart = d.every ? _sfAddMonths(d.due, -d.every) : (_sfValid(f.from) ? f.from : _sfAddMonths(d.due, -12));
+    const effStart = d.every && _sfValid(f.from) && f.from > cycleStart ? f.from : cycleStart;      // created mid-cycle: the plan starts then
+    const lower = d.every ? cycleStart : '0000-00-00';                                              // a one-off counts everything ever set aside for it
+    let saved = 0;
+    entries.forEach(e => {
+      if (e && e.type === 'savings' && typeof f.id === 'string' && e.fundId === f.id && Number.isFinite(+e.amount) && +e.amount > 0 && _sfValid(e.date) && e.date >= lower && e.date <= today) saved += +e.amount;
+    });
+    saved = _sfCents(saved);
+    const remaining = _sfCents(Math.max(0, amount - saved)), funded = remaining <= 0.005, overdue = d.due < today;
+    const daysLeft = _sfDiff(today, d.due), monthsLeft = Math.max(1, Math.ceil(daysLeft / 30.4375 - 1e-9));
+    const perMonth = funded || overdue ? 0 : _sfCeilCents(remaining / monthsLeft);
+    const span = _sfDiff(effStart, d.due), frac = span <= 0 ? 1 : Math.min(1, Math.max(0, _sfDiff(effStart, today) / span));
+    const expected = _sfCents(amount * frac), slack = amount / Math.max(1, Math.round(span / 30.4375)) * SINKING_SLACK_MONTHS;
+    const behindRaw = _sfCents(expected - saved), behind = behindRaw > slack + 0.005 ? behindRaw : 0;
+    const status = funded ? 'funded' : overdue ? 'overdue' : behind > 0 ? 'behind' : 'ontrack';
+    return { ...base, status, due: d.due, linked: d.linked, rolled: d.rolled, every: d.every, saved, remaining, perMonth, expected, behind, daysLeft, monthsLeft, pct: Math.min(100, saved / amount * 100) };
+  });
+  rows.sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || String(a.due || '').localeCompare(String(b.due || '')) || a.name.localeCompare(b.name));
+  const totalMonthly = _sfCents(rows.filter(r => r.status === 'ontrack' || r.status === 'behind').reduce((s, r) => s + r.perMonth, 0));
+  const inc = data && data.incomes && data.incomes[today.slice(0, 7)], pct = data && data.splits && +data.splits.savings;
+  const bucket = inc && +inc.amount > 0 && Number.isFinite(pct) && pct >= 0 ? _sfCents(+inc.amount * pct / 100) : null;
+  return { rows, totalMonthly, bucket, short: bucket != null && totalMonthly > bucket ? _sfCents(totalMonthly - bucket) : 0 };
+}
+
+// Suggestions from data you already have: a car date in the settings + what you last paid for it. Nothing is created until you confirm.
+const _SF_SUGGEST = [
+  { key: 'insurance', name: 'Car insurance', every: 12, tags: ['insurance', 'versicherung'], days: 400, note: '' },
+  { key: 'vignette',  name: 'Vignette',      every: 12, tags: ['vignette', 'vignetten'],      days: 400, note: ' Assumes the yearly vignette.' },
+  { key: 'pickerl',   name: '§57a Pickerl',  every: 0,  tags: ['pickerl', '§57a'],            days: 800, note: ' The next date comes from your sticker, so this is a one-off.' },
+];
+function suggestSinkingFunds(data, today) {
+  const have = new Set((((data || {}).settings || {}).sinking && Array.isArray(data.settings.sinking.funds) ? data.settings.sinking.funds : []).map(f => f && f.link));
+  const entries = Array.isArray((data || {}).entries) ? data.entries : [];
+  return _SF_SUGGEST.filter(s => !have.has(s.key) && _sfValid(SINKING_LINKS[s.key].date(data || {}))).map(s => {
+    let best = null;
+    entries.forEach(e => {
+      if (!e || e.type !== 'expense' || !(+e.amount > 0) || !_sfValid(e.date) || e.date > today || _sfDiff(e.date, today) > s.days) return;
+      const tags = (e.tags || []).map(t => String(t).toLowerCase());
+      if (s.tags.some(t => tags.includes(t)) && (!best || e.date > best.date)) best = e;
+    });
+    return { key: s.key, name: s.name, link: s.key, every: s.every, due: SINKING_LINKS[s.key].date(data), amount: best ? _sfCents(+best.amount) : null,
+             basis: (best ? `last paid ${fmt(best.amount)} on ${best.date}.` : 'no matching entry found — you enter the amount.') + s.note };
+  });
+}
+
+// Pure check of the form values. → { ok: true, fund } | { ok: false, error }
+function validateSinkingFund(input, data, today, existing) {
+  const name = String(input.name || '').trim();
+  if (!name) return { ok: false, error: 'Give the fund a name.' };
+  if (name.length > 60) return { ok: false, error: 'Keep the name under 60 characters.' };
+  const amount = Number(String(input.amount == null ? '' : input.amount).replace(',', '.'));
+  if (!(Number.isFinite(amount) && amount > 0 && amount <= 1e6)) return { ok: false, error: 'Enter the full cost as a positive amount.' };
+  const link = input.link && SINKING_LINKS[input.link] ? input.link : null, every = Number(input.every);
+  if (!SINKING_EVERY.includes(every)) return { ok: false, error: 'Choose how often it is paid.' };
+  const due = _sfValid(input.due) ? input.due : null, linkOk = !!(link && _sfValid(SINKING_LINKS[link].date(data || {})));
+  if (!due && !linkOk) return { ok: false, error: link ? 'That car setting has no date yet — enter a due date here.' : 'Pick a due date.' };
+  return { ok: true, fund: { id: existing ? existing.id : uid(), name, amount: _sfCents(amount), due, every, link, from: existing && _sfValid(existing.from) ? existing.from : today } };
+}
+
+// ── View ─────────────────────────────────────────────────────────────────────
+const _SF_BADGE = { ontrack: ['on track', 'var(--Gm)'], behind: ['behind', 'var(--Am)'], funded: ['funded ✓', 'var(--Gm)'], overdue: ['date passed', 'var(--Rm)'], invalid: ['check amount', 'var(--Rm)'], nodate: ['no date', 'var(--Rm)'] };
+function renderSinking(today = ymd()) {
+  const box = el('d-sinking'); if (!box) return;
+  const P = sinkingPlan(DATA, today);
+  if (!P.rows.length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3);margin-bottom:6px">No funds yet. A sinking fund spreads a yearly cost — insurance, vignette, Pickerl, tyres, a holiday — over the months before it is due. Try “From my data”, or add one with “+ Fund”.</div>'; return; }
+  const sum = P.totalMonthly > 0 ? `Set aside about <strong>${fmt(P.totalMonthly)}</strong> a month for ${P.rows.filter(r => r.status === 'ontrack' || r.status === 'behind').length} fund${P.rows.filter(r => r.status === 'ontrack' || r.status === 'behind').length === 1 ? '' : 's'}.` : 'Nothing to set aside right now.';
+  const vs = P.bucket != null ? (P.short > 0 ? ` <span style="color:var(--Rm)">That is ${fmt(P.short)} more than this month's Savings share (${fmt(P.bucket)}) — before any savings goals.</span>` : ` <span style="color:var(--ink3)">This month's Savings share is ${fmt(P.bucket)}.</span>`) : '';
+  box.innerHTML = `<div style="font-size:13px;margin-bottom:10px">${sum}${vs}</div>` + P.rows.map(r => {
+    const b = _SF_BADGE[r.status], bad = r.status === 'invalid' || r.status === 'nodate';
+    const lines = bad ? [r.problem]
+      : [`${fmt(r.saved)} of ${fmt(r.amount)} · due ${r.due} (${r.daysLeft < 0 ? -r.daysLeft + ' days ago' : r.daysLeft === 0 ? 'today' : 'in ' + r.daysLeft + ' day' + (r.daysLeft === 1 ? '' : 's')})`,
+         r.status === 'funded' ? 'Fully set aside for this due date.' : r.status === 'overdue' ? 'The due date has passed. Update the date (Edit, or your car settings), or delete the fund.' : `Set aside <strong>${fmt(r.perMonth)}</strong> a month${r.status === 'behind' ? ` · ${fmt(r.behind)} behind the straight-line plan (${fmt(r.expected)} by now)` : ''}`,
+         r.linked ? `Date follows your ${SINKING_LINKS[r.fund.link].label.toLowerCase()}.` : '', r.rolled ? 'The stored date had passed, so the next repeat is shown.' : ''].filter(Boolean);
+    return `<div class="goal-card"><div class="goal-header"><span class="goal-name">${esc(r.name)}</span><span style="font-size:11px;font-weight:600;color:${b[1]}">${b[0]}</span></div>
+      ${bad ? '' : `<div class="goal-bar-track"><div class="goal-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${b[1]}"></div></div>`}
+      <div style="font-size:12px;color:var(--ink2);margin-top:6px;line-height:1.5">${lines.map((l, i) => i < 2 ? l : `<div style="color:var(--ink3);font-size:11px">${l}</div>`).join('<br>')}</div>
+      <div style="display:flex;gap:6px;margin-top:8px">${bad ? '' : `<button class="btn xs success" data-action="sf-aside" data-id="${esc(r.id)}">Set aside…</button>`}<button class="btn xs ghost" data-action="sf-edit" data-id="${esc(r.id)}">Edit</button></div></div>`;
+  }).join('') + '<div style="font-size:11px;color:var(--ink3)">Straight-line planning with the money you log as “Set aside” — not financial advice.</div>';
+}
+function renderSinkingSuggest(today = ymd()) {
+  const box = el('sf-suggest'); if (!box) return;
+  const s = suggestSinkingFunds(DATA, today);
+  box.innerHTML = s.length ? '<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">From my data</div>' + s.map(x =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap"><div style="flex:1;min-width:150px;font-size:12px"><strong>${esc(x.name)}</strong> · due ${esc(x.due)}<div style="color:var(--ink3);font-size:11px">${esc(x.basis)}</div></div>
+     <button class="btn xs success" data-action="sf-suggest-add" data-key="${esc(x.key)}">${x.amount ? 'Add ' + esc(fmt(x.amount)) : 'Add…'}</button></div>`).join('')
+    : '<div style="font-size:12px;color:var(--ink3)">Nothing to suggest: set the insurance renewal, vignette end or Pickerl month in your car settings (or you already added them).</div>';
+}
+
+// ── Forms (static markup in the card, so a re-render never wipes what you are typing) ──
+const _sfOpen = (id, on) => { const f = el(id); if (f) f.classList.toggle('open', !!on); };
+function sinkingFillForm(f) {
+  el('sf-id').value = f.id || ''; el('sf-name').value = f.name || ''; el('sf-amount').value = f.amount || ''; el('sf-due').value = f.due || '';
+  el('sf-every').value = String(f.every == null ? 12 : f.every); el('sf-link').value = f.link || '';
+  el('sf-delete').style.display = f.id ? '' : 'none'; el('sf-form-title').textContent = f.id ? 'Edit fund' : 'New fund';
+  _sfOpen('sf-form', true); _sfOpen('sf-aside-form', false); el('sf-name').focus();
+}
+function sinkingSave() {
+  const id = el('sf-id').value, today = ymd(), list = (DATA.settings && DATA.settings.sinking && DATA.settings.sinking.funds) || [];
+  const existing = id ? list.find(f => f && f.id === id) : null;
+  const v = validateSinkingFund({ name: el('sf-name').value, amount: el('sf-amount').value, due: el('sf-due').value, every: el('sf-every').value, link: el('sf-link').value }, DATA, today, existing);
+  if (!v.ok) return toast(v.error, 1);
+  const r = commit(existing ? `Fund “${v.fund.name}” updated` : `Fund “${v.fund.name}” added`, d => {
+    d.settings = d.settings || {}; const s = d.settings.sinking = (d.settings.sinking && typeof d.settings.sinking === 'object') ? d.settings.sinking : {};
+    s.funds = Array.isArray(s.funds) ? s.funds : [];
+    const i = existing ? s.funds.findIndex(f => f && f.id === existing.id) : -1;
+    if (i >= 0) s.funds[i] = v.fund; else s.funds.push(v.fund);
+  }, { touch: ['settings'] });
+  _sfOpen('sf-form', false); _sfOpen('sf-suggest', false); return r;
+}
+function sinkingDelete(id) {
+  const f = ((DATA.settings && DATA.settings.sinking && DATA.settings.sinking.funds) || []).find(x => x && x.id === id); if (!f) return;
+  commit(`Fund “${f.name}” deleted (set-aside entries stay in your log as ordinary savings)`, d => { d.settings.sinking.funds = d.settings.sinking.funds.filter(x => x && x.id !== id); }, { touch: ['settings'] });
+  _sfOpen('sf-form', false);
+}
+function sinkingAsideOpen(id) {
+  const P = sinkingPlan(DATA, ymd()), sel = el('sf-aside-fund');
+  sel.innerHTML = P.rows.filter(r => r.status !== 'invalid' && r.status !== 'nodate').map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+  sel.value = id; el('sf-aside-date').value = ymd(); sinkingAsidePrefill(); _sfOpen('sf-aside-form', true); _sfOpen('sf-form', false); el('sf-aside-amount').focus();
+}
+function sinkingAsidePrefill() {
+  const r = sinkingPlan(DATA, ymd()).rows.find(x => x.id === el('sf-aside-fund').value);
+  el('sf-aside-amount').value = r && r.perMonth > 0 ? r.perMonth : (r && r.remaining > 0 ? r.remaining : '');
+}
+function sinkingAsideSave() {
+  const today = ymd(), id = el('sf-aside-fund').value, date = el('sf-aside-date').value, amount = _sfCents(Number(String(el('sf-aside-amount').value).replace(',', '.')));
+  const r = sinkingPlan(DATA, today).rows.find(x => x.id === id), fund = r && r.fund;
+  if (!fund) return toast('Choose a fund.', 1);
+  if (!(Number.isFinite(amount) && amount > 0 && amount <= 1e6)) return toast('Enter the amount you set aside.', 1);
+  if (!_sfValid(date)) return toast('Pick a date.', 1);
+  if (date > today) return toast('The date cannot be in the future — it would not count yet.', 1);
+  commit(`Set aside ${fmt(amount)} for “${fund.name}”`, d => {
+    d.entries.unshift({ id: uid(), loggedAt: new Date().toISOString(), date, desc: `Set aside → ${fund.name}`, amount, formula: null, type: 'savings', category: 'savings', tags: ['sinking-fund'], accountId: null, recurId: null, fundId: fund.id });
+  }, { touch: ['entries'] });
+  _sfOpen('sf-aside-form', false);
+}
+function sinkingSuggestAdd(key) {
+  const s = suggestSinkingFunds(DATA, ymd()).find(x => x.key === key); if (!s) return;
+  if (!(s.amount > 0)) return sinkingFillForm({ name: s.name, amount: '', due: s.due, every: s.every, link: s.link });     // no known amount: you type it
+  const v = validateSinkingFund({ name: s.name, amount: s.amount, due: s.due, every: s.every, link: s.link }, DATA, ymd(), null);
+  if (!v.ok) return toast(v.error, 1);
+  commit(`Fund “${v.fund.name}” added`, d => {
+    d.settings = d.settings || {}; const st = d.settings.sinking = (d.settings.sinking && typeof d.settings.sinking === 'object') ? d.settings.sinking : {};
+    st.funds = Array.isArray(st.funds) ? st.funds : []; st.funds.push(v.fund);
+  }, { touch: ['settings'] });
+  renderSinkingSuggest();
+}
+defineActions({
+  'sf-new':          () => sinkingFillForm({}),
+  'sf-edit':         t => { const f = ((DATA.settings && DATA.settings.sinking && DATA.settings.sinking.funds) || []).find(x => x && x.id === t.dataset.id); if (f) sinkingFillForm(f); },
+  'sf-save':         () => sinkingSave(),
+  'sf-cancel':       () => _sfOpen('sf-form', false),
+  'sf-delete':       () => sinkingDelete(el('sf-id').value),
+  'sf-aside':        t => sinkingAsideOpen(t.dataset.id),
+  'sf-aside-fund':   () => sinkingAsidePrefill(),
+  'sf-aside-save':   () => sinkingAsideSave(),
+  'sf-aside-cancel': () => _sfOpen('sf-aside-form', false),
+  'sf-suggest-toggle': () => { const b = el('sf-suggest'); const on = !b.classList.contains('open'); _sfOpen('sf-suggest', on); if (on) renderSinkingSuggest(); },
+  'sf-suggest-add':  t => sinkingSuggestAdd(t.dataset.key),
+});
 
 // ══════════════════════════════════════════
 // SPENDING FORECAST
@@ -14127,10 +14403,8 @@ function getRecurringStatus(month, data = DATA) {
     const actualEntries = data.entries.filter(e => ym(e.date) === month && e.recurId === r.id);
 
     let expectedCount;
-    if (freq === 'quarterly') {
-      const firstApp = data.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
-      const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) : mo;
-      expectedCount = (mo - originMo + 12) % 3 !== 0 ? 0 : 1;
+    if (!recurFiresInMonth(r, month, data.entries)) {
+      expectedCount = 0;                                 // quarterly / yearly, wrong month in the cycle
     } else if (freq === 'weekly') {
       expectedCount = [r.day||1, (r.day||1)+7, (r.day||1)+14, (r.day||1)+21].filter(d => d <= lastDay).length;
     } else if (freq === 'biweekly') {
@@ -14177,14 +14451,7 @@ function renderRecurring12() {
     const pills = DATA.recurring.map(r => {
       const freq = r.freq || 'monthly';
       // Determine if this recurring fires this month
-      let fires = false;
-      if (freq === 'monthly') fires = true;
-      else if (freq === 'weekly' || freq === 'biweekly') fires = true;
-      else if (freq === 'quarterly') {
-        const firstApp = DATA.entries.filter(e => e.recurId === r.id).sort((a,b) => a.date.localeCompare(b.date))[0];
-        const originMo = firstApp ? parseInt(firstApp.date.slice(5,7)) - 1 : i;
-        fires = ((i - originMo + 12) % 3 === 0);
-      }
+      const fires = recurFiresInMonth(r, m, DATA.entries);
       if (!fires) return '';
       const isPositive = r.type === 'income' || r.type === 'savings';
       const cls = isPositive ? 'income' : 'expense';
@@ -14196,17 +14463,7 @@ function renderRecurring12() {
     }).join('');
 
     // Monthly net from recurring
-    const monthExpenses = DATA.recurring.filter(r => {
-      const f = r.freq||'monthly';
-      if (f==='monthly') return true;
-      if (f==='weekly'||f==='biweekly') return true;
-      if (f==='quarterly') {
-        const firstApp = DATA.entries.filter(e=>e.recurId===r.id).sort((a,b)=>a.date.localeCompare(b.date))[0];
-        const o = firstApp ? parseInt(firstApp.date.slice(5,7))-1 : 0;
-        return ((MS.indexOf(name) - o + 12) % 3 === 0);
-      }
-      return false;
-    });
+    const monthExpenses = DATA.recurring.filter(r => recurFiresInMonth(r, m, DATA.entries));
     const exp = monthExpenses.filter(isOutflowEntry).reduce((s,r)=>s+r.amount,0);
     const inc = monthExpenses.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const net = inc - exp;
@@ -17257,6 +17514,91 @@ function runSmokeTest() {
       expect(bad.length, 1, 'only the moment of the reset is reported'); expect(bad[0].id, '3', 'and it is the reading that dropped');
     });
 
+    test('recurFiresInMonth: yearly fires once in twelve months, anchored on the first applied entry', () => {
+      const y = { id: 'y', freq: 'yearly' }, ent = [{ recurId: 'y', date: '2026-03-15' }, { recurId: 'y', date: '2027-03-15' }, { recurId: 'other', date: '2026-01-01' }];
+      const months = [...Array(12)].map((_, i) => '2027-' + String(i + 1).padStart(2, '0')).filter(m => recurFiresInMonth(y, m, ent));
+      expect(months.join(','), '2027-03', 'only March (the other item\'s January entry is ignored)');
+      expectTrue(recurFiresInMonth(y, '2031-03', ent) && !recurFiresInMonth(y, '2031-04', ent), 'any year, same month');
+      expectTrue(recurFiresInMonth(y, '2026-09', []) , 'nothing applied yet: the month being looked at counts as due');
+    });
+    test('recurFiresInMonth: quarterly every third month; monthly / weekly / biweekly / unknown / missing freq always', () => {
+      const q = { id: 'q', freq: 'quarterly' }, ent = [{ recurId: 'q', date: '2026-02-10' }];
+      expect(['2026-02', '2026-03', '2026-04', '2026-05', '2026-08', '2026-11'].map(m => recurFiresInMonth(q, m, ent) ? 1 : 0).join(''), '100111', 'Feb, May, Aug, Nov fire; Mar, Apr do not');
+      ['monthly', 'weekly', 'biweekly', 'whatever', undefined].forEach(f => expectTrue(recurFiresInMonth({ id: 'z', freq: f }, '2026-07', ent), 'freq ' + f));
+    });
+    // ── Sinking funds (pure model; today is a parameter, nothing is saved) ──
+    const _sfEnt = (id, date, amount, o = {}) => Object.assign({ id, date, amount, type: 'savings', category: 'savings', tags: ['sinking-fund'] }, o);
+    const _sfData = (funds, entries, extra = {}) => Object.assign({ settings: { sinking: { funds } }, entries: entries || [] }, extra);
+    test('sinking funds: hand-computed plan (saved, remaining, months left, expected, per month)', () => {
+      // 600 € due 2027-03-15, yearly, cycle 2026-03-15 → 2027-03-15 = 365 days; today 2026-11-08 = day 238 of the cycle, 127 days left
+      const fund = { id: 'A', name: 'Insurance', amount: 600, due: '2027-03-15', every: 12, link: null, from: '2026-03-15' };
+      const ent = [_sfEnt('1', '2026-06-01', 300, { fundId: 'A' }), _sfEnt('2', '2026-10-01', 100, { fundId: 'A' }),
+        _sfEnt('3', '2026-12-01', 50, { fundId: 'A' }),                                   // future → not yet
+        _sfEnt('4', '2026-07-01', 999, { fundId: 'OTHER' }),                              // another fund
+        _sfEnt('5', '2026-02-01', 80, { fundId: 'A' }),                                   // before this cycle began
+        _sfEnt('6', '2026-05-01', 77, { fundId: 'A', type: 'expense' }),                  // no longer a savings entry
+        _sfEnt('7', '2026-05-02', 55, { fundId: undefined }), _sfEnt('8', '2026-05-03', NaN, { fundId: 'A' }), _sfEnt('9', 'garbage', 5, { fundId: 'A' })];
+      const data = _sfData([fund], ent), snap = JSON.stringify(data), r = sinkingPlan(data, '2026-11-08').rows[0];
+      expect(r.saved, 400, '300 + 100: the future, other-fund, old-cycle, expense, unlinked and bad entries are all ignored');
+      expect(r.remaining, 200, '600 − 400'); expect(r.daysLeft, 127, 'days to 2027-03-15'); expect(r.monthsLeft, 5, 'ceil(127 / 30.4375)'); expect(r.perMonth, 40, '200 ÷ 5');
+      expect(r.expected, 391.23, '600 × 238 / 365'); expect(r.status, 'ontrack', '400 ≥ 391.23'); expect(r.behind, 0, 'not behind');
+      expect(JSON.stringify(data), snap, 'the vault is not modified');
+      const behind = sinkingPlan(_sfData([fund], [_sfEnt('1', '2026-06-01', 100, { fundId: 'A' })]), '2026-11-08').rows[0];
+      expect(behind.status, 'behind', '100 is far below 391.23'); expect(behind.behind, 291.23, '391.23 − 100'); expect(behind.perMonth, 100, '500 ÷ 5');
+      const slack = sinkingPlan(_sfData([fund], [_sfEnt('1', '2026-06-01', 345, { fundId: 'A' })]), '2026-11-08').rows[0];
+      expect(slack.status, 'ontrack', '46.23 short is less than one monthly instalment (50): still on track');
+      const funded = sinkingPlan(_sfData([fund], [_sfEnt('1', '2026-06-01', 600, { fundId: 'A' })]), '2026-11-08').rows[0];
+      expect(funded.status + '/' + funded.perMonth, 'funded/0', 'fully set aside');
+    });
+    test('sinking funds: a linked date is READ from the car settings; a passed yearly date rolls forward; a one-off turns overdue', () => {
+      const ins = { id: 'I', name: 'Insurance', amount: 600, due: '2020-01-01', every: 12, link: 'insurance' };
+      let r = sinkingPlan(_sfData([ins], [], { insurance: { renewalDate: '2027-03-15' } }), '2026-11-08').rows[0];
+      expect(r.due + '/' + r.linked, '2027-03-15/true', 'the link wins over the stored (old) date');
+      r = sinkingPlan(_sfData([ins], [], { insurance: { renewalDate: '2027-04-01' } }), '2026-11-08').rows[0];
+      expect(r.due, '2027-04-01', 'change the setting → the fund follows (nothing was copied)');
+      r = sinkingPlan(_sfData([ins], [_sfEnt('a', '2026-08-31', 10, { fundId: 'I' }), _sfEnt('b', '2026-09-02', 20, { fundId: 'I' })], { insurance: { renewalDate: '2026-09-01' } }), '2026-11-08').rows[0];
+      expect(r.due + '/' + r.rolled, '2027-09-01/true', 'renewal date passed → next yearly repeat'); expect(r.saved, 20, 'only this cycle (from 2026-09-01) counts: the 31 Aug entry belongs to the last one');
+      r = sinkingPlan(_sfData([ins], [], {}), '2026-11-08').rows[0];
+      expect(r.due, '2027-01-01', 'no car date: falls back to the stored 2020-01-01, rolled by whole years to the next repeat');
+      const pk = { id: 'P', name: 'Pickerl', amount: 90, due: null, every: 0, link: 'pickerl', from: '2026-01-01' };
+      r = sinkingPlan(_sfData([pk], [_sfEnt('o', '2024-05-05', 30, { fundId: 'P' })], { carService: { inspectionMonth: '2026-10' } }), '2026-11-08').rows[0];
+      expect(r.status + '/' + r.due + '/' + r.perMonth, 'overdue/2026-10-01/0', 'one-off, date passed: overdue, nothing to set aside'); expect(r.saved, 30, 'a one-off counts everything ever set aside for it');
+      expect(sinkingPlan(_sfData([{ id: 'N', name: 'x', amount: 5, link: 'vignette', every: 12 }], []), '2026-11-08').rows[0].status, 'nodate', 'linked but no date anywhere');
+    });
+    test('sinking funds: one bad fund never poisons the rest; junk in the vault does not throw; the total and the Savings share', () => {
+      const good = { id: 'G', name: 'Holiday', amount: 1200, due: '2027-04-08', every: 0, from: '2026-11-08' };    // 151 days → 5 months → 240
+      const funds = [null, 'x', { id: 'B1', name: 'NaN', amount: 'abc', due: '2027-01-01' }, { id: 'B2', name: 'neg', amount: -5, due: '2027-01-01' }, { id: 'B3', name: 'nodate', amount: 5, due: '2027-02-31' }, good];
+      const P = sinkingPlan(_sfData(funds, [], { incomes: { '2026-11': { amount: 1000 } }, splits: { savings: 20 } }), '2026-11-08');
+      expect(P.rows.map(r => r.status).join(), 'ontrack,invalid,invalid,nodate', 'bad rows are labelled, null / string entries are skipped'); expect(P.totalMonthly, 240, 'only the good fund counts');
+      expect(P.bucket + '/' + P.short, '200/40', '20 % of 1.000 = 200; 240 needed → 40 over');
+      [undefined, null, {}, { settings: null }, { settings: { sinking: 'junk' } }, { settings: { sinking: { funds: 'junk' } } }, { settings: { sinking: { funds: [] } }, entries: 'junk' }].forEach((d, i) => expect(sinkingPlan(d, '2026-11-08').rows.length, 0, 'junk #' + i + ' gives an empty plan'));
+      expect(sinkingPlan(_sfData([good], []), '2026-11-08').bucket, null, 'no income this month: no Savings share to compare with');
+    });
+    test('sinking funds: date helpers are end-of-month safe and reject impossible dates', () => {
+      expect(_sfAddMonths('2024-01-31', 1) + ' ' + _sfAddMonths('2024-02-29', 12) + ' ' + _sfAddMonths('2027-03-15', -12) + ' ' + _sfAddMonths('2026-12-31', 2), '2024-02-29 2025-02-28 2026-03-15 2027-02-28', 'clamped, not overflowed');
+      expectTrue(_sfValid('2024-02-29') && !_sfValid('2026-02-29') && !_sfValid('2026-02-31') && !_sfValid('2026-13-01') && !_sfValid('') && !_sfValid(null) && !_sfValid('26-1-1'), 'real dates only');
+    });
+    test('sinking funds: suggestions come from car dates + what you last paid; nothing already added; stale payments ignored', () => {
+      const data = _sfData([], [{ id: 'x1', date: '2026-01-05', amount: 612.4, type: 'expense', tags: ['Insurance'] }, { id: 'x2', date: '2025-01-01', amount: 99, type: 'expense', tags: ['vignette'] },
+          { id: 'x3', date: '2026-02-02', amount: 50, type: 'income', tags: ['insurance'] }],
+        { insurance: { renewalDate: '2027-01-05' }, carService: { vignetteEnd: '2027-01-31', inspectionMonth: 'nope' } });
+      const s = suggestSinkingFunds(data, '2026-11-08');
+      expect(s.map(x => x.key).join(), 'insurance,vignette', 'Pickerl month is invalid → no suggestion');
+      expect(s[0].amount, 612.4, 'last matching EXPENSE (tags are case-insensitive; the income entry is ignored)'); expect(s[1].amount, null, 'the vignette entry is older than 400 days → you enter the amount');
+      data.settings.sinking.funds.push({ id: 'z', link: 'insurance' });
+      expect(suggestSinkingFunds(data, '2026-11-08').map(x => x.key).join(), 'vignette', 'a fund already linked to the insurance is not suggested again');
+    });
+    test('sinking funds: form validation (pure)', () => {
+      const d = { insurance: { renewalDate: '2027-01-05' } }, ok = o => validateSinkingFund(Object.assign({ name: ' Tyres ', amount: '480,5', due: '2027-10-01', every: '12', link: '' }, o), d, '2026-11-08', null);
+      let v = ok({}); expectTrue(v.ok && v.fund.name === 'Tyres' && v.fund.amount === 480.5 && v.fund.due === '2027-10-01' && v.fund.every === 12 && v.fund.link === null && v.fund.from === '2026-11-08' && typeof v.fund.id === 'string', 'trims, accepts a decimal comma, stamps from');
+      ['', '   ', 'x'.repeat(61)].forEach(n => expectTrue(!ok({ name: n }).ok, 'bad name ' + n.length));
+      ['', '0', '-3', 'abc', '1e9', 'Infinity'].forEach(a => expectTrue(!ok({ amount: a }).ok, 'bad amount ' + a));
+      ['', '2026-02-31', 'tomorrow'].forEach(x => expectTrue(!ok({ due: x }).ok, 'bad date ' + x));
+      expectTrue(!ok({ every: '5' }).ok, 'unknown repeat');
+      expectTrue(ok({ due: '', link: 'insurance' }).ok && ok({ due: '', link: 'insurance' }).fund.due === null, 'linked with a car date: the due date may stay empty');
+      expectTrue(!ok({ due: '', link: 'vignette' }).ok, 'linked but that car setting has no date and none typed → refused');
+      const ex = { id: 'keep', from: '2026-01-01' }; expect(validateSinkingFund({ name: 'a', amount: 1, due: '2027-01-01', every: 0 }, d, '2026-11-08', ex).fund.id + validateSinkingFund({ name: 'a', amount: 1, due: '2027-01-01', every: 0 }, d, '2026-11-08', ex).fund.from, 'keep2026-01-01', 'editing keeps id and from');
+    });
     test('the version label shown on the page comes from APP_VERSION (one place to bump)', () => {
       expectTrue(/^V\d+$/.test(APP_VERSION), `APP_VERSION should look like "V5", got ${APP_VERSION}`);
       expect(document.title, `${APP_NAME} ${APP_VERSION}`, 'page title');
