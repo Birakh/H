@@ -1394,6 +1394,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
       </div>
 
+      <div class="card" id="ov-tax">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-tax">Tax year (Austria)
+          <span style="display:inline-flex;gap:6px;margin-left:auto;align-items:center">
+            <select id="tax-year" data-action-change="tax-year-change" aria-label="Tax year" style="width:auto;font-size:12px"></select>
+            <button class="btn xs ghost" data-action="tax-export">Export CSV</button>
+          </span>
+        </div>
+        <div id="d-tax-summary"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">Tag your expenses</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+          <input type="text" id="tax-q" data-action-input="tax-filter-input" placeholder="Filter by description or tag…" aria-label="Filter expenses" style="flex:1;min-width:150px;font-size:12px">
+          <label style="font-size:12px;color:var(--ink2);margin:0;font-weight:400;text-transform:none;letter-spacing:0;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="tax-untagged" data-action-change="tax-untagged-change"> only untagged</label>
+        </div>
+        <div id="d-tax-list"></div>
+      </div>
+
       <div class="card" id="ov-bva">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-bva">Budget vs actual — last 12 months</div>
         <div id="d-bva"></div>
@@ -1921,7 +1937,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Formula variables
-          <button class="btn xs success" onclick="addVar()">+ Add variable</button>
+          <button class="btn xs success" data-action="set-add-var">+ Add variable</button>
         </div>
         <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.6">
           Define named values here and use them in any amount field with <code style="font-family:var(--mono);background:var(--s2);padding:1px 5px;border-radius:3px">=formula</code>.
@@ -1933,14 +1949,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Housing cost</div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
-              <input type="radio" name="housing-type" id="ht-rent" value="rent" onchange="onHousingTypeChange()" style="width:auto"> Rent
+              <input type="radio" name="housing-type" id="ht-rent" value="rent" data-action-change="set-on-housing-type-change" style="width:auto"> Rent
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
-              <input type="radio" name="housing-type" id="ht-mortgage" value="mortgage" onchange="onHousingTypeChange()" style="width:auto"> Mortgage
+              <input type="radio" name="housing-type" id="ht-mortgage" value="mortgage" data-action-change="set-on-housing-type-change" style="width:auto"> Mortgage
             </label>
             <div style="display:flex;align-items:center;gap:8px;margin-left:8px">
               <span style="font-size:12px;color:var(--ink3)" id="ht-amt-lbl">Monthly amount (€)</span>
-              <input type="number" id="ht-amt" placeholder="950" step="10" style="width:110px;font-family:var(--mono);font-size:13px" oninput="onHousingAmtChange()">
+              <input type="number" id="ht-amt" placeholder="950" step="10" style="width:110px;font-family:var(--mono);font-size:13px" data-action-input="set-on-housing-amt-change">
             </div>
           </div>
           <div id="ht-helper" style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5"></div>
@@ -1967,11 +1983,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Oil price benchmark</div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
             <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
-              <input type="radio" name="oil-benchmark" id="ob-brent" value="brent" onchange="saveRegionalSettings()" style="width:auto"> 
+              <input type="radio" name="oil-benchmark" id="ob-brent" value="brent" data-action-change="set-save-regional-settings" style="width:auto"> 
               <span><strong>Brent</strong> <span style="color:var(--ink3);font-size:11px">— Europe, Middle East, Africa (default)</span></span>
             </label>
             <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;font-size:13px">
-              <input type="radio" name="oil-benchmark" id="ob-wti" value="wti" onchange="saveRegionalSettings()" style="width:auto">
+              <input type="radio" name="oil-benchmark" id="ob-wti" value="wti" data-action-change="set-save-regional-settings" style="width:auto">
               <span><strong>WTI</strong> <span style="color:var(--ink3);font-size:11px">— North America</span></span>
             </label>
           </div>
@@ -1983,9 +1999,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="card-title">Budget splits &amp; goals</div>
         <div id="splits-ui"></div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
-          <button class="btn primary sm" onclick="saveSplits()">Save splits &amp; goals</button>
+          <button class="btn primary sm" data-action="set-save-splits">Save splits &amp; goals</button>
           <span id="split-err" style="font-size:12px;color:var(--R);display:none">Splits must sum to 100%</span>
-          <button class="btn xs ghost" onclick="renderSplitSuggestion()" title="Compare your targets with what you actually spent — you decide what to change">💡 Compare with my real spending</button>
+          <button class="btn xs ghost" data-action="set-render-split-suggestion" title="Compare your targets with what you actually spent — you decide what to change">💡 Compare with my real spending</button>
         </div>
         <div id="split-suggest" style="display:none;margin-top:12px"></div>
       </div>
@@ -1993,7 +2009,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">
           Accounts
-          <button class="btn xs success" onclick="toggleAcctForm()">+ Add</button>
+          <button class="btn xs success" data-action="set-toggle-acct-form">+ Add</button>
         </div>
         <div class="acct-add-form" id="acct-add-form">
           <div class="g3" style="margin-bottom:10px">
@@ -2002,8 +2018,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="fg" style="margin:0"><label>Opening balance (€)</label><input type="number" id="acct-bal" placeholder="0.00" step="0.01" style="width:100%" title="Starting balance before any entries"></div>
           </div>
           <div style="display:flex;gap:8px">
-            <button class="btn sm primary" onclick="saveNewAccount()">Add account</button>
-            <button class="btn sm ghost" onclick="toggleAcctForm()">Cancel</button>
+            <button class="btn sm primary" data-action="set-save-new-account">Add account</button>
+            <button class="btn sm ghost" data-action="set-toggle-acct-form">Cancel</button>
           </div>
         </div>
         <div id="acct-list"></div>
@@ -2013,10 +2029,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Export data</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" onclick="exportExcel()">Excel</button>
-          <button class="btn sm" onclick="exportJSON()">JSON</button>
-          <button class="btn sm info" onclick="exportYNAB()">YNAB CSV</button>
-          <button class="btn sm info" onclick="exportFirefly()">Firefly III CSV</button>
+          <button class="btn sm" data-action="set-export-excel">Excel</button>
+          <button class="btn sm" data-action="set-export-json">JSON</button>
+          <button class="btn sm info" data-action="set-export-ynab">YNAB CSV</button>
+          <button class="btn sm info" data-action="set-export-firefly">Firefly III CSV</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:8px">YNAB / Firefly III exports use their native import format.</div>
       </div>
@@ -2027,15 +2043,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Get a browser notification when you hit your early-warning threshold or 100% of your Needs or Wants budget. No server — fires locally when the app is open.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn sm" onclick="requestNotifPermission()">Enable notifications</button>
-          <button class="btn sm ghost" onclick="testBudgetNotif()">Send test</button>
+          <button class="btn sm" data-action="set-request-notif-permission">Enable notifications</button>
+          <button class="btn sm ghost" data-action="set-test-budget-notif">Send test</button>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
-            <input type="checkbox" id="notif-enabled" onchange="saveNotifPref(this.checked)"> Send budget alerts
+            <input type="checkbox" id="notif-enabled" data-action-change="set-save-notif-pref"> Send budget alerts
           </label>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--ink2)">
           <label for="notif-threshold" style="font-weight:400;text-transform:none;letter-spacing:0">Warn me at</label>
-          <input type="number" id="notif-threshold" min="50" max="95" step="5" style="width:60px" onchange="saveAlertThreshold(this.value)">
+          <input type="number" id="notif-threshold" min="50" max="95" step="5" style="width:60px" data-action-change="set-save-alert-threshold">
           <span>% of Needs / Wants (100% always alerts too)</span>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:8px">Once per threshold per month to avoid spam.</div>
@@ -2044,7 +2060,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Vault health
           <span id="vh-score-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
-          <button class="btn xs ghost" onclick="runVaultHealth()">Run check</button>
+          <button class="btn xs ghost" data-action="set-run-vault-health">Run check</button>
         </div>
         <div id="vh-list"><div style="font-size:13px;color:var(--ink3)">Click "Run check" to scan your vault for data issues.</div></div>
       </div>
@@ -2052,7 +2068,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Self-test
           <span id="st-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
-          <button class="btn xs ghost" onclick="runSelfTest()">Run tests</button>
+          <button class="btn xs ghost" data-action="set-run-self-test">Run tests</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Internal integrity checks — duplicate element ids, duplicate function declarations, inline event handlers pointing at functions that don't exist, and schema migration correctness. The same checks an AI assistant would run by hand after editing this file.
           <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--ink3)">What to do if a test fails</summary>
@@ -2070,7 +2086,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Smoke test
           <span id="smoke-badge" style="font-weight:400;font-size:12px;color:var(--ink3);margin-left:4px"></span>
-          <button class="btn xs ghost" onclick="runSmokeTest()">Run tests</button>
+          <button class="btn xs ghost" data-action="set-run-smoke-test">Run tests</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Functional checks — actually runs the app's calculations (currency formatting, budget carry, FIFO cost basis, account balances, schema migration) against a small built-in test dataset and verifies the results are mathematically correct. Different from Self-test above: Self-test checks the code is <em>wired correctly</em>, this checks the <em>math is right</em>.
           <div style="margin-top:4px;color:var(--Gm)">🔒 Runs entirely on a temporary, isolated dataset — your real vault is never read or modified by this test.</div>
@@ -2091,15 +2107,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <!-- Legacy vault migration banner — hidden unless old format detected -->
         <div id="legacy-banner" class="banner warn" style="display:none;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <span style="flex:1;min-width:180px">⚠ This vault was encrypted with the old format (token as key). Migrate now to re-encrypt with your passphrase — required before switching repos or rotating your token.</span>
-          <button class="btn xs warn" onclick="migrateVault()">Migrate now</button>
+          <button class="btn xs warn" data-action="set-migrate-vault">Migrate now</button>
         </div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <button class="btn sm" onclick="ghPull()">↓ Pull from GitHub</button>
-          <button class="btn sm primary" onclick="ghPush()">↑ Push to GitHub</button>
+          <button class="btn sm" data-action="set-gh-pull">↓ Pull from GitHub</button>
+          <button class="btn sm primary" data-action="set-gh-push">↑ Push to GitHub</button>
         </div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin:0;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400">
-          <input type="checkbox" id="auto-push-toggle" onchange="toggleAutoPush(this.checked)">
+          <input type="checkbox" id="auto-push-toggle" data-action-change="set-toggle-auto-push">
           Auto-push every 5 minutes when changes are pending
         </label>
         <div style="font-size:11px;color:var(--ink3);margin-top:6px">When enabled, unsaved changes (orange dot in header) will be automatically pushed after 5 minutes.</div>
@@ -2107,7 +2123,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Point-in-time restore
-          <button class="btn xs ghost" onclick="loadCommitHistory()">↻ Load history</button>
+          <button class="btn xs ghost" data-action="set-load-commit-history">↻ Load history</button>
         </div>
         <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Every push creates a commit on GitHub. Browse your commit history and preview what a snapshot would change before you restore it. Restoring pushes the snapshot as a new commit; the version you have now stays in this list, so a restore can be undone by restoring that commit.</div>
         <div id="pit-list"><div style="font-size:13px;color:var(--ink3)">Click "Load history" to fetch commit history from GitHub.</div></div>
@@ -2121,7 +2137,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="fg" style="margin:0"><label>New repo (private)</label><input type="text" id="sw-repo" placeholder="v-store" autocomplete="off" autocapitalize="none"></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn sm primary" onclick="switchRepo()">Switch repository →</button>
+          <button class="btn sm primary" data-action="set-switch-repo">Switch repository →</button>
           <span id="sw-status" style="font-size:12px;color:var(--ink3)"></span>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:8px">Your token must have <strong>Contents: read &amp; write</strong> permission on the new repository. The vault file will be created as <code>budget.enc</code>. After switching, point your token scope to the new repo only.</div>
@@ -2130,7 +2146,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title">Appearance</div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin:0 0 10px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400">
-          <input type="checkbox" id="auto-theme-toggle" onchange="toggleAutoTheme(this.checked)">
+          <input type="checkbox" id="auto-theme-toggle" data-action-change="set-toggle-auto-theme">
           Scheduled dark mode (auto-switch at sunrise/sunset based on local time)
         </label>
         <div style="font-size:11px;color:var(--ink3)">Sunrise: ~06:00 · Sunset: ~20:00 (approximation, no location used). Manual toggle overrides temporarily.</div>
@@ -2138,7 +2154,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Data health check
-          <button class="btn xs ghost" onclick="renderHealthCheck()">↻ Scan</button>
+          <button class="btn xs ghost" data-action="set-render-health-check">↻ Scan</button>
         </div>
         <div id="d-health"><div style="font-size:13px;color:var(--ink3)">Click Scan to check your data for issues.</div></div>
       </div>
@@ -2148,7 +2164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="income-sync-status" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Months where you saved an income on the Overview before it was mirrored into Entries have no "Monthly income" row there. This adds the missing ones (dated the 1st). No account is set on them, so <strong>no account balance changes</strong> — and the dashboard's budget totals don't change either.</div>
-        <button class="btn sm" onclick="runIncomeBackfill()">Add missing income rows</button>
+        <button class="btn sm" data-action="set-run-income-backfill">Add missing income rows</button>
       </div>
 
       <div class="card">
@@ -2167,7 +2183,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card">
         <div class="card-title">Sync audit log
-          <button class="btn xs ghost" onclick="renderAuditLog()">↻ Refresh</button>
+          <button class="btn xs ghost" data-action="set-render-audit-log">↻ Refresh</button>
         </div>
         <div id="audit-log-list"><div style="font-size:13px;color:var(--ink3)">No sync history yet.</div></div>
       </div>
@@ -2175,8 +2191,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card">
         <div class="card-title" style="color:var(--R)">Danger zone</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn sm danger" onclick="clearEntries()">Clear all entries</button>
-          <button class="btn sm danger" onclick="clearAll()">Clear everything</button>
+          <button class="btn sm danger" data-action="set-clear-entries">Clear all entries</button>
+          <button class="btn sm danger" data-action="set-clear-all">Clear everything</button>
         </div>
       </div>
     </section>
@@ -2913,8 +2929,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <!-- Tyres (summer / winter sets) -->
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;margin-top:4px">
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;flex:1">🛞 Tyres</div>
-          <button class="btn xs primary" onclick="openTyreSwap()">⇄ Swap tyres</button>
-          <button class="btn xs ghost" onclick="openTyreSet()">+ Add tyre set</button>
+          <button class="btn xs primary" data-action="tyre-swap-open">⇄ Swap tyres</button>
+          <button class="btn xs ghost" data-action="tyre-set-open">+ Add tyre set</button>
         </div>
         <div id="tyre-panel" style="margin-bottom:12px"></div>
 
@@ -2925,7 +2941,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="fg" style="margin:0;width:90px"><label>Depth (mm)</label><input type="number" id="tread-mm" min="0" max="20" step="0.1" placeholder="5.5" style="font-family:var(--mono)"></div>
           <div class="fg" style="margin:0;min-width:130px"><label>Tyre set</label><select id="tread-set"></select></div>
           <div class="fg" style="margin:0;flex:2;min-width:120px"><label>Note (position, brand…)</label><input type="text" id="tread-note" placeholder="Front left, Michelin…"></div>
-          <button class="btn xs success" onclick="addTreadLog()">+ Log</button>
+          <button class="btn xs success" data-action="tread-add">+ Log</button>
         </div>
         <div id="tread-log-list" style="font-size:12px;color:var(--ink2)"></div>
 
@@ -3118,32 +3134,47 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
 
   <!-- ── Delete an expense: also remove the refuel it belongs to? ── -->
-  <div class="modal-overlay" id="entry-del-overlay" onclick="if(event.target===this)closeEntryDelete()">
+  <div class="modal-overlay" id="entry-del-overlay" data-action="entry-del-backdrop">
     <div class="modal-box" style="width:min(440px,100%)">
       <div class="modal-title">Delete this expense?</div>
       <div class="modal-body" style="margin-bottom:8px">It belongs to a refuel in your Fuel log:</div>
       <div id="entry-del-fuel" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:10px"></div>
       <div class="modal-body" style="font-size:12px;margin-bottom:16px">Deleting the refuel as well also takes it out of your fuel statistics and tyre kilometres. You can undo for a few seconds afterwards.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn sm ghost" onclick="closeEntryDelete()">Cancel</button>
-        <button class="btn sm" onclick="confirmEntryDelete(false)">Delete expense only</button>
-        <button class="btn sm danger" onclick="confirmEntryDelete(true)">Delete expense + refuel</button>
+        <button class="btn sm ghost" data-action="entry-del-close">Cancel</button>
+        <button class="btn sm" data-action="entry-del-confirm" data-fuel="false">Delete expense only</button>
+        <button class="btn sm danger" data-action="entry-del-confirm" data-fuel="true">Delete expense + refuel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit a fuel expense's amount / date: also update its refuel? ── -->
+  <div class="modal-overlay" id="entry-edit-overlay" data-action="entry-edit-backdrop">
+    <div class="modal-box" style="width:min(440px,100%)">
+      <div class="modal-title">Update the refuel too?</div>
+      <div class="modal-body" style="margin-bottom:8px">This expense belongs to a refuel in your Fuel log, and the two match right now:</div>
+      <div id="entry-edit-info" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:10px"></div>
+      <div class="modal-body" style="font-size:12px;margin-bottom:16px">Updating the refuel keeps your fuel statistics in step with the expense. You can undo for a few seconds afterwards.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn sm ghost" data-action="entry-edit-close">Cancel</button>
+        <button class="btn sm" data-action="entry-edit-confirm" data-fuel="false">Change expense only</button>
+        <button class="btn sm primary" data-action="entry-edit-confirm" data-fuel="true">Change expense + refuel</button>
       </div>
     </div>
   </div>
 
   <!-- ── Tyre set: add / edit ── -->
-  <div class="modal-overlay" id="tyre-set-overlay" onclick="if(event.target===this)closeTyreSet()">
+  <div class="modal-overlay" id="tyre-set-overlay" data-action="tyre-set-backdrop">
     <div class="modal-box" style="width:min(540px,100%);max-height:90vh;overflow-y:auto">
       <div class="modal-title" id="ts-title">Add tyre set</div>
       <div class="g2" style="margin-bottom:8px">
         <div class="fg" style="margin:0"><label>Name</label><input type="text" id="ts-name" placeholder="Winter – from previous owner"></div>
         <div class="fg" style="margin:0"><label>Season</label>
-          <select id="ts-season" onchange="onTyreSeasonChange()"><option value="summer">☀ Summer</option><option value="winter">❄ Winter</option><option value="all">All-season</option></select></div>
+          <select id="ts-season" data-action-change="tyre-season-change"><option value="summer">☀ Summer</option><option value="winter">❄ Winter</option><option value="all">All-season</option></select></div>
       </div>
       <div class="g2" style="margin-bottom:6px">
         <div class="fg" style="margin:0"><label>Condition</label>
-          <select id="ts-cond" onchange="onTyreCondChange()"><option value="new">Brand new — starts at 0 km</option><option value="used">Second-hand / already driven</option></select></div>
+          <select id="ts-cond" data-action-change="tyre-cond-change"><option value="new">Brand new — starts at 0 km</option><option value="used">Second-hand / already driven</option></select></div>
         <div class="fg" style="margin:0" id="ts-prior-wrap"><label>Km already on them <span class="muted" style="text-transform:none;letter-spacing:0">(blank = unknown)</span></label>
           <input type="number" id="ts-prior" min="0" step="1000" placeholder="unknown" style="font-family:var(--mono)"></div>
       </div>
@@ -3163,7 +3194,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div id="ts-mount-wrap" style="border-top:.5px solid var(--bdr);padding-top:10px;margin-top:4px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)">
-          <input type="checkbox" id="ts-mount" onchange="onTyreMountToggle()"> Put these on the car now</label>
+          <input type="checkbox" id="ts-mount" data-action-change="tyre-mount-toggle"> Put these on the car now</label>
         <div id="ts-mount-fields" style="display:none;margin-top:8px">
           <div class="g3">
             <div class="fg" style="margin:0"><label>Date</label><input type="date" id="ts-mount-date"></div>
@@ -3181,15 +3212,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px">
-        <button class="btn sm danger" id="ts-delete" onclick="deleteTyreSet()" style="margin-right:auto">Delete set</button>
-        <button class="btn sm ghost" onclick="closeTyreSet()">Cancel</button>
-        <button class="btn sm primary" onclick="saveTyreSet()">Save</button>
+        <button class="btn sm danger" id="ts-delete" data-action="tyre-set-delete" style="margin-right:auto">Delete set</button>
+        <button class="btn sm ghost" data-action="tyre-set-close">Cancel</button>
+        <button class="btn sm primary" data-action="tyre-set-save">Save</button>
       </div>
     </div>
   </div>
 
   <!-- ── Swap tyres ── -->
-  <div class="modal-overlay" id="tyre-swap-overlay" onclick="if(event.target===this)closeTyreSwap()">
+  <div class="modal-overlay" id="tyre-swap-overlay" data-action="tyre-swap-backdrop">
     <div class="modal-box" style="width:min(460px,100%)">
       <div class="modal-title">Swap tyres</div>
       <div class="modal-body" id="tsw-current" style="margin-bottom:10px"></div>
@@ -3203,8 +3234,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
       <div id="tsw-hint" style="font-size:11px;color:var(--ink3);margin-bottom:14px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn sm ghost" onclick="closeTyreSwap()">Cancel</button>
-        <button class="btn sm primary" onclick="confirmTyreSwap()">Swap</button>
+        <button class="btn sm ghost" data-action="tyre-swap-close">Cancel</button>
+        <button class="btn sm primary" data-action="tyre-swap-confirm">Swap</button>
       </div>
     </div>
   </div>
@@ -3242,18 +3273,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </div>
 
   <!-- ── Reconcile an account with the bank ── -->
-  <div class="modal-overlay" id="reconcile-overlay" onclick="if(event.target===this)closeReconcile()">
+  <div class="modal-overlay" id="reconcile-overlay" data-action="reconcile-backdrop">
     <div class="modal-box" style="width:min(520px,100%);max-height:90vh;overflow:auto">
       <div class="modal-title">Reconcile with your bank</div>
       <div class="modal-body" style="margin-bottom:10px">Enter the balance your bank shows. The vault compares it with what it has booked up to that date and looks for the usual causes of a difference. Nothing changes unless you press a fix.</div>
       <div class="g2" style="margin-bottom:8px">
-        <div class="fg" style="margin:0"><label>Account</label><select id="rcn-acct" onchange="el('rcn-result').innerHTML=''"></select></div>
+        <div class="fg" style="margin:0"><label>Account</label><select id="rcn-acct" data-action-change="reconcile-clear"></select></div>
         <div class="fg" style="margin:0"><label>Balance date</label><input type="date" id="rcn-date"></div>
       </div>
       <div class="fg" style="margin:0 0 8px"><label>Balance your bank shows (€)</label><input type="text" inputmode="decimal" id="rcn-bank" placeholder="e.g. 1.234,56" style="font-family:var(--mono)"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px">
-        <button class="btn sm ghost" onclick="closeReconcile()">Close</button>
-        <button class="btn sm primary" onclick="runReconcile()">Check</button>
+        <button class="btn sm ghost" data-action="reconcile-close">Close</button>
+        <button class="btn sm primary" data-action="reconcile-run">Check</button>
       </div>
       <div id="rcn-result"></div>
     </div>
@@ -5074,6 +5105,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderTaxYear(); } catch (e) { console.error('Tax year failed:', e); }    // never breaks the Overview
   try { renderSinking(); } catch (e) { console.error('Sinking funds failed:', e); }    // like Insights: must never break the Overview
   try { renderReminders(); } catch (e) { console.error('Reminders failed:', e); }    // like Insights: must never break the Overview
   try { renderInsights(); } catch (e) { console.error('Insights failed:', e); }   // a bug here must never break the Overview
@@ -5624,6 +5656,7 @@ const OVERVIEW_CARDS = [      // default order — a test checks it against the 
   { id: 'ov-merchants',   label: 'Top merchants' },
   { id: 'ov-goals',       label: 'Savings goals' },
   { id: 'ov-sinking',     label: 'Sinking funds' },
+  { id: 'ov-tax',         label: 'Tax year (Austria)' },
   { id: 'ov-bva',         label: 'Budget vs actual' },
   { id: 'ov-networth',    label: 'Net worth timeline' },
   { id: 'ov-savingsrate', label: 'Savings rate trend' },
@@ -6562,6 +6595,11 @@ function confirmEntryDelete(alsoFuel) {
   closeEntryDelete();
   if (id) finishEntryDeletion(id, alsoFuel);
 }
+defineActions({
+  'entry-del-backdrop': (t, ev) => { if (ev.target === t) closeEntryDelete(); },     // only the dimmed background, not a click inside the dialog
+  'entry-del-close':    () => closeEntryDelete(),
+  'entry-del-confirm':  t => confirmEntryDelete(t.dataset.fuel === 'true'),          // data-fuel="true" = also delete the refuel
+});
 function finishEntryDeletion(id, alsoFuel) {
   try {
     const entry = DATA.entries.find(e => e.id === id);
@@ -6585,22 +6623,82 @@ function makeEditable(td, id, field, cur) {
     onblur="commitEdit('${id}','${field}',this.value)">`;
   td.querySelector('input').select();
 }
+// ── Editing a fuel expense's amount or date offers to update its refuel (the other direction — refuel → expense — is syncFuelEntry) ──
+// PURE. entry = the expense BEFORE the edit, newVal = the new amount (number) or date ('YYYY-MM-DD'). Returns null when there is nothing to offer, else what would change on
+// the refuel. Same rule as the other direction: only a field that is still IN STEP is offered (the refuel's total / date equals the expense's right now); a refuel that has
+// already been changed on its own is left alone. The refuel is found with findFuelForEntry (fuelId first, the old date/total match for older entries).
+function fuelEditOffer(entry, field, newVal, fuel, entries) {
+  if (field !== 'amount' && field !== 'date') return null;
+  const rec = findFuelForEntry(entry, fuel, entries); if (!rec) return null;
+  if (field === 'amount') {
+    const to = +newVal;
+    if (!Number.isFinite(to) || to <= 0 || Math.abs(to - entry.amount) < 0.005) return null;
+    if (Math.abs((+rec.total) - entry.amount) >= 0.005) return null;
+    return { rec, fuelField: 'total', from: entry.amount, to: +to.toFixed(2), recFrom: rec.total };
+  }
+  const to = String(newVal || ''), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(to), t = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  const ok = !!t && t.getUTCFullYear() === +m[1] && t.getUTCMonth() === +m[2] - 1 && t.getUTCDate() === +m[3];     // a REAL date: Date.parse alone accepts 2026-02-31
+  if (!ok || to === entry.date || rec.date !== entry.date) return null;
+  return { rec, fuelField: 'date', from: entry.date, to, recFrom: rec.date };
+}
+
+// The edit itself (shared by the plain path and the dialog path). `e` is the live entry.
+function _applyEntryFieldEdit(e, id, field, val) {
+  if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
+  else e[field]=val;
+  // Editing the mirrored Overview-income entry's amount directly: push the
+  // new value back into DATA.incomes so the Overview field stays in sync,
+  // and clear any stale formula there since a manual override no longer
+  // matches whatever formula originally produced the old amount.
+  if (e.isSalaryMirror && field === 'amount') {
+    const mon = id.slice('baseinc-'.length);
+    if (DATA.incomes[mon]) { DATA.incomes[mon].amount = e.amount; DATA.incomes[mon].formula = null; }
+  }
+}
+
+let _entryEditPending = null;
 async function commitEdit(id, field, val) {
   try {
     const e = DATA.entries.find(x=>x.id===id); if(!e) return;
-    if (field==='amount') { const {amount,formula}=parseAmt(val); e.amount=amount; e.formula=formula; }
-    else e[field]=val;
-    // Editing the mirrored Overview-income entry's amount directly: push the
-    // new value back into DATA.incomes so the Overview field stays in sync,
-    // and clear any stale formula there since a manual override no longer
-    // matches whatever formula originally produced the old amount.
-    if (e.isSalaryMirror && field === 'amount') {
-      const mon = id.slice('baseinc-'.length);
-      if (DATA.incomes[mon]) { DATA.incomes[mon].amount = e.amount; DATA.incomes[mon].formula = null; }
+    if (field === 'amount' || field === 'date') {
+      const offer = fuelEditOffer(e, field, field === 'amount' ? parseAmt(val).amount : val, DATA.fuel, DATA.entries);   // parseAmt throws on unreadable input, caught below as before
+      if (offer) { openEntryEdit(id, field, val, offer); preserveScroll(render); return; }       // the cell goes back to its old value while the dialog asks
     }
+    const linked = (field === 'amount' || field === 'date') ? findFuelForEntry(e) : null;       // BEFORE the edit: the older date/total match is lost once it changes
+    _applyEntryFieldEdit(e, id, field, val);
+    if (linked && !e.fuelId) e.fuelId = linked.id;                                              // keep the link (optional ≠ unlinked: store it)
     saveLocal(); preserveScroll(render);
   } catch(e) { toast(e.message || 'Failed to save edit.', 1); }
 }
+function openEntryEdit(id, field, val, offer) {
+  const e = DATA.entries.find(x => x.id === id), r = offer.rec, amt = field === 'amount';
+  _entryEditPending = { id, field, val };
+  el('entry-edit-info').innerHTML =
+    `<div><strong>Expense</strong> · ${esc(e.desc || '(no description)')}<br>${amt ? 'Amount' : 'Date'}: ${esc(amt ? fmt(offer.from) : offer.from)} → <strong>${esc(amt ? fmt(offer.to) : offer.to)}</strong></div>`
+    + `<div style="margin-top:8px"><strong>Refuel</strong> · ${esc(r.station || 'Refuel')} · ${esc(r.date)} · ${esc(fmt(r.total))}${r.liters ? ' · ' + esc(String(r.liters)) + ' l' : ''}<br>`
+    + (amt ? `Total ${esc(fmt(offer.recFrom))} → <strong>${esc(fmt(offer.to))}</strong>${r.liters ? ` (price per litre becomes ${(offer.to / r.liters).toFixed(3)})` : ''}` : `Date ${esc(offer.recFrom)} → <strong>${esc(offer.to)}</strong>`) + `</div>`;
+  el('entry-edit-overlay').classList.add('open');
+}
+function closeEntryEdit() { el('entry-edit-overlay').classList.remove('open'); _entryEditPending = null; }
+function confirmEntryEdit(alsoFuel) {
+  const p = _entryEditPending; closeEntryEdit();                                   // read what is pending FIRST, then close
+  if (!p) return;
+  try {
+    commit(alsoFuel ? 'Expense and refuel updated' : 'Entry updated', () => {
+      const e = DATA.entries.find(x => x.id === p.id); if (!e) return;
+      const rec = findFuelForEntry(e);                                             // BEFORE the edit
+      const offer = rec && alsoFuel ? fuelEditOffer(e, p.field, p.field === 'amount' ? parseAmt(p.val).amount : p.val, DATA.fuel, DATA.entries) : null;
+      _applyEntryFieldEdit(e, p.id, p.field, p.val);
+      if (rec && !e.fuelId) e.fuelId = rec.id;                                     // the pair stays linked although date / total now differ
+      if (offer) { const err = applyFuelEdit(rec, offer.fuelField, String(offer.to)); if (err) throw new Error(err); }
+    }, { touch: ['entries', 'fuel'], restored: 'Edit undone' });
+  } catch (err) { toast(err.message || 'Failed to save edit.', 1); }
+}
+defineActions({
+  'entry-edit-backdrop': (t, ev) => { if (ev.target === t) closeEntryEdit(); },
+  'entry-edit-close':    () => closeEntryEdit(),
+  'entry-edit-confirm':  t => confirmEntryEdit(t.dataset.fuel === 'true'),
+});
 
 // Account cell: single-click opens a <select> in-place.
 // onchange commits; onblur without a change just restores the cell display.
@@ -7546,14 +7644,14 @@ function renderVarsUI() {
         <td style="padding:6px 8px;font-family:var(--mono);font-size:12px;color:var(--B);font-weight:500;border-bottom:.5px solid var(--bdr)">${esc(name)}</td>
         <td style="text-align:right;padding:6px 8px;font-family:var(--mono);font-size:13px;border-bottom:.5px solid var(--bdr)">
           <input type="number" value="${v.value}" step="any" style="width:110px;text-align:right;font-family:var(--mono);font-size:12px;padding:2px 6px"
-            onchange="updateVar(${jsAttr(name)},'value',this.value)">
+            data-action-change="var-value" data-name="${esc(name)}">
         </td>
         <td style="padding:6px 8px;border-bottom:.5px solid var(--bdr)">
           <input type="text" value="${esc(v.desc||'')}" placeholder="What is this?" style="font-size:12px;color:var(--ink2);padding:2px 6px"
-            onchange="updateVar(${jsAttr(name)},'desc',this.value)">
+            data-action-change="var-desc" data-name="${esc(name)}">
         </td>
         <td style="padding:6px 8px;border-bottom:.5px solid var(--bdr);white-space:nowrap">
-          <button class="btn xs ghost" onclick="deleteVar(${jsAttr(name)})">✕</button>
+          <button class="btn xs ghost" data-action="var-delete" data-name="${esc(name)}">✕</button>
         </td>
       </tr>`).join('')}
     </tbody>
@@ -7603,25 +7701,25 @@ function addVar() {
   const clean = name.trim().replace(/[^a-zA-Z0-9_]/g,'');
   if (!clean) return toast('Use letters and numbers only in variable names.', 1);
   if (['housing','rent','mortgage'].includes(clean)) return toast(`"${clean}" is a built-in keyword — choose a different name.`, 1);
-  if (!DATA.vars) DATA.vars = {};
-  if (DATA.vars[clean]) return toast(`Variable "${clean}" already exists.`, 1);
-  DATA.vars[clean] = { value: 0, desc: '' };
-  saveLocal(); renderVarsUI();
+  if (DATA.vars && DATA.vars[clean]) return toast(`Variable "${clean}" already exists.`, 1);
+  commit(`Variable “${clean}” added`, () => { if (!DATA.vars) DATA.vars = {}; DATA.vars[clean] = { value: 0, desc: '' }; },
+    { touch: ['vars'], toast: null, render: renderVarsUI });                              // silent, as before
 }
 
 function updateVar(name, field, val) {
   if (!DATA.vars?.[name]) return;
-  DATA.vars[name][field] = field === 'value' ? parseFloat(val) || 0 : val;
-  saveLocal();
-  renderVarExamples();
-  // Refresh helpers in case a variable value changed
-  updateAmtHelper(); updateIncomeHelper();
+  commit('Variable updated', () => { DATA.vars[name][field] = field === 'value' ? parseFloat(val) || 0 : val; },
+    { touch: ['vars'], toast: null, render: () => {
+      renderVarExamples();
+      // Refresh helpers in case a variable value changed
+      updateAmtHelper(); updateIncomeHelper();
+    } });                                                                                   // silent, as before
 }
 
 function deleteVar(name) {
   if (!DATA.vars?.[name]) return;
-  delete DATA.vars[name];
-  saveLocal(); renderVarsUI();
+  commit(`Variable “${name}” removed`, () => { delete DATA.vars[name]; },
+    { touch: ['vars'], restored: 'Variable restored', render: renderVarsUI });
 }
 
 // ── Housing type toggle ──
@@ -7636,20 +7734,19 @@ function renderHousingUI() {
 }
 
 function onHousingTypeChange() {
-  if (!DATA.housing) DATA.housing = { type: 'rent', amount: 0 };
   const type = document.querySelector('input[name="housing-type"]:checked')?.value || 'rent';
-  DATA.housing.type = type;
-  updateHousingHelper();
-  saveLocal();
-  renderVarExamples();
+  commit('Housing updated', () => {
+    if (!DATA.housing) DATA.housing = { type: 'rent', amount: 0 };
+    DATA.housing.type = type;
+  }, { touch: ['housing'], toast: null, render: () => { updateHousingHelper(); renderVarExamples(); } });
 }
 
 function onHousingAmtChange() {
-  if (!DATA.housing) DATA.housing = { type: 'rent', amount: 0 };
-  DATA.housing.amount = parseFloat(el('ht-amt')?.value) || 0;
-  updateHousingHelper();
-  saveLocal();
-  renderVarExamples();
+  const amount = parseFloat(el('ht-amt')?.value) || 0;
+  commit('Housing updated', () => {
+    if (!DATA.housing) DATA.housing = { type: 'rent', amount: 0 };
+    DATA.housing.amount = amount;
+  }, { touch: ['housing'], toast: null, render: () => { updateHousingHelper(); renderVarExamples(); } });
 }
 
 function updateHousingHelper() {
@@ -7680,6 +7777,12 @@ function updateHousingHelper() {
   }
 }
 
+defineActions({
+  'var-value':  t => updateVar(t.dataset.name, 'value', t.value),
+  'var-desc':   t => updateVar(t.dataset.name, 'desc', t.value),
+  'var-delete': t => deleteVar(t.dataset.name),
+});
+
 // ══════════════════════════════════════════
 // SETTINGS  —  splits, goals, accounts
 // ══════════════════════════════════════════
@@ -7695,17 +7798,17 @@ function renderSplitsUI() {
     <div class="split-row">
       <label>${label} %</label>
       <input type="number" id="split-${key}" min="0" max="100" value="${splits[key]}" style="width:65px"
-        oninput="updateSplitBar('${key}','${color}')">
+        data-action-input="split-bar" data-key="${esc(key)}" data-color="${esc(color)}">
       <div class="split-bar"><div class="split-fill" id="sbar-${key}" style="width:${splits[key]}%;background:${color}"></div></div>
       <span id="sval-${key}" style="font-size:12px;font-family:var(--mono);color:var(--ink2);min-width:34px">${splits[key]}%</span>
     </div>
     <div class="goal-row">
       <label style="color:var(--ink3)">Goal (€)</label>
-      <input type="number" id="goal-${key}" min="0" step="10" value="${goals[key]||''}" placeholder="optional" style="width:100px" oninput="updateGoalBar('${key}','${color}')">
+      <input type="number" id="goal-${key}" min="0" step="10" value="${goals[key]||''}" placeholder="optional" style="width:100px" data-action-input="goal-bar" data-key="${esc(key)}" data-color="${esc(color)}">
       <span style="font-size:11px;color:var(--ink3);flex:1">Monthly spending target — alerts at 80%+</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin:4px 0 12px">
-      <input type="checkbox" id="rollover-${key}" ${rollover[key]?'checked':''} onchange="updateRolloverPreview()">
+      <input type="checkbox" id="rollover-${key}" ${rollover[key]?'checked':''} data-action-change="rollover-preview">
       <label for="rollover-${key}" style="font-size:12px;color:var(--ink3);cursor:pointer">Carry unspent ${label.toLowerCase()} budget forward to next month</label>
     </div>
     <hr class="sep" style="margin:0 0 12px">
@@ -7725,24 +7828,33 @@ async function saveSplits() {
     const w=parseInt(el('split-wants').value)||0;
     const s=parseInt(el('split-savings').value)||0;
     if (n+w+s!==100) return toast('Splits must add up to 100%.',1);
-    DATA.splits={
-      ...DATA.splits,          // keep settings that have no input here (alertThreshold) — a save must never reset them
-      needs:n, wants:w, savings:s,
-      rollover: {
-        needs:   !!(el('rollover-needs')?.checked),
-        wants:   !!(el('rollover-wants')?.checked),
-        savings: !!(el('rollover-savings')?.checked)
-      }
+    const rollover = {
+      needs:   !!(el('rollover-needs')?.checked),
+      wants:   !!(el('rollover-wants')?.checked),
+      savings: !!(el('rollover-savings')?.checked)
     };
-    DATA.goals={
+    const goals = {
       needs:parseFloat(el('goal-needs').value)||null,
       wants:parseFloat(el('goal-wants').value)||null,
       savings:parseFloat(el('goal-savings').value)||null
     };
-    saveLocal(); toast('Splits & goals saved');
-    if (VIEW==='dash') renderDash();
+    const res = commit('Splits & goals saved', () => {
+      DATA.splits = {
+        ...DATA.splits,        // keep settings that have no input here (alertThreshold) — a save must never reset them
+        needs:n, wants:w, savings:s, rollover
+      };
+      DATA.goals = goals;
+    }, { touch: ['splits', 'goals'], restored: 'Splits & goals restored',
+         render: () => { renderSplitsUI(); if (VIEW==='dash') renderDash(); } });     // renderSplitsUI: after an Undo the inputs show the restored numbers
+    if (!res.changed) toast('Splits & goals saved');                                   // saving without changes still confirms, as before
   } catch(e) { toast(e.message || 'Failed to save splits.', 1); }
 }
+
+defineActions({
+  'split-bar':        t => updateSplitBar(t.dataset.key, t.dataset.color),
+  'goal-bar':         t => updateGoalBar(t.dataset.key, t.dataset.color),
+  'rollover-preview': () => updateRolloverPreview(),
+});
 
 // ══════════════════════════════════════════
 // SPLIT SUGGESTION — what you really spent, next to your 50/30/20 targets. YOU decide.
@@ -7847,8 +7959,8 @@ function renderAcctList() {
         ${deltaStr}
       </div>
       <input type="number" step="0.01" value="${a.balance||0}" style="width:110px;font-family:var(--mono)" title="Opening / seed balance"
-        onchange="updateAcctBalance('${a.id}',this.value)">
-      <button class="btn xs danger" onclick="deleteAcct('${a.id}')">✕</button>
+        data-action-change="acct-balance" data-id="${esc(a.id)}">
+      <button class="btn xs danger" data-action="acct-delete" data-id="${esc(a.id)}">✕</button>
     </div>`;
   }).join('');
 }
@@ -7857,23 +7969,25 @@ function toggleAcctForm() {
   f.classList.toggle('open');
   if (f.classList.contains('open')) el('acct-name').focus();
 }
+// What to redraw after the account list changed (also what Undo redraws): the Settings list, the account cards, the pickers, and on the dashboard the net-worth timeline.
+function _redrawAccounts() {
+  renderAcctList(); renderAccountCards(); refreshAccountSelect();
+  if (VIEW === 'dash') renderNetWorthTimeline();
+}
 function saveNewAccount() {
   const name=el('acct-name').value.trim(); if(!name) return toast('Enter account name.',1);
   const bank=el('acct-bank').value.trim();
   const bal=parseFloat(el('acct-bal').value)||0;
-  DATA.accounts.push({id:uid(),name,bank,balance:bal});
-  saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
+  commit('Account added', () => { DATA.accounts.push({id:uid(),name,bank,balance:bal}); },
+    { touch: ['accounts'], restored: 'Account removed', render: _redrawAccounts });
   el('acct-name').value=''; el('acct-bank').value=''; el('acct-bal').value='';
   el('acct-add-form').classList.remove('open');
-  if (VIEW === 'dash') renderNetWorthTimeline();
-  toast('Account added');
 }
 async function deleteAcct(id) {
   try {
     showConfirm('Remove account?', 'This only removes the account record — entries linked to it are kept.', async () => {
-      DATA.accounts=DATA.accounts.filter(a=>a.id!==id);
-      saveLocal(); renderAcctList(); renderAccountCards(); refreshAccountSelect();
-      if (VIEW === 'dash') renderNetWorthTimeline();
+      commit('Account removed', () => { DATA.accounts = DATA.accounts.filter(a => a.id !== id); },
+        { touch: ['accounts'], restored: 'Account restored', render: _redrawAccounts });
     });
   } catch(e) { toast(e.message || 'Failed to remove account.', 1); }
 }
@@ -7906,22 +8020,20 @@ function saveAcctInlineEdit() {
   const a    = DATA.accounts.find(x => x.id === id); if (!a) return;
   const name = el('ef-acct-edit-name').value.trim();
   if (!name) return toast('Account name cannot be empty.', 1);
-  a.name    = name;
-  a.bank    = el('ef-acct-edit-bank').value.trim();
-  a.balance = parseFloat(el('ef-acct-edit-bal').value) || 0;
+  const bank = el('ef-acct-edit-bank').value.trim(), balance = parseFloat(el('ef-acct-edit-bal').value) || 0;
   el('acct-inline-edit').style.display = 'none';
   // Cascade all derived views — same as updateAcctBalance
-  saveLocal();
-  renderAcctList(); renderAccountCards(); refreshAccountSelect();
-  updateBalancePreview();
-  if (VIEW === 'dash') renderNetWorthTimeline();
-  toast(`${esc(a.name)} updated`);
+  const res = commit(`${name} updated`, () => { Object.assign(DATA.accounts.find(x => x.id === id), { name, bank, balance }); },
+    { touch: ['accounts'], restored: 'Account restored', render: () => { _redrawAccounts(); updateBalancePreview(); } });
+  if (!res.changed) toast(`${name} updated`);                  // saving without changes still confirms, as before
 }
 
 function updateAcctBalance(id, val) {
   const a = DATA.accounts.find(x => x.id === id); if (!a) return;
-  a.balance = parseFloat(val) || 0;
-  saveLocal();
+  commit('Opening balance updated', () => { a.balance = parseFloat(val) || 0; },
+    { touch: ['accounts'], toast: null, render: () => _redrawAfterBalance(id) });             // silent, as before
+}
+function _redrawAfterBalance(id) {
   // Recalculate every view that derives from account balances:
   // 1. The Settings account list itself (current balance + delta labels)
   renderAcctList();
@@ -8026,9 +8138,10 @@ async function clearEntries() {
   try {
     showConfirm('Clear all entries?',
       'This will permanently delete all entries. Recurring definitions are kept. Remember to push to GitHub afterward.',
-      () => { DATA.entries=[]; saveLocal(); render(); toast('Entries cleared'); });
+      () => commit('Entries cleared', () => { DATA.entries = []; }, { touch: ['entries'], restored: 'Entries restored' }));
   } catch(e) { toast(e.message || 'Failed to clear entries.', 1); }
 }
+// clearAll stays as it was on purpose: it replaces the WHOLE DATA object (DATA = …), which commit()'s per-key snapshot/Undo cannot model.
 async function clearAll() {
   try {
     showConfirm('Clear everything?',
@@ -8036,6 +8149,11 @@ async function clearAll() {
       () => { DATA=migrate(FRESH()); saveLocal(); render(); toast('All data cleared'); });
   } catch(e) { toast(e.message || 'Failed to clear data.', 1); }
 }
+
+defineActions({
+  'acct-balance': t => updateAcctBalance(t.dataset.id, t.value),
+  'acct-delete':  t => deleteAcct(t.dataset.id),
+});
 
 // ══════════════════════════════════════════
 // SURPLUS SAVINGS
@@ -8455,9 +8573,16 @@ defineActions({
   'rc-recheck': () => runReconcile(),
   'rc-delete': t => { deleteEntry(t.dataset.id); runReconcile(); },
   'rc-assign': t => _rcnApply('Entry booked on this account', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.accountId = _rcnAcctId; }, ['entries']),
-  'rc-amount': t => _rcnApply('Amount corrected', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) { e.amount = +t.dataset.amount; e.formula = null; } }, ['entries']),
+  'rc-amount': t => _rcnApply('Amount corrected', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) { const rec = findFuelForEntry(e, d.fuel, d.entries); e.amount = +t.dataset.amount; e.formula = null; if (rec && !e.fuelId) e.fuelId = rec.id; } }, ['entries']),   // a fuel expense keeps its link to the refuel (the old amount match is lost by this change)
   'rc-flip':   t => _rcnApply('Entry flipped', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.type = e.type === 'income' ? 'expense' : 'income'; }, ['entries']),
   'rc-opening': t => _rcnApply('Opening balance adjusted', d => { const a = d.accounts.find(x => x.id === _rcnAcctId); if (a) a.balance = _rcnR2((+a.balance || 0) + (+t.dataset.amount)); }, ['accounts']),
+});
+
+defineActions({
+  'reconcile-backdrop': (t, ev) => { if (ev.target === t) closeReconcile(); },
+  'reconcile-close':    () => closeReconcile(),
+  'reconcile-run':      () => runReconcile(),
+  'reconcile-clear':    () => { el('rcn-result').innerHTML = ''; },                  // picking another account clears the previous result
 });
 
 // ══════════════════════════════════════════
@@ -10032,6 +10157,162 @@ defineActions({
   'sf-aside-cancel': () => _sfOpen('sf-aside-form', false),
   'sf-suggest-toggle': () => { const b = el('sf-suggest'); const on = !b.classList.contains('open'); _sfOpen('sf-suggest', on); if (on) renderSinkingSuggest(); },
   'sf-suggest-add':  t => sinkingSuggestAdd(t.dataset.key),
+});
+
+// ══════════════════════════════════════════
+// TAX-YEAR HELPER (Austria, employees: Arbeitnehmerveranlagung) — tag deductible EXPENSES, get a year summary and a CSV.
+// A tag is the optional field entry.taxCat (a key of TAX_CATS) — on the entry itself, so it survives edits, exports and tag renames; no migration.
+// This is a bookkeeping aid, NOT tax advice and NOT a refund calculator: it adds up what you tagged, applies only the rules that depend on
+// nothing but the amount (the €132 Werbungskosten allowance, the furniture and church caps) and says plainly what it cannot know.
+// What it deliberately does not compute: Pendlerpauschale / Pendlereuro (depend on distance and transport — use the BMF Pendlerrechner),
+// the Telearbeitspauschale (days, reported by the employer), the donation limit (10 % of income), the illness deductible (income-dependent).
+// Rules verified on TAX_RULES_VERIFIED against BMF, oesterreich.gv.at, AK Wien, WKO and the Budgetbegleitgesetz 2027–2028 (BGBl. 29 Jul 2026):
+//   Werbungskostenpauschale €132 (in the payroll tables; only costs above it help) · ergonomic furniture up to €300 a year on top, not counted against the €132 ·
+//   Telearbeitspauschale (€3/day, max 100 days) abolished from 1 Jan 2027, 2026 still applies · church contributions up to €600 (€400 until 2023) and donations are
+//   transmitted to the tax office automatically · tax-adviser costs uncapped · keep receipts 7 years · voluntary return: 5 years back.
+// taxYearSummary / taxReviewRows / taxCsv are PURE (data is a parameter).
+// ══════════════════════════════════════════
+const TAX_RULES_VERIFIED = '2026-11-08';
+const TAX_SOURCES = [
+  { url: 'https://www.bmf.gv.at/themen/steuern/arbeitnehmerveranlagung/was-kann-ich-geltend-machen/werbungskosten/werbungskosten-ueberblick.html', label: 'BMF: Werbungskosten' },
+  { url: 'https://www.bmf.gv.at/themen/steuern/arbeitnehmerveranlagung/was-kann-ich-geltend-machen/sonderausgaben.html', label: 'BMF: Sonderausgaben' },
+  { url: 'https://www.oesterreich.gv.at/de/Gesetzliche-Neuerungen/Bundesgesetzblatt/bbg-2027-28', label: 'oesterreich.gv.at: Budgetbegleitgesetz 2027–2028' },
+];
+const TAX_WERBUNG_PAUSCHALE = 132, TAX_FURNITURE_CAP = 300;
+const TAX_GROUPS = [
+  { key: 'werbung', label: 'Werbungskosten (work-related costs)' },
+  { key: 'sonder',  label: 'Sonderausgaben' },
+  { key: 'agb',     label: 'Außergewöhnliche Belastungen (extraordinary burdens)' },
+];
+const TAX_CATS = [
+  { key: 'w-tools',     group: 'werbung', label: 'Work equipment, computer, phone, internet' },
+  { key: 'w-clothes',   group: 'werbung', label: 'Work clothing' },
+  { key: 'w-training',  group: 'werbung', label: 'Training, courses, retraining' },
+  { key: 'w-books',     group: 'werbung', label: 'Professional literature' },
+  { key: 'w-union',     group: 'werbung', label: 'Union, works-council or professional-association fees' },
+  { key: 'w-travel',    group: 'werbung', label: 'Business travel' },
+  { key: 'w-other',     group: 'werbung', label: 'Other work-related costs' },
+  { key: 'w-furniture', group: 'werbung', label: 'Ergonomic home-office furniture', onTop: true },
+  { key: 's-church',    group: 'sonder',  label: 'Church contribution', auto: true },
+  { key: 's-donation',  group: 'sonder',  label: 'Donation to a registered recipient', auto: true },
+  { key: 's-pension',   group: 'sonder',  label: 'Voluntary pension insurance / buying insurance periods', auto: true },
+  { key: 's-taxadvice', group: 'sonder',  label: 'Tax-adviser costs' },
+  { key: 'a-illness',   group: 'agb',     label: 'Illness and medical costs' },
+  { key: 'a-disability', group: 'agb',    label: 'Disability-related costs' },
+];
+const TAX_BY_KEY = Object.fromEntries(TAX_CATS.map(c => [c.key, c]));
+const _taxCap = (c, year) => c.key === 's-church' ? (year >= 2024 ? 600 : 400) : c.key === 'w-furniture' ? TAX_FURNITURE_CAP : null;
+const _taxC = x => Math.round(x * 100) / 100;
+const _taxYearOf = e => (e && /^\d{4}-\d{2}-\d{2}$/.test(e.date || '')) ? +e.date.slice(0, 4) : null;
+const _taxIsExpense = e => e && e.type === 'expense' && Number.isFinite(+e.amount) && +e.amount > 0;
+
+function taxYearSummary(data, year) {
+  const entries = Array.isArray((data || {}).entries) ? data.entries : [], by = {};
+  let untagged = 0, unknown = 0;
+  entries.forEach(e => {
+    if (!_taxIsExpense(e) || _taxYearOf(e) !== year || e.fuelId) return;
+    if (e.taxCat == null || e.taxCat === '') { untagged++; return; }
+    const c = TAX_BY_KEY[e.taxCat]; if (!c) { unknown++; return; }
+    const r = by[c.key] = by[c.key] || { key: c.key, label: c.label, group: c.group, auto: !!c.auto, count: 0, total: 0 };
+    r.count++; r.total += +e.amount;
+  });
+  const rows = TAX_CATS.filter(c => by[c.key]).map(c => {
+    const r = by[c.key], cap = _taxCap(c, year); r.total = _taxC(r.total);
+    r.cap = cap; r.counted = cap != null ? Math.min(r.total, cap) : r.total; return r;
+  });
+  const sum = g => _taxC(rows.filter(r => r.group === g && !(TAX_BY_KEY[r.key].onTop)).reduce((s, r) => s + r.total, 0));
+  const furn = rows.find(r => r.key === 'w-furniture');
+  const wSum = sum('werbung'), wAbove = _taxC(Math.max(0, wSum - TAX_WERBUNG_PAUSCHALE)), fCounted = furn ? furn.counted : 0;
+  return { year, rows, untagged, unknown, tagged: rows.reduce((s, r) => s + r.count, 0),
+    werbung: { sum: wSum, pauschale: TAX_WERBUNG_PAUSCHALE, above: wAbove, furniture: furn ? furn.total : 0, furnitureCounted: fCounted, counted: _taxC(wAbove + fCounted) },
+    sonder: { total: sum('sonder'), counted: _taxC(rows.filter(r => r.group === 'sonder').reduce((s, r) => s + r.counted, 0)) },
+    agb: { total: sum('agb') } };
+}
+
+// Expense rows to review in a year. opts: q (text filter on description / tags), onlyUntagged, limit.
+function taxReviewRows(data, year, opts = {}) {
+  const q = String(opts.q || '').trim().toLowerCase(), entries = Array.isArray((data || {}).entries) ? data.entries : [];
+  const all = entries.filter(e => _taxIsExpense(e) && _taxYearOf(e) === year && !e.fuelId
+    && (!opts.onlyUntagged || e.taxCat == null || e.taxCat === '')
+    && (!q || String(e.desc || '').toLowerCase().includes(q) || (e.tags || []).some(t => String(t).toLowerCase().includes(q))));
+  all.sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.amount - a.amount);
+  return { rows: all.slice(0, opts.limit || 25), total: all.length };
+}
+// Years that have expenses, newest first, plus this year.
+function taxYearsAvailable(data, thisYear) {
+  const ys = new Set([thisYear]); (Array.isArray((data || {}).entries) ? data.entries : []).forEach(e => { if (_taxIsExpense(e) && _taxYearOf(e)) ys.add(_taxYearOf(e)); });
+  return [...ys].sort((a, b) => b - a);
+}
+const _taxCsvCell = s => { let v = String(s == null ? '' : s); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };   // quoted; a leading = + - @ cannot become a spreadsheet formula
+function taxCsv(data, year) {
+  const rows = (Array.isArray((data || {}).entries) ? data.entries : []).filter(e => _taxIsExpense(e) && _taxYearOf(e) === year && !e.fuelId && TAX_BY_KEY[e.taxCat]).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const hdr = 'Date,Description,Amount,Group,Category,Reported automatically by the recipient';
+  return [hdr, ...rows.map(e => { const c = TAX_BY_KEY[e.taxCat], g = TAX_GROUPS.find(x => x.key === c.group);
+    return [e.date, _taxCsvCell(e.desc), _taxC(+e.amount).toFixed(2), _taxCsvCell(g.label), _taxCsvCell(c.label), c.auto ? 'yes' : 'no'].join(','); })].join('\r\n');
+}
+
+// ── View ─────────────────────────────────────────────────────────────────────
+const _taxUI = { year: null, q: '', onlyUntagged: false, limit: 25, yearsKey: '' };      // screen state only, not data
+function taxCatOptions(selected) {
+  return `<option value="">— not tagged</option>` + TAX_GROUPS.map(g => `<optgroup label="${esc(g.label)}">${TAX_CATS.filter(c => c.group === g.key).map(c =>
+    `<option value="${esc(c.key)}"${c.key === selected ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</optgroup>`).join('');
+}
+function renderTaxYear(today = ymd()) {
+  const sumBox = el('d-tax-summary'), listBox = el('d-tax-list'); if (!sumBox || !listBox) return;
+  const thisYear = +today.slice(0, 4), years = taxYearsAvailable(DATA, thisYear), sel = el('tax-year');
+  if (!_taxUI.year || !years.includes(_taxUI.year)) _taxUI.year = thisYear;
+  if (sel && _taxUI.yearsKey !== years.join()) { _taxUI.yearsKey = years.join(); sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); }   // rebuilt only when the list changes (a redraw must not close an open dropdown)
+  if (sel) sel.value = String(_taxUI.year);
+  const y = _taxUI.year, S = taxYearSummary(DATA, y), deadline = `${y + 5}-12-31`;
+  const line = t => `<div style="font-size:11px;color:var(--ink3);margin-top:4px;line-height:1.5">${t}</div>`;
+  let h = '';
+  if (!S.rows.length) h += `<div style="font-size:13px;color:var(--ink3);margin-bottom:6px">Nothing tagged for ${y} yet. Pick a category for an expense below.</div>`;
+  else {
+    h += TAX_GROUPS.map(g => { const rs = S.rows.filter(r => r.group === g.key); if (!rs.length) return '';
+      return `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:10px 0 4px">${esc(g.label)}</div>` + rs.map(r =>
+        `<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0"><span>${esc(r.label)} <span style="color:var(--ink3)">· ${r.count}×${r.auto ? ' · reported automatically' : ''}</span></span><strong>${fmt(r.total)}</strong></div>`
+        + (r.cap != null && r.total > r.cap ? line(`Only up to ${fmt(r.cap)} counts here.`) : '')).join('');
+    }).join('');
+    h += `<div style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-top:10px;font-size:12px;line-height:1.6">`
+      + `<strong>Werbungskosten:</strong> ${fmt(S.werbung.sum)} tagged${S.werbung.furniture ? ' (plus ' + fmt(S.werbung.furniture) + ' furniture, counted separately)' : ''}. The ${fmt(S.werbung.pauschale)} allowance is already in your payroll, so only the part above it helps: <strong>${fmt(S.werbung.above)}</strong>${S.werbung.furnitureCounted ? ' + ' + fmt(S.werbung.furnitureCounted) + ' furniture' : ''}.`
+      + (S.sonder.total ? `<br><strong>Sonderausgaben:</strong> ${fmt(S.sonder.total)} tagged, ${fmt(S.sonder.counted)} within the caps this app knows.` : '')
+      + (S.agb.total ? `<br><strong>Extraordinary burdens:</strong> ${fmt(S.agb.total)} tagged. Illness costs only count above an income-dependent deductible; disability costs have none.` : '') + `</div>`;
+  }
+  if (S.unknown) h += line(`${S.unknown} entr${S.unknown === 1 ? 'y has' : 'ies have'} a tax category this version does not know and ${S.unknown === 1 ? 'is' : 'are'} ignored.`);
+  if (S.rows.some(r => r.auto)) h += line('Church contributions, donations and voluntary pension payments are reported to the tax office by the recipient. Check the amounts in FinanzOnline; you normally do not enter them yourself, and only the reported amounts count.');
+  h += line(y <= 2026 ? 'Telework allowance (€3 per telework day, up to 100 days) is not computed here: it comes from the days your employer reports. It is abolished from 1 Jan 2027; 2026 still follows the old rules, even if you file in 2027.' : 'The Telearbeitspauschale no longer applies from 2027. Ergonomic furniture (up to €300 a year) remains deductible.');
+  h += line('Commuting (Pendlerpauschale, Pendlereuro) depends on your distance and transport — use the BMF Pendlerrechner; it is not calculated from your expenses.');
+  h += line(today > deadline ? `The five-year window for a voluntary return for ${y} closed on 31 Dec ${y + 5}.` : `A voluntary return for ${y} can be filed until 31 Dec ${y + 5}.`);
+  h += line(`Keep receipts for 7 years. Rules checked on ${esc(TAX_RULES_VERIFIED)}. Not tax advice — please confirm for your own case.`);
+  sumBox.innerHTML = h;
+
+  const R = taxReviewRows(DATA, y, { q: _taxUI.q, onlyUntagged: _taxUI.onlyUntagged, limit: _taxUI.limit });
+  listBox.innerHTML = (R.rows.length ? R.rows.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
+      <div style="flex:1;min-width:140px;font-size:12px"><div>${esc(e.desc || '(no description)')}</div><div style="color:var(--ink3);font-size:11px">${esc(e.date)} · ${fmt(e.amount)}</div></div>
+      <select data-action-change="tax-set" data-id="${esc(e.id)}" aria-label="Tax category" style="max-width:55%;font-size:12px">${taxCatOptions(e.taxCat)}</select></div>`).join('')
+    : `<div style="font-size:12px;color:var(--ink3)">No expenses ${_taxUI.q || _taxUI.onlyUntagged ? 'match this filter' : 'in ' + y}.</div>`)
+    + (R.total > R.rows.length ? `<div style="margin-top:8px"><button class="btn xs ghost" data-action="tax-more">Show more (${R.total - R.rows.length} left)</button></div>` : '');
+}
+function taxSet(id, cat) {
+  const e = (DATA.entries || []).find(x => x && x.id === id); if (!e || !_taxIsExpense(e)) return;
+  if (cat && !TAX_BY_KEY[cat]) return toast('Unknown tax category.', 1);
+  if ((e.taxCat || '') === (cat || '')) return;
+  commit(cat ? `Tagged “${e.desc || 'entry'}” as ${TAX_BY_KEY[cat].label}` : 'Tax tag removed', d => {
+    const x = d.entries.find(r => r.id === id); if (cat) x.taxCat = cat; else delete x.taxCat;
+  }, { touch: ['entries'] });
+}
+function taxExport() {
+  const y = _taxUI.year || +ymd().slice(0, 4);
+  if (!taxYearSummary(DATA, y).tagged) return toast(`Nothing tagged for ${y} to export.`, 1);
+  dl('\ufeff' + taxCsv(DATA, y), `vault_tax_${y}.csv`, 'text/csv'); toast(`Tax CSV for ${y} downloaded`);
+}
+defineActions({
+  'tax-year-change':   t => { _taxUI.year = +t.value || null; _taxUI.limit = 25; renderTaxYear(); },
+  'tax-filter-input':  t => { _taxUI.q = t.value || ''; _taxUI.limit = 25; renderTaxYear(); },
+  'tax-untagged-change': t => { _taxUI.onlyUntagged = !!t.checked; _taxUI.limit = 25; renderTaxYear(); },
+  'tax-set':           t => taxSet(t.dataset.id, t.value),
+  'tax-more':          () => { _taxUI.limit += 25; renderTaxYear(); },
+  'tax-export':        () => taxExport(),
 });
 
 // ══════════════════════════════════════════
@@ -11783,9 +12064,9 @@ function tyreCardHtml(s, onCar, odo) {
       <span class="badge" style="background:var(--s2);color:var(--ink2);text-transform:none;letter-spacing:0">${esc(TYRE_SEASON[s.season] || s.season)}</span>
       ${onCar ? '<span class="badge" style="background:var(--Gbg);color:var(--Gm);text-transform:none;letter-spacing:0">on the car</span>' : '<span class="badge" style="background:var(--s2);color:var(--ink3);text-transform:none;letter-spacing:0">in storage</span>'}
       <span style="flex:1"></span>
-      ${onCar ? '' : `<button class="btn xs ghost" onclick="openTyreSwap('${s.id}')" title="Put this set on the car">⇄ Put on car</button>`}
-      <button class="btn xs ghost" onclick="openTyreSet('${s.id}')" title="Edit" aria-label="Edit tyre set">✎</button>
-      <button class="btn xs danger" onclick="deleteTyreSet('${s.id}')" title="Delete" aria-label="Delete tyre set">✕</button>
+      ${onCar ? '' : `<button class="btn xs ghost" data-action="tyre-swap-open" data-id="${esc(s.id)}" title="Put this set on the car">⇄ Put on car</button>`}
+      <button class="btn xs ghost" data-action="tyre-set-open" data-id="${esc(s.id)}" title="Edit" aria-label="Edit tyre set">✎</button>
+      <button class="btn xs danger" data-action="tyre-set-delete" data-id="${esc(s.id)}" title="Delete" aria-label="Delete tyre set">✕</button>
     </div>
     <div style="font-size:12px;color:var(--ink2);margin-top:5px;display:flex;flex-direction:column;gap:2px">${L.map(x => `<div>${x}</div>`).join('')}</div>
     ${bar}
@@ -11853,7 +12134,7 @@ function renderTyrePeriodRows() {
     <div class="fg" style="margin:0"><label>${i === 0 ? 'Odo on' : '&nbsp;'}</label><input type="number" id="tp-fo-${i}" value="${esc(r.fo)}" style="font-family:var(--mono)"></div>
     <div class="fg" style="margin:0"><label>${i === 0 ? 'Off' : '&nbsp;'}</label><input type="date" id="tp-td-${i}" value="${esc(r.td)}"></div>
     <div class="fg" style="margin:0"><label>${i === 0 ? 'Odo off' : '&nbsp;'}</label><input type="number" id="tp-to-${i}" value="${esc(r.to)}" style="font-family:var(--mono)"></div>
-    <button class="btn xs ghost" onclick="removeTyrePeriodRow(${i})" title="Remove this mounting" aria-label="Remove mounting">✕</button>
+    <button class="btn xs ghost" data-action="tyre-period-remove" data-i="${i}" title="Remove this mounting" aria-label="Remove mounting">✕</button>
   </div>`).join('');
 }
 
@@ -11923,7 +12204,7 @@ function saveTyreSet() {
   if (!DATA.tires) DATA.tires = [];
 
   if (_tyreEditId) {
-    const s = DATA.tires.find(x => x.id === _tyreEditId);
+    const id = _tyreEditId, s = DATA.tires.find(x => x.id === id);
     if (!s) { closeTyreSet(); return; }
     let periods = s.periods;
     const raw = readTyrePeriodInputs();
@@ -11934,23 +12215,30 @@ function saveTyreSet() {
         return toast('Another set is already on the car — use “Swap tyres” instead', 1);
       periods = r.periods;
     }
-    Object.assign(s, { name, season, condition: cond, priorKm, dot: dot || null, limitKm, minMm, price, note, periods });
-    syncLegacyTyreFields(); saveLocal(); closeTyreSet(); render(); toast('Tyre set saved');
+    const res = commit('Tyre set saved', () => {
+      Object.assign(DATA.tires.find(x => x.id === id), { name, season, condition: cond, priorKm, dot: dot || null, limitKm, minMm, price, note, periods });
+      syncLegacyTyreFields();
+    }, { touch: ['tires', 'carService'] });
+    if (!res.changed) toast('Tyre set saved');                  // saving without changes still confirms, as before
+    closeTyreSet();
     return;
   }
 
   const mountNow = el('ts-mount').checked;
   const mDate = el('ts-mount-date').value, mOdo = parseFloat(el('ts-mount-odo').value), mTread = parseFloat(el('ts-mount-tread').value);
   const set = { id: uid(), name, season, condition: cond, priorKm, dot: dot || null, limitKm, minMm, price, note, periods: [] };
-  DATA.tires.push(set);
-  if (mountNow) {
-    const err = mountTyreSet(DATA.tires, set.id, mDate, mOdo);
-    if (err) { DATA.tires.pop(); return toast(err, 1); }
-    if (Number.isFinite(mTread) && mTread > 0) pushTreadReading(set.id, mDate, mTread, 'at mounting', mOdo);
-    syncLegacyTyreFields();
-  }
-  saveLocal(); closeTyreSet(); render();
-  toast(mountNow ? `${name} is on the car` : 'Tyre set added');
+  try {
+    commit(mountNow ? `${name} is on the car` : 'Tyre set added', () => {
+      DATA.tires.push(set);
+      if (mountNow) {
+        const err = mountTyreSet(DATA.tires, set.id, mDate, mOdo);
+        if (err) throw new TyreUserError(err);                  // commit rolls everything back
+        if (Number.isFinite(mTread) && mTread > 0) pushTreadReading(set.id, mDate, mTread, 'at mounting', mOdo);
+        syncLegacyTyreFields();
+      }
+    }, { touch: ['tires', 'carService'] });
+  } catch (e) { if (e instanceof TyreUserError) return toast(e.message, 1); throw e; }
+  closeTyreSet();
 }
 
 function deleteTyreSet(id) {
@@ -11960,7 +12248,7 @@ function deleteTyreSet(id) {
   closeTyreSet();
   showConfirm(`Delete “${s.name}”?`,
     `${s.name} and its mounting history are removed${wasOn ? ' — nothing will be marked as on the car' : ''}. Tread readings you logged for it stay in the log.`,
-    () => { DATA.tires = DATA.tires.filter(x => x.id !== id); saveLocal(); render(); toast('Tyre set deleted'); });
+    () => commit('Tyre set deleted', () => { DATA.tires = DATA.tires.filter(x => x.id !== id); }, { touch: ['tires'] }));
 }
 
 // ── swap ──
@@ -11989,17 +12277,38 @@ function closeTyreSwap() {
 function confirmTyreSwap() {
   const id = el('tsw-set').value, date = el('tsw-date').value;
   const odo = parseFloat(el('tsw-odo').value), mm = parseFloat(el('tsw-tread').value);
-  const snap = structuredClone({ tires: DATA.tires, carService: DATA.carService });
-  const err = mountTyreSet(DATA.tires, id, date, odo);       // leaves everything untouched when it returns an error
-  if (err) return toast(err, 1);
-  const set = DATA.tires.find(s => s.id === id);
-  if (Number.isFinite(mm) && mm > 0) pushTreadReading(id, date, mm, 'at mounting', odo);
-  syncLegacyTyreFields(); saveLocal(); closeTyreSwap(); render();
-  toast(`${set.name} is on the car`, 0, () => {
-    DATA.tires = snap.tires; DATA.carService = snap.carService;
-    saveLocal(); render(); toast('Swap undone');
-  });
+  try {
+    commit('Tyres swapped', () => {
+      const err = mountTyreSet(DATA.tires, id, date, odo);       // leaves everything untouched when it returns an error
+      if (err) throw new TyreUserError(err);
+      if (Number.isFinite(mm) && mm > 0) pushTreadReading(id, date, mm, 'at mounting', odo);
+      syncLegacyTyreFields();
+      return DATA.tires.find(s => s.id === id).name;
+    }, { touch: ['tires', 'carService'], toast: name => `${name} is on the car`, restored: 'Swap undone' });
+  } catch (e) { if (e instanceof TyreUserError) return toast(e.message, 1); throw e; }
+  closeTyreSwap();
 }
+
+// A validation message that must roll the change back (thrown inside commit, shown as a normal error toast).
+class TyreUserError extends Error {}
+
+defineActions({
+  'tyre-swap-open':     t => openTyreSwap(t.dataset.id || undefined),
+  'tyre-set-open':      t => openTyreSet(t.dataset.id || undefined),
+  'tyre-set-delete':    t => deleteTyreSet(t.dataset.id || undefined),           // from the edit dialog there is no id: it uses the set being edited
+  'tyre-set-save':      () => saveTyreSet(),
+  'tyre-set-close':     () => closeTyreSet(),
+  'tyre-set-backdrop':  (t, ev) => { if (ev.target === t) closeTyreSet(); },     // only a click on the dim background, not inside the dialog
+  'tyre-swap-close':    () => closeTyreSwap(),
+  'tyre-swap-confirm':  () => confirmTyreSwap(),
+  'tyre-swap-backdrop': (t, ev) => { if (ev.target === t) closeTyreSwap(); },
+  'tyre-period-remove': t => removeTyrePeriodRow(parseInt(t.dataset.i, 10)),
+  'tyre-season-change': () => onTyreSeasonChange(),
+  'tyre-cond-change':   () => onTyreCondChange(),
+  'tyre-mount-toggle':  () => onTyreMountToggle(),
+  'tread-add':          () => addTreadLog(),
+  'tread-delete':       t => deleteTreadLog(t.dataset.id),
+});
 
 // Page labels come from APP_NAME/APP_VERSION so there is one place to change.
 function applyAppVersion() {
@@ -12065,11 +12374,52 @@ function renderVerifyCard(today = ymd()) {
   const rDue = reminderRulesDue(REMINDER_RULES_VERIFIED, today);
   const rStatus = rDue ? chip('Am', today >= '2027-05-19' && REMINDER_RULES_VERIFIED < '2027-05-19' ? '⚠ the §57a reform is now in force — re-check' : `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
   const rBody = `Winter-tyre window (1 Nov – 15 Apr), §57a Pickerl rules, vignette purchase delay, tax deadlines — this build was checked on ${esc(REMINDER_RULES_VERIFIED)}.`;
+  const tDue = verifyDue(TAX_RULES_VERIFIED, today), tStatus = tDue ? chip('Am', `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
+  const tBody = `Werbungskosten allowance (€132), furniture cap (€300), church-contribution cap, the Telearbeitspauschale ending 1 Jan 2027 — this build was checked on ${esc(TAX_RULES_VERIFIED)}.`;
   box.innerHTML = row('ECB meeting dates', ecbStatus, ecbBody, link(ECB_CALENDAR_URL, 'ECB meeting calendar'))
                 + row('Car & tax reminders', rStatus, rBody, Object.values(REMINDER_LINKS).map(x => link(x.url, x.label)).join(''))
+                + row('Tax-year helper', tStatus, tBody, TAX_SOURCES.map(x => link(x.url, x.label)).join(''))
                 + row('KESt rate', kStatus, kBody, KEST_SOURCES.map(x => link(x.url, x.label)).join(''))
                 + `<div style="font-size:11px;color:var(--ink3);margin-top:8px">These are written into the app, not fetched. Once a year, open the links, and if something changed, ask for an updated build.</div>`;
 }
+
+// ══════════════════════════════════════════
+// SETTINGS — event wiring for the Settings view (was inline onclick/onchange/oninput in the markup).
+// Each action only calls the function the inline handler used to call, with the same argument (this.checked / this.value → t.checked / t.value).
+// ══════════════════════════════════════════
+defineActions({
+  'set-add-var'                     : () => addVar(),
+  'set-on-housing-type-change'      : () => onHousingTypeChange(),
+  'set-on-housing-amt-change'       : () => onHousingAmtChange(),
+  'set-save-regional-settings'      : () => saveRegionalSettings(),
+  'set-save-splits'                 : () => saveSplits(),
+  'set-render-split-suggestion'     : () => renderSplitSuggestion(),
+  'set-toggle-acct-form'            : () => toggleAcctForm(),
+  'set-save-new-account'            : () => saveNewAccount(),
+  'set-export-excel'                : () => exportExcel(),
+  'set-export-json'              : () => exportJSON(),
+  'set-export-ynab'              : () => exportYNAB(),
+  'set-export-firefly'              : () => exportFirefly(),
+  'set-request-notif-permission'    : () => requestNotifPermission(),
+  'set-test-budget-notif'           : () => testBudgetNotif(),
+  'set-save-notif-pref'             : t => saveNotifPref(t.checked),
+  'set-save-alert-threshold'        : t => saveAlertThreshold(t.value),
+  'set-run-vault-health'            : () => runVaultHealth(),
+  'set-run-self-test'               : () => runSelfTest(),
+  'set-run-smoke-test'              : () => runSmokeTest(),
+  'set-migrate-vault'               : () => migrateVault(),
+  'set-gh-pull'                     : () => ghPull(),
+  'set-gh-push'                     : () => ghPush(),
+  'set-toggle-auto-push'            : t => toggleAutoPush(t.checked),
+  'set-load-commit-history'         : () => loadCommitHistory(),
+  'set-switch-repo'                 : () => switchRepo(),
+  'set-toggle-auto-theme'           : t => toggleAutoTheme(t.checked),
+  'set-render-health-check'         : () => renderHealthCheck(),
+  'set-run-income-backfill'         : () => runIncomeBackfill(),
+  'set-render-audit-log'            : () => renderAuditLog(),
+  'set-clear-entries'               : () => clearEntries(),
+  'set-clear-all'                   : () => clearAll(),
+});
 
 function renderCarServiceUI() {
   const s = DATA.carService;
@@ -12781,19 +13131,16 @@ function addTreadLog() {
   const mm   = parseFloat(el('tread-mm')?.value);
   const note = el('tread-note')?.value?.trim() || '';
   if (!mm || mm <= 0) return toast('Enter tread depth in mm.', 1);
-  pushTreadReading(el('tread-set')?.value || null, date, mm, note);
-  saveLocal();
+  const setId = el('tread-set')?.value || null;                         // read everything BEFORE the commit redraws
+  commit('Tread depth logged', () => { pushTreadReading(setId, date, mm, note); },
+    { touch: ['carService'], render: () => { renderTreadLog(); renderTyres(); checkServiceAlert(); } });
   el('tread-mm').value=''; el('tread-note').value='';
-  renderTreadLog();
-  renderTyres();
-  checkServiceAlert();
-  toast('Tread depth logged');
 }
 
 function deleteTreadLog(id) {
   if (!DATA.carService?.treadLog) return;
-  DATA.carService.treadLog = DATA.carService.treadLog.filter(t=>t.id!==id);
-  saveLocal(); renderTreadLog();
+  commit('Tread reading deleted', () => { DATA.carService.treadLog = DATA.carService.treadLog.filter(t => t.id !== id); },
+    { touch: ['carService'], render: renderTreadLog });
 }
 
 function renderTreadLog() {
@@ -12810,7 +13157,7 @@ function renderTreadLog() {
       ${warn?`<span style="font-size:10px;background:var(--Rbg);color:var(--Rm);padding:1px 6px;border-radius:3px">Near legal limit (${LEGAL}mm)</span>`:''}
       ${(() => { const ts = t.setId ? (DATA.tires || []).find(x => x.id === t.setId) : null; return ts ? `<span class="badge" style="background:var(--s2);color:var(--ink2);text-transform:none;letter-spacing:0">${esc(ts.name)}</span>` : ''; })()}
       <span style="flex:1;color:var(--ink2);font-size:12px">${esc(t.note||'')}</span>
-      <button class="btn xs ghost" onclick="deleteTreadLog('${t.id}')">✕</button>
+      <button class="btn xs ghost" data-action="tread-delete" data-id="${esc(t.id)}">✕</button>
     </div>`;
   }).join('');
 }
@@ -17598,6 +17945,60 @@ function runSmokeTest() {
       expectTrue(ok({ due: '', link: 'insurance' }).ok && ok({ due: '', link: 'insurance' }).fund.due === null, 'linked with a car date: the due date may stay empty');
       expectTrue(!ok({ due: '', link: 'vignette' }).ok, 'linked but that car setting has no date and none typed → refused');
       const ex = { id: 'keep', from: '2026-01-01' }; expect(validateSinkingFund({ name: 'a', amount: 1, due: '2027-01-01', every: 0 }, d, '2026-11-08', ex).fund.id + validateSinkingFund({ name: 'a', amount: 1, due: '2027-01-01', every: 0 }, d, '2026-11-08', ex).fund.from, 'keep2026-01-01', 'editing keeps id and from');
+    });
+    // ── Tax-year helper (pure model; nothing is saved) ──
+    const _tx = (id, date, amount, o = {}) => Object.assign({ id, date, desc: 'x', amount, type: 'expense', category: 'needs', tags: [] }, o);
+    test('tax year: hand-computed summary (€132 allowance, furniture cap, church cap, groups); other years / types / fuel / junk are ignored', () => {
+      const ent = [_tx('1', '2026-02-01', 100, { taxCat: 'w-tools' }), _tx('2', '2026-03-01', 50, { taxCat: 'w-union' }), _tx('3', '2026-04-01', 20, { taxCat: 'w-tools' }),
+        _tx('4', '2026-05-01', 450, { taxCat: 'w-furniture' }), _tx('5', '2026-06-01', 700, { taxCat: 's-church' }), _tx('6', '2026-07-01', 80, { taxCat: 's-donation' }),
+        _tx('7', '2026-08-01', 120, { taxCat: 's-taxadvice' }), _tx('8', '2026-09-01', 300, { taxCat: 'a-illness' }),
+        _tx('o1', '2025-12-31', 999, { taxCat: 'w-tools' }), _tx('o2', '2026-01-01', 999, { taxCat: 'w-tools', type: 'income' }), _tx('o3', '2026-01-02', 999, { taxCat: 'w-tools', type: 'savings' }),
+        _tx('o4', '2026-01-03', 999, { taxCat: 'w-tools', fuelId: 'f1' }), _tx('o5', '2026-01-04', 7, { taxCat: 'nonsense' }), _tx('o6', '2026-01-05', 5), _tx('o7', '2026-01-06', NaN, { taxCat: 'w-tools' }),
+        _tx('o8', '2026-01-07', -4, { taxCat: 'w-tools' }), null, 'junk', _tx('o9', 'not-a-date', 5, { taxCat: 'w-tools' })];
+      const data = { entries: ent }, snap = JSON.stringify(data), S = taxYearSummary(data, 2026);
+      expect(JSON.stringify(S.werbung), JSON.stringify({ sum: 170, pauschale: 132, above: 38, furniture: 450, furnitureCounted: 300, counted: 338 }), 'tools 100+20 and union 50 = 170; 170 − 132 = 38; furniture 450 counts 300, outside the €132');
+      expect(JSON.stringify(S.sonder), JSON.stringify({ total: 900, counted: 800 }), '700 church → 600 cap; 80 donation; 120 adviser');
+      expect(S.agb.total, 300, 'illness'); expect(S.tagged, 8, 'eight tagged expenses'); expect(S.untagged, 1, 'one untagged expense (the fuel one is not a candidate)'); expect(S.unknown, 1, 'one unknown category');
+      expect(JSON.stringify(data), snap, 'the vault is not modified');
+      expect(taxYearSummary({ entries: [_tx('1', '2023-03-01', 500, { taxCat: 's-church' }), _tx('2', '2026-03-01', 100, { taxCat: 'w-tools' })] }, 2023).sonder.counted, 400, 'church cap was €400 until 2023');
+      expect(taxYearSummary({ entries: [_tx('2', '2026-03-01', 100, { taxCat: 'w-tools' })] }, 2026).werbung.above, 0, 'below the €132 allowance nothing helps');
+      [undefined, null, {}, { entries: 'junk' }].forEach((d, i) => expect(taxYearSummary(d, 2026).tagged, 0, 'junk #' + i));
+    });
+    test('tax year: review rows (filter, untagged, order, limit), years, and the CSV (escaped, formula-safe)', () => {
+      const ent = [_tx('a', '2026-03-01', 10, { desc: 'Laptop', taxCat: 'w-tools' }), _tx('b', '2026-05-01', 30, { desc: 'Union dues', tags: ['Verband'] }), _tx('c', '2026-05-01', 90, { desc: 'Book' }),
+        _tx('d', '2025-05-01', 5, { desc: 'Old' }), _tx('e', '2026-06-01', 8, { desc: 'Petrol', fuelId: 'f' }), _tx('f', '2026-04-01', 12, { desc: '=SUM(A1)"x', taxCat: 's-church' })];
+      const data = { entries: ent };
+      expect(taxReviewRows(data, 2026, {}).rows.map(e => e.id).join(), 'c,b,f,a', 'newest first, same day: larger amount first; other years and fuel excluded');
+      expect(taxReviewRows(data, 2026, { q: 'VERBAND' }).rows.map(e => e.id).join(), 'b', 'filter matches tags, case-insensitive');
+      expect(taxReviewRows(data, 2026, { onlyUntagged: true }).rows.map(e => e.id).join(), 'c,b', 'only untagged');
+      const lim = taxReviewRows(data, 2026, { limit: 2 }); expect(lim.rows.length + '/' + lim.total, '2/4', 'limit, with the total of matches');
+      expect(taxYearsAvailable({ entries: [_tx('1', '2021-01-01', 1), _tx('2', '2024-01-01', 1), _tx('3', '2024-02-01', 1, { type: 'income' })] }, 2026).join(), '2026,2024,2021', 'newest first, this year included, income ignored');
+      const csv = taxCsv(data, 2026).split('\r\n');
+      expect(csv.length, 3, 'header + the two tagged 2026 expenses'); expect(csv[1].startsWith('2026-03-01,"Laptop",10.00,'), true, 'sorted by date, amount with two decimals');
+      expectTrue(csv[2].includes(`"'=SUM(A1)""x"`) && csv[2].endsWith(',yes'), 'a leading = is neutralised, quotes doubled, church marked as reported automatically');
+    });
+    // ── Editing a fuel expense offers to update its refuel (pure) ──
+    test('fuelEditOffer: only fields still in step; amount and date; fuelId first, the old tag/date/total match for older expenses', () => {
+      const f = { id: 'f1', date: '2026-10-01', total: 60, liters: 40 };
+      const linked = { id: 'e1', type: 'expense', amount: 60, date: '2026-10-01', fuelId: 'f1', tags: [] };
+      const legacy = { id: 'e2', type: 'expense', amount: 60, date: '2026-10-01', tags: ['fuel'] };
+      const a = fuelEditOffer(linked, 'amount', 65.456, [f], [linked]);
+      expect(a.fuelField + '/' + a.from + '/' + a.to + '/' + a.recFrom + '/' + a.rec.id, 'total/60/65.46/60/f1', 'linked: the new amount is rounded to cents, the refuel is found by fuelId');
+      const l = fuelEditOffer(legacy, 'date', '2026-10-02', [f], [legacy]);
+      expect(l.fuelField + '/' + l.from + '/' + l.to, 'date/2026-10-01/2026-10-02', 'an older expense (no fuelId) is matched on tag + date + total');
+      const none = (e, fld, v, fuel = [f]) => fuelEditOffer(e, fld, v, fuel, [e]);
+      expect(none(linked, 'amount', 60) === null && none(linked, 'amount', 60.004) === null, true, 'unchanged (within half a cent) → nothing to offer');
+      ['abc', 0, -5, NaN, Infinity].forEach(v => expect(none(linked, 'amount', v), null, 'unusable amount ' + v));
+      expect(none({ ...linked }, 'amount', 70, [{ ...f, total: 59 }]), null, 'the refuel total was already changed on its own → left alone');
+      expect(none({ ...linked }, 'date', '2026-10-03', [{ ...f, date: '2026-09-30' }]), null, 'the refuel date differs → left alone');
+      expect(none(linked, 'date', '2026-10-01'), null, 'same date');
+      ['2026-02-31', '2026-13-01', '', 'tomorrow', null].forEach(v => expect(none(linked, 'date', v), null, 'not a real date ' + v));
+      expect(none(linked, 'amount', 70, []), null, 'no refuel');
+      expect(none({ ...linked, fuelId: 'gone' }, 'amount', 70), null, 'linked to a refuel that no longer exists');
+      expect(none({ ...linked, type: 'income' }, 'amount', 70), null, 'only expenses');
+      expect(none(linked, 'desc', 'x') === null && none(linked, 'category', 'y') === null, true, 'only amount and date are offered');
+      expect(none({ id: 'e3', type: 'expense', amount: 60, date: '2026-10-01', tags: [] }, 'amount', 70), null, 'an untagged, unlinked expense is not a fuel expense');
+      const snap = JSON.stringify([linked, f]); fuelEditOffer(linked, 'amount', 99, [f], [linked]); expect(JSON.stringify([linked, f]), snap, 'nothing is modified');
     });
     test('the version label shown on the page comes from APP_VERSION (one place to bump)', () => {
       expectTrue(/^V\d+$/.test(APP_VERSION), `APP_VERSION should look like "V5", got ${APP_VERSION}`);
