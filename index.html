@@ -251,10 +251,10 @@ tr:hover td.sticky-end{background:var(--s0)}
   animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 /* recurring edit modal */
-#recur-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:none;align-items:center;justify-content:center;padding:16px}
-#recur-modal-overlay.open{display:flex}
-#recur-modal{background:var(--s0);border-radius:var(--rs);padding:20px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.25);border:.5px solid var(--bdr)}
-#recur-modal h3{margin:0 0 14px;font-size:15px;font-weight:700}
+#recur-modal-overlay,#recur-one-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:none;align-items:center;justify-content:center;padding:16px}
+#recur-modal-overlay.open,#recur-one-overlay.open{display:flex}
+#recur-modal,#recur-one-modal{background:var(--s0);border-radius:var(--rs);padding:20px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.25);border:.5px solid var(--bdr)}
+#recur-modal h3,#recur-one-modal h3{margin:0 0 14px;font-size:15px;font-weight:700}
 /* over-budget banner */
 #budget-alert{position:fixed;top:0;left:0;right:0;z-index:998;background:var(--Rm);color:#fff;
   font-size:13px;font-weight:500;padding:7px 16px;display:none;align-items:center;gap:10px;
@@ -720,9 +720,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fc-hint{font-size:11px;color:var(--ink3);margin:0 0 8px}
 /* iOS zooms the page when an input under 16px gets focus — the inline editor is 12px by default */
 .fuel-card .edit-in{font-size:16px!important;padding:4px 6px!important;min-width:90px}
+/* The history scrolls inside its own box; the header row stays visible (the last column is already sticky to the right) */
+.fuel-tbl{max-height:70vh;overflow-y:auto}
+.fuel-tbl th{position:sticky;top:0;z-index:1}
+.fuel-tbl th.sticky-end{z-index:2}
 @media(max-width:680px){
   .fuel-tbl{display:none}
-  .fuel-cards{display:block}
+  .fuel-cards{display:block;max-height:70vh;overflow-y:auto}
 }
 
 /* ── CASH LOG ── */
@@ -1032,6 +1036,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </div>
 
+  <!-- Add ONE expense from a recurring template -->
+  <div id="recur-one-overlay" data-action="rc-one-backdrop">
+    <div id="recur-one-modal">
+      <h3 id="ro-title">Add one expense</h3>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="fg" style="margin:0"><label>Month</label>
+          <input type="month" id="ro-month" style="width:100%" data-action-change="rc-one-preview"></div>
+        <div class="fg" style="margin:0"><label>Amount (or =formula)</label>
+          <input type="text" id="ro-amt" inputmode="decimal" style="font-family:var(--mono);width:100%" data-action-input="rc-one-preview"></div>
+        <div class="fg g2-span" style="margin:4px 0 0"><label>Note <span style="font-weight:400;color:var(--ink3)">(optional, kept in the price history)</span></label>
+          <input type="text" id="ro-note" placeholder="e.g. Summer rate" style="width:100%"></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px"><input type="checkbox" id="ro-update" data-action-change="rc-one-preview"> Also make this the new template price</label>
+      <div id="ro-info" style="font-size:11px;color:var(--ink3);min-height:16px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn ghost" data-action="rc-one-close">Cancel</button>
+        <button class="btn primary" data-action="rc-one-save">Add expense</button>
+      </div>
+    </div>
+  </div>
+
   <div id="budget-alert">
     <span style="font-size:15px;margin-right:2px">⚠</span>
     <span style="font-weight:700;margin-right:6px">Over budget:</span>
@@ -1258,6 +1283,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card" id="ov-history">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-history">Monthly history — last 12 months</div>
         <div class="chart-wrap" id="d-chart"></div>
+      </div>
+
+      <div class="card" id="ov-year">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-year">Year summary
+          <span style="display:inline-flex;gap:6px;margin-left:auto;align-items:center">
+            <select id="year-sel" data-action-change="year-change" aria-label="Year" style="width:auto;font-size:12px"></select>
+          </span>
+        </div>
+        <div id="d-year"></div>
       </div>
 
       <div class="card" id="ov-heatmap">
@@ -2299,6 +2333,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="fg" style="margin:0"><label>From</label><input type="month" id="ai-from" style="width:100%"></div>
           <div class="fg" style="margin:0"><label>To</label><input type="month" id="ai-to" style="width:100%"></div>
         </div>
+        <div id="ai-range" style="font-size:11px;color:var(--ink3);margin:-4px 0 10px"></div>
 
         <!-- Primary path: export & paste into any AI, no API key needed -->
         <div style="font-size:11px;color:var(--ink3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Export & paste into any AI</div>
@@ -3002,12 +3037,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
 
         <!-- Chart -->
+        <div id="oil-source" style="font-size:11px;color:var(--ink3);margin:-4px 0 8px"></div>
         <div id="oil-chart-wrap" style="overflow-x:auto">
           <div id="oil-chart" style="min-height:120px;display:flex;align-items:center;justify-content:center">
             <span style="font-size:13px;color:var(--ink3)">Loading oil prices…</span>
           </div>
         </div>
         <div id="oil-chart-tip" class="heatmap-tip"></div>
+        <details style="margin:8px 0;font-size:12px;color:var(--ink2)">
+          <summary style="cursor:pointer;color:var(--ink3)">Optional: EIA key (fallback source)</summary>
+          <div style="margin-top:6px;line-height:1.5">Free key from eia.gov/opendata. Used only when the relay fails: daily spot prices (published about weekly). Kept in your encrypted vault; sent only to api.eia.gov, as part of the request address.</div>
+          <input type="password" id="oil-eia-key" autocomplete="off" placeholder="EIA API key" style="width:100%;max-width:340px;margin-top:6px;font-family:var(--mono)" data-action-change="car-oil-eia-key">
+        </details>
 
         <!-- Litre calculator -->
         <div class="oil-calc-row">
@@ -5121,6 +5162,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderYearSummary(); } catch (e) { console.error('Year summary failed:', e); }    // never breaks the Overview
   try { renderTaxYear(); } catch (e) { console.error('Tax year failed:', e); }    // never breaks the Overview
   try { renderSinking(); } catch (e) { console.error('Sinking funds failed:', e); }    // like Insights: must never break the Overview
   try { renderReminders(); } catch (e) { console.error('Reminders failed:', e); }    // like Insights: must never break the Overview
@@ -5665,6 +5707,7 @@ const OVERVIEW_CARDS = [      // default order — a test checks it against the 
   { id: 'ov-split',       label: '50 / 30 / 20 breakdown' },
   { id: 'ov-category',    label: 'Spending by category' },
   { id: 'ov-history',     label: 'Monthly history' },
+  { id: 'ov-year',        label: 'Year summary' },
   { id: 'ov-heatmap',     label: 'Spending heatmap' },
   { id: 'ov-tags',        label: 'Spending by tag' },
   { id: 'ov-bills',       label: 'Bill calendar' },
@@ -6051,40 +6094,37 @@ function recurFiresInMonth(r, month, entries) {
   if (!cycle) return true;
   const mo = parseInt(month.slice(5, 7), 10);
   let first = null;
-  (entries || []).forEach(e => { if (e.recurId === r.id && (first === null || e.date < first)) first = e.date; });
+  // A one-off added with "+ Add" (oneOff) never anchors the cycle: an off-cycle month would shift every later date.
+  (entries || []).forEach(e => { if (e.recurId === r.id && !e.oneOff && (first === null || e.date < first)) first = e.date; });
   const origin = first ? parseInt(first.slice(5, 7), 10) : mo;
   return (mo - origin + 12) % cycle === 0;
+}
+
+// The day of the month an item is due. The edit dialog writes dayOfMonth (older items only have day), so dayOfMonth wins.
+// EVERY reader uses this — applyRecurring, the status/banner/wizard, the bill calendar, the 12-month pills, the list.
+function recurDay(r) { return parseInt(r && r.dayOfMonth, 10) || parseInt(r && r.day, 10) || 1; }
+
+// Pure. The dates an item books in a month ('YYYY-MM'): one for monthly/quarterly/yearly, several for weekly / bi-weekly.
+function recurDatesInMonth(r, month) {
+  const [yr, mo] = month.split('-').map(Number), lastDay = new Date(yr, mo, 0).getDate(), day = recurDay(r), freq = r.freq || 'monthly';
+  const clamp = dd => `${month}-${String(Math.min(dd, lastDay)).padStart(2, '0')}`;
+  const offsets = freq === 'weekly' ? [0, 7, 14, 21] : freq === 'biweekly' ? [0, 14] : null;
+  return offsets ? offsets.map(o => day + o).filter(dd => dd <= lastDay).map(clamp) : [clamp(day)];
 }
 // ══════════════════════════════════════════
 async function applyRecurring(month) {
   try {
   const [yr, mo] = month.split('-').map(Number);
-  const lastDay  = new Date(yr, mo, 0).getDate();
   let added = 0;
   const msg = () => `Applied ${added} recurring entr${added===1?'y':'ies'}`;
 
   const r0 = commit('Recurring applied', d => {
   d.recurring.forEach(r => {
-    const freq = r.freq || 'monthly';
-
     // Quarterly / yearly: only in the months of their cycle (see recurFiresInMonth)
     if (!recurFiresInMonth(r, month, d.entries)) return;
 
-    // Determine which dates to create for this freq in this month
-    const dates = [];
-    const clamp = dd => `${month}-${String(Math.min(dd, lastDay)).padStart(2,'0')}`;
-    if (freq === 'weekly') {
-      [r.day||1, (r.day||1)+7, (r.day||1)+14, (r.day||1)+21].forEach(dd => {
-        if (dd <= lastDay) dates.push(clamp(dd));
-      });
-    } else if (freq === 'biweekly') {
-      [r.day||1, (r.day||1)+14].forEach(dd => {
-        if (dd <= lastDay) dates.push(clamp(dd));
-      });
-    } else {
-      // monthly, quarterly or yearly
-      dates.push(clamp(r.day||1));
-    }
+    // Which dates this item books in this month (the edited day counts)
+    const dates = recurDatesInMonth(r, month);
 
     // Count how many entries already exist for this recurId in this month
     const existingCount = d.entries.filter(e => ym(e.date) === month && e.recurId === r.id).length;
@@ -6112,25 +6152,16 @@ function editRecurEntry(id) {
   set('rm-amt',  r.formula || r.amount || '');
   set('rm-cat',  r.category||'needs');
   set('rm-freq', r.freq||'monthly');
-  set('rm-day',  r.dayOfMonth||r.day||1);
+  set('rm-day',  recurDay(r));
   set('rm-note', '');
 
   // Show "was X" hint when user types a different amount
   const prevEl = el('rm-prev-amt');
   if (prevEl) prevEl.textContent = r.amount ? `Current: ${fmt(r.amount)}` : '';
 
-  // Price history — last 10 changes, newest first
+  // Price history — every point (max 50), newest first, scrolls inside its box
   const phEl = el('rm-price-history');
-  if (phEl) {
-    const hist = (r.priceHistory||[]).slice().reverse().slice(0,8);
-    phEl.innerHTML = hist.length ? `
-      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Price history</div>
-      ${hist.map(h=>`<div style="display:flex;gap:10px;font-size:11px;padding:3px 0;border-bottom:.5px solid var(--bdr)">
-        <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${h.date}</span>
-        <span style="font-family:var(--mono);color:${h.dir==='up'?'var(--Rm)':h.dir==='down'?'var(--Gm)':'var(--ink2)'}">${h.dir==='up'?'▲':h.dir==='down'?'▼':''}${fmt(h.amount)}</span>
-        ${h.note?`<span style="color:var(--ink3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.note)}</span>`:''}
-      </div>`).join('')}` : '';
-  }
+  if (phEl) phEl.innerHTML = recurHistoryHtml(r);
 
   // Account selector
   const acctSel = el('rm-acct');
@@ -6270,7 +6301,7 @@ function renderRecurList() {
     const alreadyApplied = DATA.entries.some(e=>e.recurId===r.id&&ym(e.date)===month);
     const [y,m] = month.split('-').map(Number);
     const maxDay = new Date(y,m,0).getDate();
-    const dueDay = Math.min(r.dayOfMonth||r.day||1, maxDay);
+    const dueDay = Math.min(recurDay(r), maxDay);
     const dueDate = `${month}-${String(dueDay).padStart(2,'0')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bdr);flex-wrap:wrap">
       <span style="flex:1;font-size:13px;min-width:120px">${esc(r.desc)||'—'}</span>
@@ -6285,6 +6316,7 @@ function renderRecurList() {
         ${alreadyApplied?'✓ applied':'pending '+dueDate}
       </span>
       ${(()=>{const acct=DATA.accounts?.find(a=>a.id===r.accountId);return acct?`<span style="font-size:10px;color:var(--ink3);padding:1px 5px;border-radius:3px;background:var(--s2)">${esc(acct.name)}</span>`:r.accountId?'':'';})()}
+      <button class="btn xs ghost" data-action="rc-one-open" data-id="${esc(r.id)}" title="Add just this one as an expense (pick the month and amount)">+ Add</button>
       <button class="btn xs ghost" data-action="ent-recur-edit" data-id="${esc(r.id)}" title="Edit all fields">✎</button>
       <button class="btn xs danger" data-action="ent-recur-delete" data-id="${esc(r.id)}">✕</button>
     </div>`;
@@ -6296,6 +6328,90 @@ async function deleteRecur(id) {
     commit('Recurring removed', d => { d.recurring = d.recurring.filter(r=>r.id!==id); }, { touch: ['recurring'], render: renderRecurList });
   } catch(e) { toast(e.message || 'Failed to remove recurring entry.', 1); }
 }
+// ═══════════════════════════════════════
+// RECURRING — add ONE expense from a template (own month, own amount) + the price history it leaves.
+// "Apply recurring" books everything that is due; this books a single item. The template price stays unless you tick the box.
+// ═══════════════════════════════════════
+let _oneRecurId = null;
+
+// Pure: what would booking one occurrence of template r in `month` ('YYYY-MM') do? → { error } or { month, date, amount, formula, differs }.
+// Monthly / quarterly / yearly: one booking per month (an off-cycle month is fine — that is the point). Weekly / bi-weekly: takes the next
+// date of the month that is not booked yet, the same dates Apply uses, so the two never double-book.
+function recurOneOffPlan(r, month, rawAmount, entries) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || '')) return { error: 'Pick a month.' };
+  const raw = String(rawAmount == null ? '' : rawAmount).trim();
+  const { amount, formula } = parseAmt(raw || (r.formula || r.amount));
+  if (!(amount > 0)) return { error: 'Invalid amount.' };
+  const existing = (entries || []).filter(e => e.recurId === r.id && ym(e.date) === month).length;
+  const dates = recurDatesInMonth(r, month);
+  if (existing >= dates.length) return { error: `"${r.desc}" is already booked for ${month} — edit that entry instead.` };
+  return { month, date: dates[existing], amount, formula, differs: Math.abs(amount - (r.amount || 0)) > 0.001 };
+}
+
+function openRecurOne(id) {
+  const r = DATA.recurring.find(x => x.id === id); if (!r) return;
+  _oneRecurId = id;
+  const set = (i, v) => { const e = el(i); if (e) e.value = v; };
+  const t = el('ro-title'); if (t) t.textContent = `Add one: ${r.desc}`;
+  // The month you are looking at (Apply uses the same), else the real current month.
+  set('ro-month', curMonth() || curMonStr()); set('ro-amt', String(r.formula || r.amount || '')); set('ro-note', '');
+  const u = el('ro-update'); if (u) u.checked = false;
+  recurOnePreview();
+  el('recur-one-overlay')?.classList.add('open');
+}
+function closeRecurOne() { el('recur-one-overlay')?.classList.remove('open'); _oneRecurId = null; }
+
+// Live line under the fields: the date it will book, or why it cannot.
+function recurOnePreview() {
+  const r = DATA.recurring.find(x => x.id === _oneRecurId), info = el('ro-info'); if (!r || !info) return;
+  const plan = recurOneOffPlan(r, el('ro-month')?.value, el('ro-amt')?.value, DATA.entries);
+  if (plan.error) { info.textContent = plan.error; info.style.color = 'var(--Rm)'; return; }
+  info.style.color = 'var(--ink3)';
+  const also = !!el('ro-update')?.checked;
+  info.textContent = `Books ${plan.date} · ${fmt(plan.amount)}` + (plan.differs ? (also ? ` · becomes the new template price (was ${fmt(r.amount)})` : ` · template price stays ${fmt(r.amount)}`) : '');
+}
+
+function saveRecurOne() {
+  const r = DATA.recurring.find(x => x.id === _oneRecurId); if (!r) return;
+  const plan = recurOneOffPlan(r, el('ro-month')?.value, el('ro-amt')?.value, DATA.entries);
+  if (plan.error) return toast(plan.error, 1);
+  const note = (el('ro-note')?.value || '').trim(), alsoPrice = !!el('ro-update')?.checked;
+  commit(`Added "${r.desc}" for ${plan.month}`, d => {
+    const t = d.recurring.find(x => x.id === r.id);
+    d.entries.unshift({ id: uid(), loggedAt: new Date().toISOString(), date: plan.date, desc: t.desc, amount: plan.amount, formula: plan.formula,
+      type: t.type, category: t.category, tags: [], recurId: t.id, accountId: t.accountId || null, oneOff: true });
+    if (plan.differs) {
+      if (!t.priceHistory) t.priceHistory = [];
+      const dir = plan.amount > t.amount ? 'up' : 'down';
+      if (alsoPrice) { t.priceHistory.push({ date: ymd(), amount: t.amount, note, dir }); t.amount = plan.amount; t.formula = plan.formula; }   // same rule as the edit dialog: the OLD price is recorded
+      else t.priceHistory.push({ date: ymd(), amount: plan.amount, note, dir, kind: 'occurrence', month: plan.month });                       // the price actually paid
+      if (t.priceHistory.length > 50) t.priceHistory.splice(0, t.priceHistory.length - 50);
+    }
+  }, { touch: ['entries', 'recurring'], render: () => { closeRecurOne(); render(); } });
+}
+
+// The price history for the edit dialog: every point (max 50), newest first, in a box that scrolls.
+function recurHistoryHtml(r) {
+  const hist = (r.priceHistory || []).slice().reverse();
+  if (!hist.length) return '';
+  return `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Price history</div>
+    <div style="max-height:180px;overflow-y:auto">${hist.map(h => {
+      const one = h.kind === 'occurrence';
+      return `<div data-ph-row style="display:flex;gap:10px;font-size:11px;padding:3px 0;border-bottom:.5px solid var(--bdr)">
+        <span style="color:var(--ink3);font-family:var(--mono);flex-shrink:0">${esc(h.date)}</span>
+        <span style="font-family:var(--mono);color:${h.dir === 'up' ? 'var(--Rm)' : h.dir === 'down' ? 'var(--Gm)' : 'var(--ink2)'}">${h.dir === 'up' ? '▲' : h.dir === 'down' ? '▼' : ''}${fmt(h.amount)}</span>
+        ${one ? `<span style="color:var(--ink3);flex-shrink:0">one-off ${esc(h.month || '')}</span>` : ''}
+        ${h.note ? `<span style="color:var(--ink3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.note)}</span>` : ''}
+      </div>`; }).join('')}</div>`;
+}
+
+defineActions({
+  'rc-one-open'    : t => openRecurOne(t.dataset.id),
+  'rc-one-close'   : () => closeRecurOne(),
+  'rc-one-save'    : () => saveRecurOne(),
+  'rc-one-preview' : () => recurOnePreview(),
+  'rc-one-backdrop': (t, ev) => { if (ev && ev.target === t) closeRecurOne(); },
+});
 
 // ══════════════════════════════════════════
 // TAGS  —  tag input widget
@@ -8650,7 +8766,7 @@ function renderBillCalendar(month) {
   // Build map: day → list of recurring/installment entries
   const bills = {}; // day (1-31) → [{desc, type, amount}]
   DATA.recurring.forEach(r => {
-    const day = Math.min(r.day || 1, daysInMonth);
+    const day = Math.min(recurDay(r), daysInMonth);
     if (!bills[day]) bills[day] = [];
     bills[day].push({ desc: r.desc, type: r.type==='savings'?'income':r.type, amount: r.amount });
   });
@@ -9621,11 +9737,27 @@ function buildAIText(from, to) {
   return lines.join('\n');
 }
 
+// The first and last month the vault holds anything for (entries + monthly incomes: what buildAIText reads), or null when empty. Pure.
+function vaultMonthRange(data) {
+  const ok = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
+  const months = [...(data.entries || []).map(e => ym(e.date)), ...Object.keys(data.incomes || {})].filter(ok).sort();
+  return months.length ? { from: months[0], to: months[months.length - 1] } : null;
+}
+// Shows "Data available: from → to" under the pickers and limits them to that span.
+function renderAIRange() {
+  const note = el('ai-range'), a = vaultMonthRange(DATA), f = el('ai-from'), t = el('ai-to');
+  if (note) note.textContent = a ? `Data available: ${a.from} → ${a.to}` : 'No data in the vault yet.';
+  [f, t].forEach(inp => { if (!inp) return; if (a) { inp.min = a.from; inp.max = a.to; } else { inp.min = ''; inp.max = ''; } });
+}
+
 function getAIRange() {
   const from = el('ai-from').value;
   const to   = el('ai-to').value;
   if (!from || !to) return toast('Select a date range.', 1), null;
   if (from > to)    return toast('From must be before To.', 1), null;
+  const a = vaultMonthRange(DATA);
+  if (!a) return toast('No data yet — add some entries first.', 1), null;
+  if (to < a.from || from > a.to) return toast(`No data in that period — your data runs ${a.from} → ${a.to}.`, 1), null;
   return { from, to };
 }
 
@@ -9655,6 +9787,7 @@ async function renderWealth() {
       aiFrom.value = offsetMonStr(-5);
       aiTo.value   = curMonStr();
     }
+    renderAIRange();
     const aiModelInp = el('ai-model');
     if (aiModelInp && !aiModelInp.value) aiModelInp.value = DATA.aiModel || AI_MODEL_DEFAULT;
     const savedInc = DATA.incomes[curMonth()];
@@ -10355,6 +10488,96 @@ defineActions({
   'tax-more':          () => { _taxUI.limit += 25; renderTaxYear(); },
   'tax-export':        () => taxExport(),
 });
+
+// ══════════════════════════════════════════
+// YEAR SUMMARY (Overview card) — one year at a glance: income, needs / wants / saved / left over, month by month, top merchants, fuel.
+// yearSummary() is built by calling monthSummary() for the 12 months, so every month is the SAME number the Overview and the monthly
+// report show. Rules of the year view:
+//   · income = salary + extra income entries (the salary's mirror entry is not counted twice). Planned income is NOT income.
+//   · a month with only planned income (no entries, no saved salary) is listed as "planned" and left out of the totals;
+//   · saved = savings entries + expenses in the category "savings" (same as the Overview); left over = Σ (income − spent), spent including savings;
+//   · fuel = the year's fill-ups; the average L/100 km is weighted by distance (Σ litres / Σ km), null when no pair is usable.
+// ══════════════════════════════════════════
+const _yrC  = x => Math.round(x * 100) / 100;
+const _yrOf = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '') ? +d.slice(0, 4) : null;
+// fmt() drops the sign (it shows Math.abs): a deficit needs its own minus.
+const _yrMoney = n => (n < 0 ? '−' : '') + fmt(n);
+const _yrShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function yearSummary(year) {
+  const months = [];
+  for (let i = 1; i <= 12; i++) {
+    const month = `${year}-${String(i).padStart(2, '0')}`, m = monthSummary(month, false);
+    const real = m.entryCount > 0 || m.base > 0;
+    if (!real) { months.push({ month, hasData: false, planned: ((DATA.plannedIncome || {})[month] || 0) > 0, income: 0, needs: 0, wants: 0, savings: 0, spent: 0, left: 0 }); continue; }
+    const budgetReal = m.base > 0 ? m.base : m.addInc;     // never the planned stand-in monthSummary uses for its own "left"
+    months.push({ month, hasData: true, planned: false, income: _yrC(m.base + m.addInc), needs: _yrC(m.act.needs), wants: _yrC(m.act.wants),
+      savings: _yrC(m.act.savings), spent: _yrC(m.spent), left: _yrC(budgetReal - m.spent) });
+  }
+  const sum = k => _yrC(months.reduce((a, m) => a + m[k], 0));
+  const income = sum('income'), savings = sum('savings'), left = sum('left');
+
+  const merch = new Map();
+  (DATA.entries || []).forEach(e => {
+    if (e.type !== 'expense' || _yrOf(e.date) !== year || !Number.isFinite(+e.amount)) return;
+    const name = String(e.desc || '').trim() || '(no description)', k = name.toLowerCase();
+    const x = merch.get(k) || { name, count: 0, total: 0 }; x.count++; x.total += +e.amount; merch.set(k, x);
+  });
+  const topMerchants = [...merch.values()].map(x => ({ ...x, total: _yrC(x.total) }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)).slice(0, 10);
+
+  const recs = (DATA.fuel || []).filter(f => typeof f.date === 'string');
+  const yr = recs.filter(f => _yrOf(f.date) === year);
+  let fuel = null;
+  if (yr.length) {
+    const litres = yr.reduce((a, f) => a + (f.liters || 0), 0), cost = yr.reduce((a, f) => a + (f.total || 0), 0);
+    const pairs = _fullTankPairs(recs).filter(p => _yrOf(p.to.date) === year);
+    const km = pairs.reduce((a, p) => a + p.km, 0), pl = pairs.reduce((a, p) => a + p.liters, 0);
+    fuel = { n: yr.length, liters: _yrC(litres), cost: _yrC(cost), avgPpl: litres > 0 ? cost / litres : 0, avgL100: km > 0 ? pl / km * 100 : null };
+  }
+  return { year, months, income, needs: sum('needs'), wants: sum('wants'), savings, spent: sum('spent'), left,
+    savedPct: income > 0 ? savings / income * 100 : null, leftPct: income > 0 ? left / income * 100 : null,
+    activeMonths: months.filter(m => m.hasData).length, plannedMonths: months.filter(m => m.planned).length, topMerchants, fuel };
+}
+// Years that have entries, an income or a fuel record, newest first, plus this year.
+function yearSummaryYears(thisYear) {
+  const ys = new Set([thisYear]);
+  (DATA.entries || []).forEach(e => { const y = _yrOf(e.date); if (y) ys.add(y); });
+  Object.keys(DATA.incomes || {}).forEach(k => { if (/^\d{4}-\d{2}$/.test(k)) ys.add(+k.slice(0, 4)); });
+  (DATA.fuel || []).forEach(f => { const y = _yrOf(f.date); if (y) ys.add(y); });
+  return [...ys].sort((a, b) => b - a);
+}
+
+// ── View ─────────────────────────────────────────────────────────────────
+const _yearUI = { year: null, yearsKey: '' };      // screen state only, not data
+function renderYearSummary(today = ymd()) {
+  const box = el('d-year'), sel = el('year-sel'); if (!box) return;
+  const thisYear = +today.slice(0, 4), years = yearSummaryYears(thisYear);
+  if (!_yearUI.year || !years.includes(_yearUI.year)) _yearUI.year = thisYear;
+  if (sel && _yearUI.yearsKey !== years.join()) { _yearUI.yearsKey = years.join(); sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); }
+  if (sel) sel.value = String(_yearUI.year);
+  const y = _yearUI.year, S = yearSummary(y), muted = t => `<div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5">${t}</div>`;
+  const plannedNote = S.plannedMonths ? muted(`${S.plannedMonths} month${S.plannedMonths === 1 ? '' : 's'} with only planned income ${S.plannedMonths === 1 ? 'is' : 'are'} listed but not counted.`) : '';
+  if (!S.activeMonths) { box.innerHTML = `<div style="font-size:13px;color:var(--ink3)">No data for ${y} yet.</div>` + plannedNote; return; }
+  const pct = v => v == null ? '' : ` <span style="color:var(--ink3);font-weight:400">${Math.round(v)}%</span>`;
+  const tile = (label, val, extra = '') => `<div style="flex:1;min-width:92px"><div style="font-size:11px;color:var(--ink3)">${label}</div><div style="font-family:var(--mono);font-weight:600;font-size:14px">${_yrMoney(val)}${extra}</div></div>`;
+  let h = `<div style="display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:6px">${tile('Income', S.income)}${tile('Needs', S.needs)}${tile('Wants', S.wants)}${tile('Saved', S.savings, pct(S.savedPct))}${tile('Left over', S.left, pct(S.leftPct))}</div>`;
+  h += muted('Saved = savings entries; left over = income − everything spent, savings included. Percentages are of the year’s income.') + plannedNote;
+  const maxSpent = Math.max(1, ...S.months.map(m => m.spent));
+  h += `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px">Month by month</div>`
+    + S.months.map((m, i) => `<div style="display:grid;grid-template-columns:32px 1fr 70px 70px 70px;gap:6px;align-items:center;font-size:12px;padding:2px 0;${m.hasData ? '' : 'opacity:.45'}">`
+      + `<span>${_yrShort[i]}</span><div class="bar-row-track"><div class="bar-row-fill" style="width:${Math.round(m.spent / maxSpent * 100)}%;background:var(--Bm)"></div></div>`
+      + (m.hasData ? `<span style="font-family:var(--mono);text-align:right">${fmt(m.spent)}</span><span style="font-family:var(--mono);text-align:right">${fmt(m.income)}</span><span style="font-family:var(--mono);text-align:right;color:${m.left >= 0 ? 'var(--Gm)' : 'var(--Rm)'}">${_yrMoney(m.left)}</span>`
+        : `<span style="grid-column:3 / 6;text-align:right;color:var(--ink3)">${m.planned ? 'planned' : '—'}</span>`) + `</div>`).join('')
+    + muted('Columns: spent · income · left');
+  if (S.topMerchants.length) { const max = S.topMerchants[0].total;
+    h += `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px">Top merchants</div>`
+      + S.topMerchants.map((m, i) => barRow(m.name, m.total, max, { rank: i + 1, extra: `<span style="font-size:11px;color:var(--ink3)">${m.count}×</span>` })).join(''); }
+  if (S.fuel) h += `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px">Fuel</div>`
+    + `<div style="font-size:13px">${S.fuel.n} fill-up${S.fuel.n === 1 ? '' : 's'} · ${S.fuel.liters.toFixed(1)} L · ${fmt(S.fuel.cost)}${S.fuel.avgPpl ? ' · ' + fmt(S.fuel.avgPpl) + '/L' : ''}${S.fuel.avgL100 != null ? ' · ' + S.fuel.avgL100.toFixed(1) + ' L/100 km' : ''}</div>`;
+  box.innerHTML = h;
+}
+defineActions({ 'year-change': t => { _yearUI.year = +t.value || null; renderYearSummary(); } });
 
 // ══════════════════════════════════════════
 // SPENDING FORECAST
@@ -12711,6 +12934,7 @@ defineActions({
   'car-service-view'       : (t, ev) => { nav('fuel'); ev.preventDefault(); },
   'car-svclog-delete'      : t => deleteServiceCostLog(t.dataset.id),
   'car-oil-manual'         : t => _oilManual(t.dataset.oil, t.value),
+  'car-oil-eia-key'        : t => saveEiaKey(t.value),
 });
 
 // ══════════════════════════════════════════
@@ -13828,6 +14052,7 @@ function renderFuelSettingsUI() {
   onFuelFillTypeChange(); // set hint from current value
   const fs  = DATA.fuelSettings || {};
   const inp = el('fuel-tank-size');   if (inp && fs.tankSize)       inp.value = fs.tankSize;
+  const ek  = el('oil-eia-key');      if (ek) ek.value = (DATA.settings && DATA.settings.eiaKey) || '';
   const tc  = el('fuel-transit-cost');if (tc  && fs.transitMonthly) tc.value  = fs.transitMonthly;
 }
 
@@ -13868,6 +14093,41 @@ function checkFuelOutlier() {
 // ══════════════════════════════════════════
 // SEASONAL EFFICIENCY CHART
 // ══════════════════════════════════════════
+// ── Winter / summer split: a setting (DATA.fuelSettings.winterMonths, month numbers 0–11), default Nov–Mar. Pure model below. ──
+const SEASON_DEFAULT_WINTER = [10, 11, 0, 1, 2];
+const SEASON_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// Stored choice → sorted unique month numbers; anything unusable (not a list, bad numbers, empty, or all 12) → the default.
+function seasonWinterMonths(fs) {
+  const w = fs && fs.winterMonths;
+  if (!Array.isArray(w) || !w.every(m => Number.isInteger(m) && m >= 0 && m <= 11)) return SEASON_DEFAULT_WINTER.slice();
+  const u = [...new Set(w)].sort((a, b) => a - b);
+  return u.length >= 1 && u.length <= 11 ? u : SEASON_DEFAULT_WINTER.slice();
+}
+// [10,11,0,1,2] → 'Nov–Mar'; runs wrap around the year; separate runs are joined with ', '.
+function seasonLabel(months) {
+  const set = new Set(months), name = m => SEASON_MONTH_NAMES[m];
+  const starts = [...set].filter(m => !set.has((m + 11) % 12)).sort((a, b) => a - b);
+  if (!starts.length) return 'Jan–Dec';
+  return starts.map(st => { let end = st; while (set.has((end + 1) % 12)) end = (end + 1) % 12; return end === st ? name(st) : name(st) + '–' + name(end); }).join(', ');
+}
+// avgs = 12 monthly averages (null = no data) → mean of the monthly averages inside / outside the winter set (null if none).
+function seasonAverages(avgs, winter) {
+  const inW = new Set(winter), mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  const w = [], s = [];
+  avgs.forEach((v, i) => { if (v != null) (inW.has(i) ? w : s).push(v); });
+  return { winter: mean(w), summer: mean(s) };
+}
+function toggleWinterMonth(m) {
+  if (!Number.isInteger(m) || m < 0 || m > 11) return;
+  const cur = seasonWinterMonths(DATA.fuelSettings);
+  const next = cur.includes(m) ? cur.filter(x => x !== m) : [...cur, m].sort((a, b) => a - b);
+  if (next.length < 1 || next.length > 11) return toast('Keep at least one winter month and one summer month.', 1);
+  // Silent (a setting); only this card needs redrawing.
+  commit('Winter months', d => { if (!d.fuelSettings) d.fuelSettings = {}; d.fuelSettings.winterMonths = next; },
+    { touch: ['fuelSettings'], toast: null, render: () => renderFuelSeasonal() });
+}
+defineActions({ 'fuel-season-toggle': t => toggleWinterMonth(parseInt(t.dataset.month, 10)) });
+
 function renderFuelSeasonal() {
   const wrap = el('fuel-seasonal'); if (!wrap) return;
   const pairs= _fullTankPairs(DATA.fuel||[]);
@@ -13895,11 +14155,12 @@ function renderFuelSeasonal() {
   const minEff = Math.min(...valid);
   const overall = +(valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(2);
 
-  // Winter months (Nov-Mar) avg vs summer (Apr-Oct) avg
-  const winter = [10,11,0,1,2].map(i=>avgs[i]).filter(v=>v!=null);
-  const summer = [3,4,5,6,7,8,9].map(i=>avgs[i]).filter(v=>v!=null);
-  const wAvg   = winter.length ? (winter.reduce((a,b)=>a+b,0)/winter.length).toFixed(2) : null;
-  const sAvg   = summer.length ? (summer.reduce((a,b)=>a+b,0)/summer.length).toFixed(2) : null;
+  // Winter (the chosen months, default Nov-Mar) avg vs summer (all the others) avg
+  const winterSet = seasonWinterMonths(DATA.fuelSettings);
+  const summerSet = [0,1,2,3,4,5,6,7,8,9,10,11].filter(i => !winterSet.includes(i));
+  const sa     = seasonAverages(avgs, winterSet);
+  const wAvg   = sa.winter != null ? sa.winter.toFixed(2) : null;
+  const sAvg   = sa.summer != null ? sa.summer.toFixed(2) : null;
 
   const bars = MONTHS.map((m,i) => {
     const v = avgs[i];
@@ -13907,7 +14168,7 @@ function renderFuelSeasonal() {
       <div class="seasonal-bar-track"><div class="seasonal-bar-fill" style="width:20%;background:var(--s3)"></div></div>
       <span style="font-size:11px;color:var(--ink3);width:50px">no data</span></div>`;
     const pct  = Math.round((v - minEff*0.95) / (maxEff - minEff*0.95) * 100);
-    const isWinter = [10,11,0,1,2].includes(i);
+    const isWinter = winterSet.includes(i);
     const col  = v > overall ? 'var(--Rm)' : 'var(--Gm)';
     const cols = isWinter ? 'color:var(--Bm)' : 'color:var(--ink2)';
     return `<div class="seasonal-bar">
@@ -13919,10 +14180,13 @@ function renderFuelSeasonal() {
   }).join('');
 
   const summary = [
-    wAvg ? `❄ Winter avg: ${wAvg} L/100km` : '',
-    sAvg ? `☀ Summer avg: ${sAvg} L/100km` : '',
+    wAvg ? `❄ Winter (${seasonLabel(winterSet)}) avg: ${wAvg} L/100km` : '',
+    sAvg ? `☀ Summer (${seasonLabel(summerSet)}) avg: ${sAvg} L/100km` : '',
     wAvg && sAvg ? `Δ ${(wAvg-sAvg).toFixed(2)} L/100km seasonal difference` : ''
   ].filter(Boolean);
+
+  const chips = SEASON_MONTH_NAMES.map((m,i) => { const on = winterSet.includes(i);
+    return `<button class="btn xs${on?'':' ghost'}" data-action="fuel-season-toggle" data-month="${i}" aria-pressed="${on}" style="min-width:38px">${m}</button>`; }).join('');
 
   wrap.innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap">
     <div style="flex:2;min-width:180px">${bars}</div>
@@ -13930,6 +14194,8 @@ function renderFuelSeasonal() {
       <div style="font-weight:600;color:var(--ink);margin-bottom:6px">Summary</div>
       ${summary.map(s=>`<div>${s}</div>`).join('')}
       <div style="margin-top:6px;color:var(--ink3);font-size:11px">Red bars = above average · Green = below</div>
+      <div style="margin-top:8px;color:var(--ink3);font-size:11px">Winter months (tap to change):</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${chips}</div>
     </div>
   </div>`;
 }
@@ -14046,20 +14312,42 @@ const OIL_COLOURS   = { wti: 'var(--Am)', brent: 'var(--Bm)' };
 
 function _parseYahooChart(j) {
   const result = j?.chart?.result?.[0];
-  if (!result) throw new Error(j?.chart?.error?.description || 'No data in response');
+  if (!result) throw _oilErr('shape', j?.chart?.error?.description || 'No data in response');
   const meta       = result.meta || {};
   const timestamps = result.timestamp || [];
   const closes     = result.indicators?.quote?.[0]?.close || [];
   const pts = timestamps.map((t,i) => ({ t: t*1000, p: closes[i] }))
                         .filter(p => p.p != null && isFinite(p.p));
-  if (!pts.length) throw new Error('Empty price series');
+  if (!pts.length) throw _oilErr('shape', 'Empty price series');
   return {
     pts,
     current: isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : pts[pts.length - 1].p,   // a response without the live price must not break the badges
     prev:    meta.chartPreviousClose || meta.previousClose,
     currency: meta.currency || 'USD',
     ts: Date.now(),
+    source: 'Yahoo',
   };
+}
+
+// An error that already knows its kind: 'http' | 'shape' (JSON that holds no prices). Anything else is classified by _oilExplain.
+function _oilErr(kind, message) { const e = new Error(message); e.kind = kind; return e; }
+// What kind of failure was this, in words for the panel. Keeps the browser's own text (it is what tells us the cause).
+//   timeout  — no answer in time          blocked — the request never got an answer (offline, or the browser refused it: CORS)
+//   http     — an error status            not-json — an answer came, but it was not JSON (an error / rate-limit page)
+//   shape    — JSON, but no prices in it  other   — anything else
+function _oilExplain(e) {
+  const raw = (e && e.message) || String(e);
+  if (e && e.name === 'AbortError') return { kind: 'timeout', message: 'timed out (no answer in time)' };
+  if (e && (e.kind === 'http' || e.kind === 'shape')) return { kind: e.kind, message: raw };
+  if (e && (e.name === 'SyntaxError' || /JSON|expected pattern|Unexpected (token|end)/i.test(raw)))
+    return { kind: 'not-json', message: `the answer was not valid JSON (${raw}) — usually an error or rate-limit page from the relay` };
+  if (e && e.name === 'TypeError') return { kind: 'blocked', message: `no answer: the request was blocked or you are offline (${raw})` };
+  return { kind: 'other', message: raw };
+}
+// The EIA key travels in a URL, and some browsers echo the URL in an error: never let it reach the screen or the console.
+function _oilScrub(text, key) {
+  if (!key) return text;
+  return String(text).split(key).join('…').split(encodeURIComponent(key)).join('…');
 }
 
 async function _fetchWithTimeout(url, opts={}, ms=7000) {
@@ -14078,26 +14366,70 @@ async function _fetchWithTimeout(url, opts={}, ms=7000) {
 const _OIL_RELAY = 'https://api.allorigins.win';
 async function _oilViaWrapper(url) {
   const r = await _fetchWithTimeout(`${_OIL_RELAY}/get?url=${encodeURIComponent(url)}`, {}, 8000);
-  if (!r.ok) throw new Error(`relay HTTP ${r.status}`);
+  if (!r.ok) throw _oilErr('http', `relay HTTP ${r.status}`);
   const w = await r.json();
-  if (w?.status?.http_code !== 200) throw new Error(`Yahoo answered HTTP ${w?.status?.http_code ?? '?'} through the relay`);
+  if (w?.status?.http_code !== 200) throw _oilErr('http', `Yahoo answered HTTP ${w?.status?.http_code ?? '?'} through the relay`);
   return _parseYahooChart(JSON.parse(w.contents));
 }
 async function _oilViaRaw(url) {
   const r = await _fetchWithTimeout(`${_OIL_RELAY}/raw?url=${encodeURIComponent(url)}`, {}, 8000);
-  if (!r.ok) throw new Error(`relay HTTP ${r.status}`);
+  if (!r.ok) throw _oilErr('http', `relay HTTP ${r.status}`);
   return _parseYahooChart(await r.json());
 }
 
-async function _fetchOilSeries(type, range) {
+// Optional fallback: EIA's own API (free key, kept in the vault as DATA.settings.eiaKey). Daily SPOT prices, which EIA publishes about once a week,
+// so the latest price can be days old. Route petroleum/pri/spt, series RBRTE (Brent) and RWTC (WTI). Not tested against the live service from the sandbox.
+const EIA_SERIES = { brent: 'RBRTE', wti: 'RWTC' };
+const EIA_ROWS   = { '1d': 7, '14d': 14, '1mo': 31 };
+function _eiaUrl(type, range, key) {
+  return 'https://api.eia.gov/v2/petroleum/pri/spt/data/?' + [
+    'api_key=' + encodeURIComponent(key), 'frequency=daily', 'data[0]=value', 'facets[series][]=' + EIA_SERIES[type],
+    'sort[0][column]=period', 'sort[0][direction]=desc', 'length=' + (EIA_ROWS[range] || 14)].join('&');
+}
+function _parseEiaSpot(j) {
+  const rows = j && j.response && j.response.data;
+  if (!Array.isArray(rows)) throw _oilErr('shape', 'EIA answered without a data list');
+  const pts = rows.map(r => {
+    const day = String((r && r.period) || ''), v = r && r.value;
+    const blank = v == null || String(v).trim() === '';
+    return { day, t: /^\d{4}-\d{2}-\d{2}$/.test(day) ? Date.parse(day + 'T12:00:00Z') : NaN, p: blank ? NaN : Number(v) };
+  }).filter(x => isFinite(x.t) && isFinite(x.p)).sort((a, b) => a.t - b.t);
+  if (!pts.length) throw _oilErr('shape', 'EIA answered with no usable prices');
+  const last = pts[pts.length - 1];
+  return { pts: pts.map(x => ({ t: x.t, p: x.p })), current: last.p, prev: pts.length > 1 ? pts[pts.length - 2].p : null,
+           currency: 'USD', ts: Date.now(), source: 'EIA', daily: true, asOf: last.day };
+}
+async function _oilViaEia(type, range, key) {
+  const r = await _fetchWithTimeout(_eiaUrl(type, range, key), {}, 8000);
+  if (!r.ok) throw _oilErr('http', `EIA HTTP ${r.status}` + (r.status === 401 || r.status === 403 ? ' — the key was rejected, check it' : ''));
+  return _parseEiaSpot(await r.json());
+}
+
+// The chain, in order: the two relay paths, then EIA when a key is set. Each failure is recorded with its kind so the panel can say WHY.
+function _oilSources(type, range) {
   const symbol = OIL_SYMBOLS[type], interval = OIL_INTERVALS[range] || '1d';
   const q = host => `https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
+  const list = [
+    { label: 'relay → Yahoo query1',       run: () => _oilViaWrapper(q('query1')) },
+    { label: 'relay (raw) → Yahoo query2', run: () => _oilViaRaw(q('query2')) },
+  ];
+  const key = ((DATA.settings && DATA.settings.eiaKey) || '').trim();
+  if (key) list.push({ label: 'EIA spot prices (your key)', run: () => _oilViaEia(type, range, key) });
+  return list;
+}
+async function _oilRunChain(sources, key) {
   const attempts = [];
-  for (const [label, run] of [['relay → Yahoo query1', () => _oilViaWrapper(q('query1'))], ['relay (raw) → Yahoo query2', () => _oilViaRaw(q('query2'))]]) {
-    try { return await run(); }
-    catch (e) { attempts.push({ label, message: e.name === 'AbortError' ? 'timed out' : (e.message || String(e)) }); console.warn('[oil]', type, label, 'failed:', e.message); }
+  for (const src of sources) {
+    try { return await src.run(); }
+    catch (e) {
+      const x = _oilExplain(e); x.message = _oilScrub(x.message, key);
+      attempts.push({ label: src.label, kind: x.kind, message: x.message }); console.warn('[oil]', src.label, x.kind, x.message);
+    }
   }
   const err = new Error('Live oil prices are not available right now.'); err.attempts = attempts; throw err;
+}
+async function _fetchOilSeries(type, range) {
+  return _oilRunChain(_oilSources(type, range), ((DATA.settings && DATA.settings.eiaKey) || '').trim());
 }
 
 let _oilInFlight = false, _oilFailedAt = 0;
@@ -14149,13 +14481,14 @@ async function fetchOilPrices(force=false) {
 
 // The panel shown when no price could be loaded. Everything that came from the network is escaped.
 function _oilFailureHtml(err) {
-  const rows = (err.attempts || []).map(a => `<div>• ${esc(a.label)}: ${esc(a.message)}</div>`).join('');
+  const rows = (err.attempts || []).map(a => `<div>• ${esc(a.label)}${a.kind ? ' [' + esc(a.kind) + ']' : ''}: ${esc(a.message)}</div>`).join('');
+  const hasKey = !!((DATA.settings && DATA.settings.eiaKey) || '').trim();
   return `
       <div style="font-size:12px;color:var(--ink2);padding:8px 0">
         <div style="color:var(--Am);margin-bottom:6px">⚠ ${esc(err.message)}</div>
         <div style="color:var(--ink3);font-size:11px;margin-bottom:6px">
           The prices come from Yahoo Finance through a free public relay (allorigins.win), which is sometimes down or throttled.
-          Try ↻ Refresh later — or enter the prices by hand below; the crude-cost calculator works with them either way.
+          Try ↻ Refresh later — or enter the prices by hand below; the crude-cost calculator works with them either way.${hasKey ? '' : ' You can also add a free EIA key under the chart for daily spot prices as a fallback.'}
         </div>
         ${rows ? `<details style="font-size:11px;color:var(--ink3);margin-bottom:10px"><summary style="cursor:pointer">What was tried</summary>${rows}</details>` : ''}
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -14195,12 +14528,29 @@ function updateOilBadges() {
       chg.style.color = diff >= 0 ? 'var(--Gm)' : 'var(--Rm)';
     }
   });
+  const srcEl = el('oil-source'); if (srcEl) srcEl.textContent = _oilSourceText();
   // Pre-fill calculator with WTI current price
   const wtiCalc = el('oil-calc-barrel');
   const primaryCache = (DATA.settings?.oilBenchmark||'brent')==='brent' ? _oilCache.brent : _oilCache.wti;
   if (wtiCalc && !wtiCalc.dataset.userSet && primaryCache)
     wtiCalc.value = primaryCache.current.toFixed(2);
   updateOilCalc();
+}
+
+// Where the shown price came from (the benchmark you chose wins when the two differ).
+function _oilSourceText() {
+  const brentFirst = (DATA.settings?.oilBenchmark || 'brent') === 'brent';
+  const d = brentFirst ? (_oilCache.brent || _oilCache.wti) : (_oilCache.wti || _oilCache.brent);
+  if (!d) return '';
+  if (d.manual) return 'Entered by hand.';
+  if (d.source === 'EIA') return `Source: EIA daily spot prices, last price ${d.asOf}. EIA publishes them about once a week, so this can be several days old.`;
+  return 'Source: Yahoo Finance, through a public relay.';
+}
+function saveEiaKey(raw) {
+  const k = String(raw || '').trim();
+  if (k.length > 100 || /\s/.test(k)) return toast('That does not look like an EIA key (no spaces, under 100 characters).', 1);
+  commit('EIA key', d => { if (!d.settings) d.settings = {}; if (k) d.settings.eiaKey = k; else delete d.settings.eiaKey; },
+    { touch: ['settings'], toast: null, render: false });
 }
 
 function setOilRange(range) {
@@ -14266,7 +14616,7 @@ function renderOilChart() {
       const x   = xS(p.t);
       const sw  = Math.max(step, 8);
       const d   = new Date(p.t);
-      const lbl = _oilRange==='1d'
+      const lbl = (_oilRange==='1d' && !_oilCache[primary.key]?.daily)
         ? d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'})
         : d.toLocaleDateString('de-AT',{day:'numeric',month:'short'});
       const prices = series.map(s=>{const pt=s.pts.find(q=>q.t===p.t)||(s.pts[i]);return pt?`${s.label}: $${pt.p.toFixed(2)}`:''}).filter(Boolean).join(' · ');
@@ -14288,7 +14638,7 @@ function renderOilChart() {
     const step2 = Math.max(1, Math.floor(primary2.pts.length/5));
     xLabels = primary2.pts.filter((_,i)=>i%step2===0||i===primary2.pts.length-1).map(p=>{
       const d = new Date(p.t);
-      const lbl = _oilRange==='1d'
+      const lbl = (_oilRange==='1d' && !_oilCache[primary.key]?.daily)
         ? d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'})
         : d.toLocaleDateString('de-AT',{day:'numeric',month:'short'});
       return `<text x="${xS(p.t).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${lbl}</text>`;
@@ -15157,10 +15507,8 @@ function getRecurringStatus(month, data = DATA) {
     let expectedCount;
     if (!recurFiresInMonth(r, month, data.entries)) {
       expectedCount = 0;                                 // quarterly / yearly, wrong month in the cycle
-    } else if (freq === 'weekly') {
-      expectedCount = [r.day||1, (r.day||1)+7, (r.day||1)+14, (r.day||1)+21].filter(d => d <= lastDay).length;
-    } else if (freq === 'biweekly') {
-      expectedCount = [r.day||1, (r.day||1)+14].filter(d => d <= lastDay).length;
+    } else if (freq === 'weekly' || freq === 'biweekly') {
+      expectedCount = recurDatesInMonth(r, month).length;
     } else {
       expectedCount = 1;
     }
@@ -15208,7 +15556,7 @@ function renderRecurring12() {
       const isPositive = r.type === 'income' || r.type === 'savings';
       const cls = isPositive ? 'income' : 'expense';
       const sign = isPositive ? '+' : '−';
-      return `<div class="rc12-pill ${cls}" title="${esc(r.desc)} · day ${r.day}">
+      return `<div class="rc12-pill ${cls}" title="${esc(r.desc)} · day ${recurDay(r)}">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${esc(r.desc)}</span>
         <span style="flex-shrink:0;font-family:var(--mono)">${sign}${fmtBare(r.amount)}</span>
       </div>`;
