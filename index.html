@@ -13266,7 +13266,7 @@ defineActions({
 defineActions({
   'sh-hm-tip'     : (t, ev) => hmTip(ev, t.dataset.label, t.dataset.month, parseFloat(t.dataset.v)),
   'sh-hm-hide'    : () => hmHide(),
-  'sh-oil-tip'    : (t, ev) => oilTip(ev, t.dataset.tip),
+  'sh-oil-tip'    : (t, ev) => oilTip(ev, t.dataset.tip, t),
   'sh-oil-hide'   : () => oilTipHide(),
   'sh-fuelhm-tip' : (t, ev) => fuelHmTip(ev, t.dataset.tip),
   'sh-fuelhm-hide': () => fuelHmHide(),
@@ -15116,12 +15116,16 @@ function renderOilChart() {
   </svg>`;
 }
 
-function oilTip(e, txt) {
+// `anchor` = the hovered element (the action's `t`). Listeners are delegated from the DOCUMENT, so e.currentTarget is the document (no closest()) — never use it.
+function oilTip(e, txt, anchor) {
   const tip = el('oil-chart-tip'); if (!tip) return;
   tip.textContent = txt; tip.style.display='block';
   tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-28)+'px';
   const xhair=document.getElementById('oil-xhair');
-  if(xhair){const rect=e.currentTarget?.closest('svg')?.getBoundingClientRect();if(rect)xhair.setAttribute('x1',e.clientX-rect.left);xhair.setAttribute('x2',e.clientX-rect.left);xhair.style.display='';}
+  if(xhair){
+    const rect=anchor?.closest?.('svg')?.getBoundingClientRect?.();
+    if(rect){ xhair.setAttribute('x1',e.clientX-rect.left); xhair.setAttribute('x2',e.clientX-rect.left); xhair.style.display=''; }
+  }
 }
 function oilTipHide(){const t=el('oil-chart-tip');if(t)t.style.display='none';const x=document.getElementById('oil-xhair');if(x)x.style.display='none';}
 
