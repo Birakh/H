@@ -1294,6 +1294,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div id="d-year"></div>
       </div>
 
+      <div class="card" id="ov-energy">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-energy">Electricity bill</div>
+        <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:8px">Estimate the bill from the meter before it arrives, then log the real one. The rates are those of one real bill and change over time: check them below.</div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="fg" style="margin:0"><label>Period from</label><input type="date" id="en-from" style="width:100%" data-action-input="energy-calc" data-action-change="energy-calc"></div>
+          <div class="fg" style="margin:0"><label>to</label><input type="date" id="en-to" style="width:100%" data-action-input="energy-calc" data-action-change="energy-calc"></div>
+          <div class="fg" style="margin:0"><label>Meter at start (kWh)</label><input type="text" inputmode="decimal" id="en-r0" placeholder="1.566,261" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+          <div class="fg" style="margin:0"><label>Meter now (kWh)</label><input type="text" inputmode="decimal" id="en-r1" placeholder="1.718,194" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+          <div class="fg g2-span" style="margin:0"><label>or consumption in kWh <span style="font-weight:400;color:var(--ink3)">(wins over the readings)</span></label><input type="text" inputmode="decimal" id="en-kwh" placeholder="151,90" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+        </div>
+        <details style="margin-bottom:8px;font-size:12px"><summary style="cursor:pointer;color:var(--ink3)">Optional: kWh per time band (off-peak / shoulder / peak)</summary>
+          <div class="g2" style="margin-top:6px">
+            <div class="fg" style="margin:0"><label>Off-peak</label><input type="text" inputmode="decimal" id="en-off" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
+          </div></details>
+        <div id="d-energy-est" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px"></div>
+        <div class="fg" style="margin:0 0 8px"><label>Compare with the recurring item</label><select id="en-link" data-action-change="energy-link" style="width:100%"></select></div>
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px">Log the real bill</div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="fg" style="margin:0"><label>Amount (€, empty = the estimate)</label><input type="text" inputmode="decimal" id="en-amount" style="width:100%;font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0"><label>Bill number</label><input type="text" id="en-number" style="width:100%"></div>
+          <div class="fg" style="margin:0"><label>Book in month</label><input type="month" id="en-month" style="width:100%"></div>
+        </div>
+        <button class="btn sm primary" data-action="energy-log">Log this bill</button>
+        <div id="d-energy-bills" style="margin-top:10px"></div>
+        <details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Rates (net, from the bill — change when your tariff changes)</summary>
+          <div id="d-energy-rates" style="margin-top:6px"></div></details>
+      </div>
+
       <div class="card" id="ov-heatmap">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-heatmap">Spending heatmap — last 12 months</div>
         <div id="d-heatmap"></div>
@@ -2720,6 +2750,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <!-- FUEL -->
     <section id="sec-fuel" class="section">
 
+      <!-- ── Which car (more cars: Manage) ── -->
+      <div class="card" id="car-card" style="padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:600;color:var(--ink3)">Car</span>
+          <select id="car-sel" data-action-change="car-switch" aria-label="Active car" style="width:auto;min-width:140px"></select>
+        </div>
+        <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Manage cars</summary>
+          <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin:6px 0">Refuels, tyres, service and insurance belong to the car selected above. A car can only be deleted when it has no data.</div>
+          <div id="car-list" style="margin:6px 0"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input type="text" id="car-name" maxlength="40" placeholder="Car name" aria-label="Car name" style="flex:1;min-width:140px">
+            <button class="btn xs" data-action="car-add">Add car</button>
+            <button class="btn xs ghost" data-action="car-rename" title="Give the selected car this name">Rename current</button>
+          </div>
+        </details>
+      </div>
+
       <!-- ── Stats row ── -->
       <div class="stat-grid" id="fuel-stats" style="margin-bottom:14px">
         <div class="stat"><div class="stat-lbl">Avg price/L</div><div class="stat-val" id="fs-ppl">—</div></div>
@@ -3380,6 +3427,8 @@ const FRESH = () => ({
   tires:       [],   // tyre sets — see TYRE SETS section
   insurance:   { renewalDate:null, annualKmBand:null, lastOdoAtRenewal:null, note:'' },
   fuelSettings: { tankSize: null },
+  cars:         [{ id:'car1', name:'Car 1', stash:null }],   // see car/cars.js — top-level fuel/tires/carService/insurance/tankSize belong to the ACTIVE car
+  activeCar:    'car1',
   settings:     { oilBenchmark: 'brent' }
 });
 
@@ -4095,7 +4144,7 @@ async function doPull(silent=false) {
   const _wasOld = (data.v||0) < SCHEMA_VERSION;
   DATA = migrate(data); SALT = salt; DATA.meta.sha = j.sha;
   DATA.meta.lastSync = new Date().toISOString();
-  auditRecord('pull', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
+  auditRecord('pull', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${allFuel(DATA).length}`);
   renderDash._cacheKey = null; // force expensive re-renders on next dash visit
   await saveLocalNow();
   if (!silent) toast('Pulled from GitHub');
@@ -4129,7 +4178,7 @@ async function doPush(message) {
   }
   const j = await r.json();
   DATA.meta.sha = j.content.sha;
-  auditRecord('push', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${DATA.fuel?.length||0}`);
+  auditRecord('push', `entries:${DATA.entries.length} accounts:${DATA.accounts.length} fuel:${allFuel(DATA).length}`);
   await saveLocalNow();
 }
 
@@ -4531,7 +4580,7 @@ function saveLocal() {
 // To add a new field in future: bump SCHEMA_VERSION, add a step at the end.
 // NEVER edit existing steps — they must remain idempotent and stable.
 // ══════════════════════════════════════════
-const SCHEMA_VERSION = 22; // current target version
+const SCHEMA_VERSION = 23; // current target version
 
 const MIGRATIONS = [
   // v0 → v1 : earliest known vaults — add splits, accounts, notes, meta
@@ -4721,6 +4770,13 @@ const MIGRATIONS = [
         periods: [{ from: { date: cs.tireDate || null, odo: (typeof cs.tireKm === 'number' ? cs.tireKm : null) }, to: null }],
       });
     }
+    return d;
+  },
+  // v22 → v23 : multiple cars. A list of cars and which one is active. Nothing moves: the top-level fuel / tires / carService / insurance /
+  // fuelSettings.tankSize already ARE the first car's data and stay where they are (they belong to the active car — see car/cars.js).
+  d => {
+    if (!Array.isArray(d.cars) || !d.cars.length) d.cars = [{ id: 'car1', name: 'Car 1', stash: null }];
+    if (!d.cars.some(c => c && c.id === d.activeCar)) d.activeCar = d.cars[0].id;
     return d;
   },
   // ── Add future steps here — bump SCHEMA_VERSION above ──
@@ -5162,6 +5218,7 @@ function renderDash() {
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
+  try { renderEnergy(); } catch (e) { console.error('Electricity failed:', e); }    // never breaks the Overview
   try { renderYearSummary(); } catch (e) { console.error('Year summary failed:', e); }    // never breaks the Overview
   try { renderTaxYear(); } catch (e) { console.error('Tax year failed:', e); }    // never breaks the Overview
   try { renderSinking(); } catch (e) { console.error('Sinking funds failed:', e); }    // like Insights: must never break the Overview
@@ -5708,6 +5765,7 @@ const OVERVIEW_CARDS = [      // default order — a test checks it against the 
   { id: 'ov-category',    label: 'Spending by category' },
   { id: 'ov-history',     label: 'Monthly history' },
   { id: 'ov-year',        label: 'Year summary' },
+  { id: 'ov-energy',      label: 'Electricity bill' },
   { id: 'ov-heatmap',     label: 'Spending heatmap' },
   { id: 'ov-tags',        label: 'Spending by tag' },
   { id: 'ov-bills',       label: 'Bill calendar' },
@@ -6741,13 +6799,13 @@ function finishEntryDeletion(id, alsoFuel) {
     if (!entry) return;
     const fuelRec = alsoFuel ? findFuelForEntry(entry) : null;
     commit(fuelRec ? 'Expense and refuel deleted' : 'Entry deleted', d => {
-      if (fuelRec) d.fuel = d.fuel.filter(f => f.id !== fuelRec.id);
+      if (fuelRec) removeFuelAnywhere(d, fuelRec.id);                                  // from the top level or from another car's stash
       // Deleting the mirrored Overview-income entry directly: also clear DATA.incomes for that month so the
       // Overview's income field doesn't keep showing a value/formula for an income that no longer exists
       // anywhere — the entry and the Overview field are meant to agree.
       if (entry.isSalaryMirror) delete d.incomes[id.slice('baseinc-'.length)];
       d.entries = d.entries.filter(e => e.id !== id);
-    }, { touch: ['entries', 'fuel', 'incomes'], restored: 'Entry restored' });
+    }, { touch: ['entries', 'fuel', 'cars', 'incomes'], restored: 'Entry restored' });
   } catch(e) { toast(e.message || 'Failed to delete entry.', 1); }
 }
 
@@ -6800,7 +6858,7 @@ async function commitEdit(id, field, val) {
   try {
     const e = DATA.entries.find(x=>x.id===id); if(!e) return;
     if (field === 'amount' || field === 'date') {
-      const offer = fuelEditOffer(e, field, field === 'amount' ? parseAmt(val).amount : val, DATA.fuel, DATA.entries);   // parseAmt throws on unreadable input, caught below as before
+      const offer = fuelEditOffer(e, field, field === 'amount' ? parseAmt(val).amount : val, allFuel(DATA), DATA.entries);   // parseAmt throws on unreadable input, caught below as before
       if (offer) { openEntryEdit(id, field, val, offer); preserveScroll(render); return; }       // the cell goes back to its old value while the dialog asks
     }
     const linked = (field === 'amount' || field === 'date') ? findFuelForEntry(e) : null;       // BEFORE the edit: the older date/total match is lost once it changes
@@ -6830,11 +6888,11 @@ function confirmEntryEdit(alsoFuel) {
     commit(alsoFuel ? 'Expense and refuel updated' : 'Entry updated', () => {
       const e = DATA.entries.find(x => x.id === p.id); if (!e) return;
       const rec = findFuelForEntry(e);                                             // BEFORE the edit
-      const offer = rec && alsoFuel ? fuelEditOffer(e, p.field, p.field === 'amount' ? parseAmt(p.val).amount : p.val, DATA.fuel, DATA.entries) : null;
+      const offer = rec && alsoFuel ? fuelEditOffer(e, p.field, p.field === 'amount' ? parseAmt(p.val).amount : p.val, allFuel(DATA), DATA.entries) : null;
       _applyEntryFieldEdit(e, p.id, p.field, p.val);
       if (rec && !e.fuelId) e.fuelId = rec.id;                                     // the pair stays linked although date / total now differ
       if (offer) { const err = applyFuelEdit(rec, offer.fuelField, String(offer.to)); if (err) throw new Error(err); }
-    }, { touch: ['entries', 'fuel'], restored: 'Edit undone' });
+    }, { touch: ['entries', 'fuel', 'cars'], restored: 'Edit undone' });
   } catch (err) { toast(err.message || 'Failed to save edit.', 1); }
 }
 defineActions({
@@ -8379,7 +8437,7 @@ function monthSummary(month, withPrev = true) {
     const name = (e.desc || '').trim() || '(no description)', k = name.toLowerCase();
     const m = merch.get(k) || { name, count: 0, total: 0 }; m.count++; m.total += e.amount; merch.set(k, m);
   });
-  const fuel = (DATA.fuel || []).filter(f => ym(f.date) === month);
+  const fuel = allFuel(DATA).filter(f => ym(f.date) === month);                 // every car's refuels
   const fuelL = fuel.reduce((a, f) => a + (f.liters || 0), 0), fuelCost = fuel.reduce((a, f) => a + (f.total || 0), 0);
   return {
     month, base, addInc, totalInc, budgetInc, act, targets, spent, left,
@@ -8387,7 +8445,8 @@ function monthSummary(month, withPrev = true) {
     entryCount: mes.length,
     topExpenses: [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 10),
     topMerchants: [...merch.values()].sort((a, b) => b.total - a.total).slice(0, 8),
-    fuel: fuel.length ? { n: fuel.length, liters: fuelL, cost: fuelCost, avgPpl: fuelL > 0 ? fuelCost / fuelL : 0 } : null,
+    fuel: fuel.length ? { n: fuel.length, liters: fuelL, cost: fuelCost, avgPpl: fuelL > 0 ? fuelCost / fuelL : 0,
+      ...(carsOf(DATA).length > 1 ? { byCar: carViews(DATA).map(v => { const r = (v.view.fuel || []).filter(f => ym(f.date) === month); return { id: v.id, name: v.name, n: r.length, liters: r.reduce((a, f) => a + (f.liters || 0), 0), cost: r.reduce((a, f) => a + (f.total || 0), 0) }; }).filter(c => c.n) } : {}) } : null,
     prev: withPrev ? monthSummary(prevMonStr(month), false) : null,
   };
 }
@@ -8431,6 +8490,7 @@ function monthReportHtml(m, generatedISO) {
   if (m.fuel) {
     h += `<h2>Fuel</h2><table><tr><th>Refuels</th><th class="r">Litres</th><th class="r">Cost</th><th class="r">Average €/L</th></tr>
       <tr><td>${m.fuel.n}</td><td class="r">${m.fuel.liters.toFixed(1)} L</td><td class="r">${fmt(m.fuel.cost)}</td><td class="r">${m.fuel.avgPpl.toFixed(3)} €</td></tr></table>`;
+    if (m.fuel.byCar) h += `<table><tr><th>Car</th><th class="r">Refuels</th><th class="r">Litres</th><th class="r">Cost</th></tr>${m.fuel.byCar.map(c => `<tr><td>${esc(c.name)}</td><td class="r">${c.n}</td><td class="r">${c.liters.toFixed(1)} L</td><td class="r">${fmt(c.cost)}</td></tr>`).join('')}</table>`;
   }
   return h + `<div class="rp-note">${m.entryCount} entries this month. Figures follow the Overview: budget targets use the salary alone and include any rollover; “Total allocated” is needs + wants + savings.</div>`;
 }
@@ -8708,7 +8768,7 @@ defineActions({
   'rc-recheck': () => runReconcile(),
   'rc-delete': t => { deleteEntry(t.dataset.id); runReconcile(); },
   'rc-assign': t => _rcnApply('Entry booked on this account', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.accountId = _rcnAcctId; }, ['entries']),
-  'rc-amount': t => _rcnApply('Amount corrected', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) { const rec = findFuelForEntry(e, d.fuel, d.entries); e.amount = +t.dataset.amount; e.formula = null; if (rec && !e.fuelId) e.fuelId = rec.id; } }, ['entries']),   // a fuel expense keeps its link to the refuel (the old amount match is lost by this change)
+  'rc-amount': t => _rcnApply('Amount corrected', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) { const rec = findFuelForEntry(e, allFuel(d), d.entries); e.amount = +t.dataset.amount; e.formula = null; if (rec && !e.fuelId) e.fuelId = rec.id; } }, ['entries']),   // a fuel expense keeps its link to the refuel (the old amount match is lost by this change)
   'rc-flip':   t => _rcnApply('Entry flipped', d => { const e = d.entries.find(x => x.id === t.dataset.id); if (e) e.type = e.type === 'income' ? 'expense' : 'income'; }, ['entries']),
   'rc-opening': t => _rcnApply('Opening balance adjusted', d => { const a = d.accounts.find(x => x.id === _rcnAcctId); if (a) a.balance = _rcnR2((+a.balance || 0) + (+t.dataset.amount)); }, ['accounts']),
 });
@@ -10526,14 +10586,23 @@ function yearSummary(year) {
   const topMerchants = [...merch.values()].map(x => ({ ...x, total: _yrC(x.total) }))
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)).slice(0, 10);
 
-  const recs = (DATA.fuel || []).filter(f => typeof f.date === 'string');
-  const yr = recs.filter(f => _yrOf(f.date) === year);
-  let fuel = null;
-  if (yr.length) {
+  // Fuel: every car's fill-ups. The L/100 km average belongs to ONE car (two cars' consumption is not an average), so it is per car.
+  const fuelOf = list => {
+    const recs = (list || []).filter(f => typeof f.date === 'string'), yr = recs.filter(f => _yrOf(f.date) === year);
+    if (!yr.length) return null;
     const litres = yr.reduce((a, f) => a + (f.liters || 0), 0), cost = yr.reduce((a, f) => a + (f.total || 0), 0);
     const pairs = _fullTankPairs(recs).filter(p => _yrOf(p.to.date) === year);
     const km = pairs.reduce((a, p) => a + p.km, 0), pl = pairs.reduce((a, p) => a + p.liters, 0);
-    fuel = { n: yr.length, liters: _yrC(litres), cost: _yrC(cost), avgPpl: litres > 0 ? cost / litres : 0, avgL100: km > 0 ? pl / km * 100 : null };
+    return { n: yr.length, liters: _yrC(litres), cost: _yrC(cost), avgPpl: litres > 0 ? cost / litres : 0, avgL100: km > 0 ? pl / km * 100 : null };
+  };
+  let fuel = null;
+  if (carsOf(DATA).length <= 1) fuel = fuelOf(DATA.fuel);
+  else {
+    const per = carViews(DATA).map(v => ({ id: v.id, name: v.name, ...fuelOf(v.view.fuel) })).filter(c => c.n);
+    if (per.length) {
+      const litres = per.reduce((a, c) => a + c.liters, 0), cost = per.reduce((a, c) => a + c.cost, 0);
+      fuel = { n: per.reduce((a, c) => a + c.n, 0), liters: _yrC(litres), cost: _yrC(cost), avgPpl: litres > 0 ? cost / litres : 0, avgL100: per.length === 1 ? per[0].avgL100 : null, ...(per.length > 1 ? { cars: per } : {}) };
+    }
   }
   return { year, months, income, needs: sum('needs'), wants: sum('wants'), savings, spent: sum('spent'), left,
     savedPct: income > 0 ? savings / income * 100 : null, leftPct: income > 0 ? left / income * 100 : null,
@@ -10574,10 +10643,189 @@ function renderYearSummary(today = ymd()) {
     h += `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px">Top merchants</div>`
       + S.topMerchants.map((m, i) => barRow(m.name, m.total, max, { rank: i + 1, extra: `<span style="font-size:11px;color:var(--ink3)">${m.count}×</span>` })).join(''); }
   if (S.fuel) h += `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px">Fuel</div>`
-    + `<div style="font-size:13px">${S.fuel.n} fill-up${S.fuel.n === 1 ? '' : 's'} · ${S.fuel.liters.toFixed(1)} L · ${fmt(S.fuel.cost)}${S.fuel.avgPpl ? ' · ' + fmt(S.fuel.avgPpl) + '/L' : ''}${S.fuel.avgL100 != null ? ' · ' + S.fuel.avgL100.toFixed(1) + ' L/100 km' : ''}</div>`;
+    + [S.fuel, ...(S.fuel.cars || [])].map((f, i) => `<div style="font-size:13px${i ? ';margin-top:2px' : ''}">${i ? esc(f.name) + ': ' : ''}${f.n} fill-up${f.n === 1 ? '' : 's'} · ${f.liters.toFixed(1)} L · ${fmt(f.cost)}${f.avgPpl ? ' · ' + fmt(f.avgPpl) + '/L' : ''}${f.avgL100 != null ? ' · ' + f.avgL100.toFixed(1) + ' L/100 km' : ''}</div>`).join('');
   box.innerHTML = h;
 }
 defineActions({ 'year-change': t => { _yearUI.year = +t.value || null; renderYearSummary(); } });
+
+// ══════════════════════════════════════════
+// ELECTRICITY — estimate a bill before it arrives, log the real one, compare with the last bill and the recurring item.
+// Defaults are the rates on ONE real bill (smartENERGY smartTIMES, grid Netz Niederösterreich, October 2026): they reproduce its €71.48 to the cent.
+// They are NOT checked against the regulator's tariff sheets and CHANGE (grid charges and levies often on 1 January; the energy price is variable),
+// so every rate can be overridden (DATA.energy.tariff, flat path keys → number). DATA.energy is optional: { tariff, recurId, lastReading, bills[] };
+// every read tolerates it missing. energyEstimate / energyTariff / energyMonthFraction are PURE.
+// ══════════════════════════════════════════
+const ENERGY_DEFAULTS = {
+  baseFee: 2.49,                                                              // € per month, net
+  bands:  { off: 18.46, shoulder: 21.23, peak: 25.85 },                      // ct per kWh, net (smartTIMES time bands)
+  grid:   { capacityPerDay: 0.147945, usageCt: 8.79, lossCt: 0.384, meterPerDay: 0.071671 },
+  levies: { electricityCt: 0.10, eagPerDay: 0.05211, eagLossCt: 0.037, eagUnmeasuredPerDay: 0.0104, eagUsageCt: 0.583 },
+  vat: 20,                                                                    // %
+};
+const ENERGY_SHARE = { off: 52.21 / 151.94, shoulder: 46.05 / 151.94, peak: 53.68 / 151.94 };   // the usual split when only the total kWh is known
+const ENERGY_RATES = [   // every editable rate: flat path, label, unit
+  { path: 'baseFee', label: 'Energy base fee', unit: '€ / month' },
+  { path: 'bands.off', label: 'Energy off-peak', unit: 'ct / kWh' }, { path: 'bands.shoulder', label: 'Energy shoulder', unit: 'ct / kWh' }, { path: 'bands.peak', label: 'Energy peak', unit: 'ct / kWh' },
+  { path: 'grid.capacityPerDay', label: 'Grid: capacity', unit: '€ / day' }, { path: 'grid.usageCt', label: 'Grid: usage', unit: 'ct / kWh' },
+  { path: 'grid.lossCt', label: 'Grid: losses', unit: 'ct / kWh' }, { path: 'grid.meterPerDay', label: 'Grid: metering', unit: '€ / day' },
+  { path: 'levies.electricityCt', label: 'Electricity levy', unit: 'ct / kWh' }, { path: 'levies.eagPerDay', label: 'EAG flat rate', unit: '€ / day' },
+  { path: 'levies.eagLossCt', label: 'EAG grid losses', unit: 'ct / kWh' }, { path: 'levies.eagUnmeasuredPerDay', label: 'EAG unmeasured capacity', unit: '€ / day' },
+  { path: 'levies.eagUsageCt', label: 'EAG grid usage', unit: 'ct / kWh' }, { path: 'vat', label: 'VAT', unit: '%' },
+];
+const _enR2 = x => Math.round((x + Number.EPSILON) * 100) / 100;
+const _enR3 = x => Math.round((x + Number.EPSILON) * 1000) / 1000;
+const _enIsNum = x => typeof x === 'number' && Number.isFinite(x);
+// "1.566,261" / "151,90" / "151.9" → number · empty → null · anything else → NaN
+function _enNum(s) {
+  let t = String(s == null ? '' : s).replace(/[\s\u00a0]/g, ''); if (!t) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+}
+// The rates in force: the bill's, with your valid overrides on top (only known paths; never a negative or non-number).
+function energyTariff(energy) {
+  const t = JSON.parse(JSON.stringify(ENERGY_DEFAULTS)), ov = (energy && energy.tariff) || {};
+  ENERGY_RATES.forEach(({ path }) => {
+    const v = Object.prototype.hasOwnProperty.call(ov, path) ? ov[path] : undefined;
+    if (!_enIsNum(v) || v < 0) return;
+    const [a, b] = path.split('.'); if (b) t[a][b] = v; else t[a] = v;
+  });
+  return t;
+}
+// 'YYYY-MM-DD' ×2 → { days, months } (a whole calendar month = 1 month; otherwise days / days of the start month) · null when impossible.
+function energyMonthFraction(from, to) {
+  const ok = d => { if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return null; const [y, m, dd] = d.split('-').map(Number), t = Date.UTC(y, m - 1, dd); const x = new Date(t); return x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === dd ? t : null; };
+  const a = ok(from), b = ok(to); if (a == null || b == null || b < a) return null;
+  const days = Math.round((b - a) / 864e5) + 1, [y, m, dd] = from.split('-').map(Number), dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lastOfMonth = to === `${from.slice(0, 7)}-${String(dim).padStart(2, '0')}`;
+  return { days, months: dd === 1 && lastOfMonth ? 1 : days / dim };
+}
+// inp = { kwh (the billed / metered kWh), days, months, bandKwh?: {off, shoulder, peak} } → every line rounded to cents like the bill, or { error }.
+function energyEstimate(t, inp) {
+  const { kwh, days, months, bandKwh } = inp || {};
+  if (!_enIsNum(kwh) || kwh < 0) return { error: 'Enter the consumption in kWh (0 or more).' };
+  if (!_enIsNum(days) || days <= 0 || !_enIsNum(months) || months <= 0) return { error: 'Enter a valid period.' };
+  let bk;
+  if (bandKwh) {
+    bk = bandKwh; if (!['off', 'shoulder', 'peak'].every(k => _enIsNum(bk[k]) && bk[k] >= 0)) return { error: 'Band kWh must be numbers (0 or more).' };
+    const sum = bk.off + bk.shoulder + bk.peak;
+    if (Math.abs(sum - kwh) > 0.5) return { error: `The band kWh (${_enR3(sum)}) do not add up to the total (${_enR3(kwh)}).` };
+  } else { const off = _enR3(kwh * ENERGY_SHARE.off), sh = _enR3(kwh * ENERGY_SHARE.shoulder); bk = { off, shoulder: sh, peak: _enR3(kwh - off - sh) }; }
+  const ct = (k, rate) => _enR2(k * rate / 100);
+  const energy = { base: _enR2(t.baseFee * months), bands: { off: ct(bk.off, t.bands.off), shoulder: ct(bk.shoulder, t.bands.shoulder), peak: ct(bk.peak, t.bands.peak) } };
+  energy.sum = _enR2(energy.base + energy.bands.off + energy.bands.shoulder + energy.bands.peak);
+  const grid = { capacity: _enR2(days * t.grid.capacityPerDay), usage: ct(kwh, t.grid.usageCt), loss: ct(kwh, t.grid.lossCt), meter: _enR2(days * t.grid.meterPerDay) };
+  grid.sum = _enR2(grid.capacity + grid.usage + grid.loss + grid.meter);
+  const L = t.levies, taxes = { levy: ct(kwh, L.electricityCt), eagFlat: _enR2(days * L.eagPerDay), eagLoss: ct(kwh, L.eagLossCt), eagUnmeasured: _enR2(days * L.eagUnmeasuredPerDay), eagUsage: ct(kwh, L.eagUsageCt) };
+  taxes.sum = _enR2(taxes.levy + taxes.eagFlat + taxes.eagLoss + taxes.eagUnmeasured + taxes.eagUsage);
+  const net = _enR2(energy.sum + grid.sum + taxes.sum), vat = _enR2(net * t.vat / 100);
+  return { energy, grid, taxes, net, vat, gross: _enR2(net + vat), kwh, days, months, bandKwh: bk };
+}
+
+// ── View ─────────────────────────────────────────────────────────────────
+// Reads the fields; { error } or the inputs for energyEstimate. A typed kWh wins (it is the billed number); otherwise the two meter readings give it.
+function energyRead() {
+  const v = id => (el('en-' + id) ? el('en-' + id).value : '');
+  const from = v('from'), to = v('to'), per = energyMonthFraction(from, to);
+  if (!per) return { error: 'Enter a valid period (the start date on or before the end date).' };
+  const r0 = _enNum(v('r0')), r1 = _enNum(v('r1')), bothR = r0 != null && r1 != null && !Number.isNaN(r0) && !Number.isNaN(r1);
+  let kwh = _enNum(v('kwh'));
+  if (kwh == null && bothR) { if (r1 < r0) return { error: 'The new meter reading is lower than the old one.' }; kwh = _enR3(r1 - r0); }
+  if (kwh == null || Number.isNaN(kwh)) return { error: 'Enter the kWh, or both meter readings.' };
+  const b = ['off', 'shoulder', 'peak'].map(k => _enNum(v(k))), given = b.filter(x => x != null);
+  let bandKwh;
+  if (given.length === 3) { if (b.some(Number.isNaN)) return { error: 'Band kWh must be numbers.' }; bandKwh = { off: b[0], shoulder: b[1], peak: b[2] }; }
+  else if (given.length) return { error: 'Enter all three band kWh, or none.' };
+  return { from, to, kwh, days: per.days, months: per.months, bandKwh, readingOld: bothR ? r0 : null, readingNew: bothR ? r1 : null };
+}
+const _enKwh = n => n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+const _enDelta = (gross, other, label) => {
+  const d = _enR2(gross - other);
+  return `<div style="font-size:12px;margin-top:3px">${Math.abs(d) < 0.005 ? '＝ same as' : `<span style="color:${d > 0 ? 'var(--Rm)' : 'var(--Gm)'}">${d > 0 ? '▲' : '▼'} ${fmt(d)}</span>`} ${label} <span style="font-family:var(--mono)">${fmt(other)}</span></div>`;
+};
+function energyCalc() {
+  const box = el('d-energy-est'); if (!box) return;
+  const inp = energyRead(), note = t => { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">${esc(t)}</div>`; };
+  if (inp.error) return note(inp.error);
+  const r = energyEstimate(energyTariff(DATA.energy), inp); if (r.error) return note(r.error);
+  const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${fmt(v)}</span></div>`;
+  let h = `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${_enKwh(r.kwh)} kWh · ${r.days} day${r.days === 1 ? '' : 's'}</div>`
+    + row('Energy (net)', r.energy.sum) + row('Grid charges (net)', r.grid.sum) + row('Taxes and levies (net)', r.taxes.sum) + row('Net', r.net) + row(`VAT ${energyTariff(DATA.energy).vat} %`, r.vat)
+    + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row('Estimated bill', r.gross, true)}</div>`;
+  const prev = ((DATA.energy && DATA.energy.bills) || []).filter(b => b.to < inp.from).sort((a, b) => b.to.localeCompare(a.to))[0];
+  if (prev) h += _enDelta(r.gross, prev.gross, 'vs the previous bill');
+  const link = ((DATA.energy && DATA.energy.recurId) && (DATA.recurring || []).find(x => x.id === DATA.energy.recurId)) || null;
+  if (link) h += _enDelta(r.gross, link.amount, `vs the recurring item “${esc(link.desc)}”`);
+  box.innerHTML = h;
+}
+function renderEnergy() {
+  if (!el('d-energy-est')) return;
+  const en = DATA.energy || {}, today = ymd(), set = (id, val) => { const e = el('en-' + id); if (e && !e.value) e.value = val; };
+  const [y, m] = today.split('-').map(Number), last = new Date(y, m, 0).getDate();
+  set('from', `${today.slice(0, 7)}-01`); set('to', `${today.slice(0, 7)}-${String(last).padStart(2, '0')}`); if (en.lastReading != null) set('r0', String(en.lastReading).replace('.', ','));
+  const sel = el('en-link');
+  if (sel) { sel.innerHTML = `<option value="">— none</option>` + (DATA.recurring || []).map(r => `<option value="${esc(r.id)}"${r.id === en.recurId ? ' selected' : ''}>${esc(r.desc)} · ${fmt(r.amount)}</option>`).join(''); sel.value = en.recurId || ''; }
+  const t = en.tariff || {}, rates = el('d-energy-rates');
+  if (rates) { const def = energyTariff({});
+    rates.innerHTML = ENERGY_RATES.map(({ path, label, unit }) => { const [a, b] = path.split('.'), d = b ? def[a][b] : def[a], has = Object.prototype.hasOwnProperty.call(t, path) && _enIsNum(t[path]);
+      return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:3px 0;text-transform:none;letter-spacing:0;font-weight:400"><span style="flex:1">${esc(label)} <span style="color:var(--ink3)">(${esc(unit)}, ${esc(path)})</span></span>`
+        + `<input type="text" inputmode="decimal" data-action-change="energy-rate" data-path="${esc(path)}" value="${has ? esc(String(t[path]).replace('.', ',')) : ''}" placeholder="${esc(String(d).replace('.', ','))}" style="width:90px;font-family:var(--mono);text-align:right"></label>`; }).join(''); }
+  const bills = [...(en.bills || [])].sort((a, b) => String(b.to).localeCompare(String(a.to))), box = el('d-energy-bills');
+  if (box) box.innerHTML = bills.length ? bills.map(b => {
+    const err = b.estimate != null ? _enR2(b.estimate - b.gross) : null;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:.5px solid var(--bdr);font-size:12px;flex-wrap:wrap"><div style="flex:1;min-width:150px"><div>${esc(b.number || '(no number)')}</div>`
+      + `<div style="color:var(--ink3);font-size:11px">${esc(b.from)} → ${esc(b.to)} · ${_enKwh(+b.kwh || 0)} kWh${err != null ? ` · estimate ${fmt(b.estimate)} (${err > 0 ? '+' : err < 0 ? '−' : '±'}${fmt(err)})` : ''}</div></div>`
+      + `<span style="font-family:var(--mono);font-weight:600">${fmt(b.gross)}</span><button class="btn xs ghost" data-action="energy-bill-del" data-id="${esc(b.id)}" title="Remove this record (the expense stays)">×</button></div>`; }).join('')
+    : `<div style="font-size:12px;color:var(--ink3)">No bills logged yet.</div>`;
+  energyCalc();
+}
+
+function energySetRate(path, raw) {
+  if (!ENERGY_RATES.some(r => r.path === path)) return;
+  const n = _enNum(raw), had = DATA.energy && DATA.energy.tariff && Object.prototype.hasOwnProperty.call(DATA.energy.tariff, path);
+  if (n === null && !had) return;                                     // clearing something that is not set: nothing to do
+  if (n !== null && (Number.isNaN(n) || n < 0)) return toast('Enter a number, 0 or more.', 1);
+  commit('Energy rate', d => { d.energy = d.energy || {}; d.energy.tariff = d.energy.tariff || {}; if (n === null) delete d.energy.tariff[path]; else d.energy.tariff[path] = n; },
+    { touch: ['energy'], toast: null, render: () => renderEnergy() });
+}
+function energySetLink(id) {
+  const cur = (DATA.energy && DATA.energy.recurId) || '';
+  if ((id || '') === cur) return;
+  commit('Energy link', d => { d.energy = d.energy || {}; if (id) d.energy.recurId = id; else delete d.energy.recurId; }, { touch: ['energy'], toast: null, render: () => renderEnergy() });
+}
+function energyLog() {
+  const inp = energyRead(); if (inp.error) return toast(inp.error, 1);
+  const est = energyEstimate(energyTariff(DATA.energy), inp); if (est.error) return toast(est.error, 1);
+  const typed = _enNum(el('en-amount') ? el('en-amount').value : ''), gross = typed == null ? est.gross : typed;
+  if (!(gross > 0)) return toast('Enter the bill amount (more than 0).', 1);
+  const total = _enR2(gross);
+  if (((DATA.energy && DATA.energy.bills) || []).some(b => b.from === inp.from && b.to === inp.to)) return toast('This period is already logged.', 1);
+  const month = (el('en-month') && el('en-month').value) || inp.to.slice(0, 7);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return toast('Pick the month to book it in.', 1);
+  const link = (DATA.energy && DATA.energy.recurId) ? (DATA.recurring || []).find(x => x.id === DATA.energy.recurId) : null;
+  let date = month === inp.to.slice(0, 7) ? inp.to : `${month}-01`;
+  if (link) { const plan = recurOneOffPlan(link, month, total, DATA.entries); if (plan.error) return toast(plan.error, 1); date = plan.date; }
+  const number = ((el('en-number') && el('en-number').value) || '').trim().slice(0, 60);
+  commit(`Electricity ${inp.from} → ${inp.to} logged`, d => {
+    const entryId = uid();
+    d.entries.unshift({ id: entryId, loggedAt: new Date().toISOString(), date, desc: link ? link.desc : 'Electricity', amount: total, formula: null, type: 'expense', category: 'needs',
+      tags: ['energy'], accountId: link ? (link.accountId || null) : null, ...(link ? { recurId: link.id, oneOff: true } : {}) });
+    if (!d.energy) d.energy = {};
+    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number,
+      entryId, month, readingOld: inp.readingOld, readingNew: inp.readingNew });
+    if (inp.readingNew != null) d.energy.lastReading = inp.readingNew;
+  }, { touch: ['entries', 'energy'], render: () => { render(); renderEnergy(); } });
+}
+function energyBillDel(id) {
+  if (!((DATA.energy && DATA.energy.bills) || []).some(b => b.id === id)) return;
+  commit('Bill record removed', d => { d.energy.bills = d.energy.bills.filter(b => b.id !== id); }, { touch: ['energy'], render: () => renderEnergy() });
+}
+defineActions({
+  'energy-calc':     () => energyCalc(),
+  'energy-rate':     t => energySetRate(t.dataset.path, t.value),
+  'energy-link':     t => energySetLink(t.value),
+  'energy-log':      () => energyLog(),
+  'energy-bill-del': t => energyBillDel(t.dataset.id),
+});
 
 // ══════════════════════════════════════════
 // SPENDING FORECAST
@@ -13074,20 +13322,20 @@ function _nextDue(lastDateStr, lastKm, intKm, intMo, currentKm) {
 }
 
 // The newest refuel that has an odometer reading.
-function _latestOdoRecord() {
-  const recs = (DATA.fuel || []).filter(f => f.odo > 0 && f.date);
+function _latestOdoRecord(fuel = DATA.fuel) {
+  const recs = (fuel || []).filter(f => f.odo > 0 && f.date);
   if (!recs.length) return null;
   recs.sort((a, b) => b.date.localeCompare(a.date) || b.odo - a.odo);
   return recs[0];
 }
 
-function _currentOdo() {
+function _currentOdo(fuel = DATA.fuel) {
   // Odometer of the most recent dated refuel that has one. This used to be the HIGHEST
   // odometer ever typed, so a single typo (1,000,000 instead of 100,000) made every
   // service and tyre due-date wrong until that record was found; and a back-dated refuel
   // with a bigger number did the same. Now only the newest reading counts — and if THAT
   // one looks wrong, the Tyres card says so (see renderTyres) and Vault Health flags it.
-  const r = _latestOdoRecord();
+  const r = _latestOdoRecord(fuel);
   return r ? r.odo : null;
 }
 
@@ -13128,15 +13376,10 @@ function updateServicePreview() {
   }
 }
 
-function checkServiceAlert() {
-  const bar = el('service-alert-bar');
-  const msg = el('svc-alert-msg');
-  if (!bar || !msg) return;
-  const s = DATA.carService;
-  if (!s) { bar.style.display = 'none'; return; }
-
-  const currentOdo = _currentOdo();
-  const alerts = [];
+// The alerts of ONE car (`view` = that car's data, see carViews): service due / overdue, and the tyre set on the car. → [{ text, urgent }]
+function serviceAlertsFor(view) {
+  const s = view.carService; if (!s) return [];
+  const currentOdo = _currentOdo(view.fuel || []), alerts = [];
 
   // Check service
   if (s.serviceDate || s.serviceKm) {
@@ -13151,11 +13394,21 @@ function checkServiceAlert() {
   }
 
   // Check tyres — only the set on the car can need attention right now
-  const onCar = mountedTyreSet(DATA.tires);
+  const onCar = mountedTyreSet(view.tires || []);
   if (onCar) {
-    const st = tyreStatus(onCar, { odo: currentOdo, readings: tyreTreadReadings(onCar.id) });
+    const st = tyreStatus(onCar, { odo: currentOdo, readings: tyreTreadReadings(onCar.id, s.treadLog || []) });
     st.reasons.forEach(r => alerts.push({ text: `🛞 ${esc(onCar.name)}: ${esc(r.text)}`, urgent: r.level === 'over' }));
   }
+  return alerts;
+}
+
+// Every car's alerts (a Fiat service must show while the Golf is the active car); with several cars each is named.
+function checkServiceAlert() {
+  const bar = el('service-alert-bar');
+  const msg = el('svc-alert-msg');
+  if (!bar || !msg) return;
+  const views = carViews(DATA), many = views.length > 1, alerts = [];
+  views.forEach(v => serviceAlertsFor(v.view).forEach(a => alerts.push(many ? { ...a, text: `${esc(v.name)}: ${a.text}` } : a)));
 
   if (!alerts.length || _svcAlertDismissed) { bar.style.display = 'none'; return; }
   const urgent = alerts.some(a => a.urgent);
@@ -13879,6 +14132,204 @@ function updateInsurancePreview() {
 
   wrap.innerHTML = parts.join('<br>');
 }
+
+// ══════════════════════════════════════════
+// MULTIPLE CARS — data model (schema v23). Model "swap on switch":
+//   · the top-level DATA.fuel / DATA.tires / DATA.carService / DATA.insurance / DATA.fuelSettings.tankSize ALWAYS belong to the ACTIVE car
+//     (so every existing screen and calculation keeps seeing "the car" and can never mix two cars);
+//   · every OTHER car keeps its copy in cars[i].stash = { fuel, tires, carService, insurance, tankSize };  the active car's stash is null;
+//   · switching moves the data between the top level and the stashes (a move, never a copy).
+// Global (not per car): fuelSettings.transitMonthly / winterMonths, oil settings, entries. An entry links to its refuel by fuelId, wherever that sits.
+// The *In functions MUTATE the data object they are given (call them inside commit()); the rest are pure.
+// ══════════════════════════════════════════
+const CAR_MAX = 8, CAR_NAME_MAX = 40;
+const _carDefault = () => ({ id: 'car1', name: 'Car 1', stash: null });
+function carsOf(d)        { return (d && Array.isArray(d.cars) && d.cars.length) ? d.cars : [_carDefault()]; }
+function activeCarId(d)   { const cs = carsOf(d); return cs.some(c => c && c.id === (d || {}).activeCar) ? d.activeCar : cs[0].id; }
+function activeCar(d)     { return carsOf(d).find(c => c.id === activeCarId(d)); }
+function emptyCarStash()  { const f = FRESH(); return { fuel: [], tires: [], carService: f.carService, insurance: f.insurance, tankSize: null }; }
+// The live (top-level) data as a stash object — what the active car owns right now.
+function _liveStash(d) {
+  const f = FRESH();
+  return { fuel: d.fuel || [], tires: d.tires || [], carService: d.carService || f.carService, insurance: d.insurance || f.insurance,
+           tankSize: (d.fuelSettings && d.fuelSettings.tankSize != null) ? d.fuelSettings.tankSize : null };
+}
+function _applyStash(d, st) {
+  const f = FRESH();
+  d.fuel = st.fuel || []; d.tires = st.tires || []; d.carService = st.carService || f.carService; d.insurance = st.insurance || f.insurance;
+  if (!d.fuelSettings) d.fuelSettings = {};
+  d.fuelSettings.tankSize = st.tankSize == null ? null : st.tankSize;
+}
+// Every refuel / tyre set of every car (the active car's first), each record once.
+function allFuel(d)  { return _allOf(d, 'fuel'); }
+function allTires(d) { return _allOf(d, 'tires'); }
+function _allOf(d, k) {
+  const out = [...(d[k] || [])];
+  if (Array.isArray(d.cars)) { const act = activeCarId(d); d.cars.forEach(c => { if (c.id !== act && c.stash && Array.isArray(c.stash[k])) out.push(...c.stash[k]); }); }
+  return out;
+}
+// Where does a refuel live? → { rec, carId, stashed } or null.
+function findFuelAnywhere(d, id) {
+  const top = (d.fuel || []).find(f => f.id === id); if (top) return { rec: top, carId: activeCarId(d), stashed: false };
+  const act = activeCarId(d);
+  for (const c of (Array.isArray(d.cars) ? d.cars : [])) { if (c.id === act || !c.stash) continue; const r = (c.stash.fuel || []).find(f => f.id === id); if (r) return { rec: r, carId: c.id, stashed: true }; }
+  return null;
+}
+
+// Every car as its own "view" of the data: { id, name, view } where view has THAT car's fuel / tires / carService / insurance / tankSize in the usual top-level places,
+// so any pure function written for "the car" (reminders, service alerts, …) can run once per car unchanged. The active car's view is the data itself.
+function carViews(d) {
+  const act = activeCarId(d);
+  return carsOf(d).map(c => {
+    if (c.id === act) return { id: c.id, name: c.name, view: d };
+    const st = c.stash || emptyCarStash();
+    return { id: c.id, name: c.name, view: { ...d, fuel: st.fuel || [], tires: st.tires || [], carService: st.carService || {}, insurance: st.insurance || {}, fuelSettings: { ...(d.fuelSettings || {}), tankSize: st.tankSize == null ? null : st.tankSize } } };
+  });
+}
+// Remove a refuel wherever it is (the top level or any car's stash). → true when something was removed.
+function removeFuelAnywhere(d, id) {
+  const n = (d.fuel || []).length; d.fuel = (d.fuel || []).filter(f => f.id !== id); let gone = d.fuel.length !== n;
+  (Array.isArray(d.cars) ? d.cars : []).forEach(c => { if (c.stash && Array.isArray(c.stash.fuel)) { const m = c.stash.fuel.length; c.stash.fuel = c.stash.fuel.filter(f => f.id !== id); if (c.stash.fuel.length !== m) gone = true; } });
+  return gone;
+}
+
+function switchCarIn(d, id) {
+  if (!Array.isArray(d.cars) || !d.cars.length) return false;
+  const from = d.cars.find(c => c.id === activeCarId(d)), to = d.cars.find(c => c.id === id);
+  if (!to || to === from) return false;
+  from.stash = _liveStash(d);
+  _applyStash(d, to.stash || emptyCarStash());
+  to.stash = null; d.activeCar = to.id;
+  return true;
+}
+// Name rules shared by add and rename: { error } or { name }.
+function _carName(d, raw, selfId) {
+  const name = String(raw == null ? '' : raw).trim();
+  if (!name) return { error: 'Enter a name for the car.' };
+  if (name.length > CAR_NAME_MAX) return { error: `Keep the name under ${CAR_NAME_MAX + 1} characters.` };
+  if (carsOf(d).some(c => c.id !== selfId && String(c.name).trim().toLowerCase() === name.toLowerCase())) return { error: 'You already have a car with that name.' };
+  return { name };
+}
+function addCarIn(d, raw) {
+  if (!Array.isArray(d.cars) || !d.cars.length) { d.cars = [_carDefault()]; d.activeCar = 'car1'; }
+  if (d.cars.length >= CAR_MAX) return { error: `That is the limit: ${CAR_MAX} cars.` };
+  const n = _carName(d, raw); if (n.error) return n;
+  let id; do { id = 'car_' + uid(); } while (d.cars.some(c => c.id === id));
+  d.cars.push({ id, name: n.name, stash: emptyCarStash() });
+  return { id };
+}
+function renameCarIn(d, id, raw) {
+  const c = (Array.isArray(d.cars) ? d.cars : []).find(x => x.id === id); if (!c) return { error: 'That car does not exist.' };
+  const n = _carName(d, raw, id); if (n.error) return n;
+  c.name = n.name; return { ok: true };
+}
+// Has this car nothing in it at all? (the only kind that may be deleted)
+function carIsEmpty(d, id) {
+  const st = id === activeCarId(d) ? _liveStash(d) : ((carsOf(d).find(c => c.id === id) || {}).stash || emptyCarStash());
+  const cs = st.carService || {}, ins = st.insurance || {};
+  if ((st.fuel || []).length || (st.tires || []).length || (cs.treadLog || []).length || (cs.serviceCostLog || []).length) return false;
+  if (['serviceDate', 'serviceKm', 'lastDate', 'lastKm', 'tireDate', 'tireKm', 'inspectionMonth', 'vignetteEnd'].some(k => cs[k] != null && cs[k] !== '')) return false;
+  if (['renewalDate', 'annualKmBand', 'lastOdoAtRenewal', 'note'].some(k => ins[k] != null && ins[k] !== '')) return false;
+  return st.tankSize == null;
+}
+function deleteCarIn(d, id) {
+  const cs = Array.isArray(d.cars) ? d.cars : [], c = cs.find(x => x.id === id);
+  if (!c) return { error: 'That car does not exist.' };
+  if (cs.length < 2) return { error: 'You need at least one car.' };
+  if (id === activeCarId(d)) return { error: 'Switch to another car first.' };
+  if (!carIsEmpty(d, id)) return { error: `“${c.name}” still has data (refuels, tyres, service or insurance). Only an empty car can be deleted.` };
+  d.cars = cs.filter(x => x.id !== id); return { ok: true };
+}
+// What is wrong with the car list? [] when consistent (and for old vaults that have no cars yet). Shown in the vault health check.
+function carsHealth(d) {
+  if (!d || d.cars === undefined) return [];
+  if (!Array.isArray(d.cars) || !d.cars.length) return ['The car list is missing or empty.'];
+  const out = [], ids = d.cars.map(c => c && c.id);
+  if (ids.some(i => !i)) out.push('A car has no id.');
+  if (new Set(ids).size !== ids.length) out.push('Two cars share the same id (duplicate).');
+  if (!ids.includes(d.activeCar)) out.push('The active car does not exist.');
+  d.cars.forEach(c => {
+    if (!c) return;
+    const act = c.id === d.activeCar;
+    if (act && c.stash != null) out.push(`The active car “${c.name}” still holds a stash (its data would exist twice).`);
+    if (!act && (!c.stash || typeof c.stash !== 'object')) out.push(`Car “${c.name}” has no stash — its data would be lost.`);
+  });
+  [['fuel', 'refuel'], ['tires', 'tyre set']].forEach(([k, label]) => {
+    const seen = new Set(); _allOf(d, k).forEach(r => { if (!r || r.id == null) return; if (seen.has(r.id)) out.push(`The ${label} ${r.id} is in two cars at once.`); seen.add(r.id); });
+  });
+  return out;
+}
+
+// Sync merge for vaults with cars: per car, union the refuels and tyres by id (local wins), and keep THIS device's service / insurance / tank size / name.
+// The active car is this device's. Returns { cars, activeCar, top } — `top` is what belongs at the top level of the merged vault.
+function mergeCarsData(local, remote, mergeById) {
+  const view = d => {
+    if (!Array.isArray(d.cars) || !d.cars.length) return { cars: [{ id: 'car1', name: 'Car 1', data: _liveStash(d) }], active: 'car1' };
+    const act = activeCarId(d);
+    return { cars: d.cars.map(c => ({ id: c.id, name: c.name, data: c.id === act ? _liveStash(d) : (c.stash || emptyCarStash()) })), active: act };
+  };
+  const L = view(local), R = view(remote), byDate = (a, b) => String(b.date).localeCompare(String(a.date));
+  const ids = [...L.cars.map(c => c.id), ...R.cars.filter(c => !L.cars.some(l => l.id === c.id)).map(c => c.id)];
+  const merged = ids.map(id => {
+    const l = L.cars.find(c => c.id === id), r = R.cars.find(c => c.id === id);
+    if (l && r) return { id, name: l.name, data: { fuel: mergeById(l.data.fuel, r.data.fuel).sort(byDate), tires: mergeById(l.data.tires, r.data.tires),
+      carService: l.data.carService, insurance: l.data.insurance, tankSize: l.data.tankSize } };
+    return l || r;
+  });
+  const active = merged.some(c => c.id === L.active) ? L.active : merged[0].id, top = merged.find(c => c.id === active).data;
+  return { activeCar: active, top, cars: merged.map(c => ({ id: c.id, name: c.name, stash: c.id === active ? null : c.data })) };
+}
+
+// ══════════════════════════════════════════
+// CAR SWITCHER (top of the Fuel tab): switch / add / rename / delete. Each is ONE commit(). A switch is silent (switching back is the undo);
+// add / rename / delete show an Undo toast. The data model is in cars.js.
+// ══════════════════════════════════════════
+// renderInsuranceUI / renderCarServiceUI / renderFuelSettingsUI only write a field when the new value is non-null, so after a switch a field
+// could keep the OLD car's value and be saved onto the new car. Empty them all first; the render that follows fills them from the new car.
+function carFormsReset() {
+  ['ins-renewal', 'ins-km-band', 'ins-odo-renewal', 'ins-note', 'svc-date', 'svc-km', 'svc-pickerl', 'svc-vignette', 'fuel-tank-size']
+    .forEach(id => { const e = el(id); if (e) e.value = ''; });
+}
+// Screen state that belongs to the car that was showing.
+function carUiReset() {
+  _fuelDeleteId = null; _tyreEditId = null; _tyreEditRows = []; _tyreEditInitialRaw = '[]'; _svcAlertDismissed = false;
+  carFormsReset();
+}
+function renderCarCard() {
+  const sel = el('car-sel'), list = el('car-list'); if (!sel && !list) return;
+  const cars = carsOf(DATA), act = activeCarId(DATA);
+  if (sel) { sel.innerHTML = cars.map(c => `<option value="${esc(c.id)}"${c.id === act ? ' selected' : ''}>${esc(c.name)}</option>`).join(''); sel.value = act; }
+  if (list) list.innerHTML = cars.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px"><span style="flex:1">${esc(c.name)}${c.id === act ? ' <span style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">active</span>' : ''}</span>`
+    + (c.id === act ? '' : `<button class="btn xs ghost" data-action="car-del" data-id="${esc(c.id)}" title="Delete this car (only possible when it has no data)">Delete</button>`) + `</div>`).join('');
+}
+// Try an operation on a throw-away copy first so a refusal shows its message BEFORE anything is committed.
+const _carDry = fn => fn(JSON.parse(JSON.stringify(DATA)));
+const _carRedraw = () => { const n = el('car-name'); if (n) n.value = ''; renderCarCard(); };
+
+function carSwitch(id) {
+  if (!id || id === activeCarId(DATA) || !carsOf(DATA).some(c => c.id === id)) return;
+  commit('Car switched', d => { switchCarIn(d, id); },
+    { touch: ['fuel', 'tires', 'carService', 'insurance', 'fuelSettings', 'cars', 'activeCar'], toast: null,
+      render: () => preserveScroll(() => { carUiReset(); render(); renderCarCard(); }) });
+}
+function carAdd() {
+  const raw = (el('car-name') || {}).value, dry = _carDry(t => addCarIn(t, raw)); if (dry.error) return toast(dry.error, 1);
+  commit(`Added car “${String(raw).trim()}”`, d => { const r = addCarIn(d, raw); if (r.error) throw new Error(r.error); }, { touch: ['cars', 'activeCar'], render: _carRedraw });
+}
+function carRename() {
+  const raw = (el('car-name') || {}).value, id = activeCarId(DATA), dry = _carDry(t => renameCarIn(t, id, raw)); if (dry.error) return toast(dry.error, 1);
+  commit(`Renamed to “${String(raw).trim()}”`, d => { const r = renameCarIn(d, id, raw); if (r.error) throw new Error(r.error); }, { touch: ['cars'], render: _carRedraw });
+}
+function carDel(id) {
+  const c = carsOf(DATA).find(x => x.id === id), dry = _carDry(t => deleteCarIn(t, id)); if (dry.error) return toast(dry.error, 1);
+  commit(`Car “${c.name}” deleted`, d => { const r = deleteCarIn(d, id); if (r.error) throw new Error(r.error); }, { touch: ['cars'], render: _carRedraw });
+}
+defineActions({
+  'car-switch': t => carSwitch(t.value),
+  'car-add':    () => carAdd(),
+  'car-rename': () => carRename(),
+  'car-del':    t => carDel(t.dataset.id),
+});
 
 
 // ══════════════════════════════════════════
@@ -15953,7 +16404,7 @@ function syncFuelEntry(rec, before, entry) {
 
 // The refuel an expense belongs to, or null. Symmetric with findFuelEntry: a refuel only
 // qualifies if findFuelEntry gives back THIS expense, so the two can never disagree.
-function findFuelForEntry(entry, fuel = DATA.fuel, entries = DATA.entries) {
+function findFuelForEntry(entry, fuel = allFuel(DATA), entries = DATA.entries) {      // every car's refuels: an expense and its refuel can belong to different cars
   if (!entry || entry.type !== 'expense') return null;
   if (entry.fuelId) return (fuel || []).find(f => f.id === entry.fuelId) || null;   // linked to a refuel that is gone → null
   return (fuel || []).find(f => (findFuelEntry(f, entries) || {}).id === entry.id) || null;
@@ -16056,6 +16507,7 @@ function renderFuel() {
   fuelFormInit();
   if (!DATA.fuel) DATA.fuel = [];
   if (!DATA.fuelSettings) DATA.fuelSettings = {};
+  renderCarCard();
   renderFuelSettingsUI();
   renderCarServiceUI();
   checkServiceAlert();
@@ -16242,7 +16694,7 @@ function carCostPerKm(data, period, today, custom) {
 
   const inWin = d => d > from && d <= to;                                   // (from, to]: adjacent windows never count a cost twice
   const amounts = { fuel: 0, insurance: 0, parking: 0, service: 0, tyres: 0, other: 0 };
-  const counted = [], notes = []; let unlinkedFuel = 0, dropped = 0;
+  const counted = [], notes = []; let unlinkedFuel = 0, dropped = 0, unassigned = 0;
   const known = [];                                                         // service-log items and tyre prices, to catch the same cost entered again as an entry
 
   fuel.forEach(f => { if (inWin(f.date)) amounts.fuel += f.total || 0; });
@@ -16255,12 +16707,13 @@ function carCostPerKm(data, period, today, custom) {
     if (e.type !== 'expense' || !(e.amount > 0) || !inWin(e.date)) return;
     const tags = (e.tags || []).map(t => String(t).toLowerCase());
     if (e.fuelId || tags.some(t => CARCOST_FUEL_TAGS.includes(t))) {
-      if (!findFuelForEntry(e, fuel, entries)) { amounts.fuel += e.amount; unlinkedFuel++; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: 'fuel' }); }
-      return;                                                                // otherwise the refuel record already carries this cost
+      const linked = findFuelForEntry(e, allFuel(data), entries);             // any car's refuel
+      if (!linked) { amounts.fuel += e.amount; unlinkedFuel++; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: 'fuel' }); }
+      return;                                                                // otherwise a refuel record already carries this cost (and one of ANOTHER car's is that car's cost, not this one's)
     }
     const b = CARCOST_BUCKETS.find(x => x.tags.some(t => tags.includes(t))); if (!b) return;
     if (known.some(k => k.date === e.date && Math.abs(k.amount - e.amount) < 0.01)) { dropped++; return; }
-    amounts[b.key] += e.amount; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: b.key });
+    amounts[b.key] += e.amount; unassigned++; counted.push({ date: e.date, desc: e.desc, amount: e.amount, bucket: b.key });
   });
 
   const total = Object.values(amounts).reduce((a, b) => a + b, 0);
@@ -16273,6 +16726,7 @@ function carCostPerKm(data, period, today, custom) {
   if (P.to === today && endGap > 30) notes.push(`Your last odometer reading is from ${to} — log a refuel for a current figure.`);
   if (days < 60) notes.push(`Short period (${days} days): fuel counts when it is bought, not when it is burned, so this figure can swing from one refuel to the next. A period of 3 months or more is steadier.`);
   if (unlinkedFuel) notes.push(`${unlinkedFuel} fuel expense${unlinkedFuel > 1 ? 's' : ''} without a refuel record counted as fuel.`);
+  if (unassigned && carsOf(data).length > 1) notes.push(`${unassigned} insurance / parking / service / tyre / other expense${unassigned > 1 ? 's are' : ' is'} not assigned to a car yet, so ${unassigned > 1 ? 'they count' : 'it counts'} for every car.`);
   if (dropped) notes.push(`${dropped} entr${dropped > 1 ? 'ies' : 'y'} repeating a service-log item or tyre price counted once.`);
   if (bad.size) notes.push(`${bad.size} odometer reading${bad.size > 1 ? 's' : ''} flagged as mistyped ${bad.size > 1 ? 'were' : 'was'} ignored for the distance.`);
   return { status: 'ok', from, to, days, km, total, perKm: total / km, perMonth: total / days * 30.4375, perYear: total / days * 365, fuelPerKm: amounts.fuel / km,
@@ -16330,7 +16784,8 @@ const _remDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse
 const _remMonthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
 const _remValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(Date.parse(s));
 
-function computeReminders(data, today) {
+// The reminders of ONE car (`data` = that car's view, see carViews). Unsorted.
+function _carReminders(data, today) {
   const out = [], year = +today.slice(0, 4), md = today.slice(5), cs = (data && data.carService) || {};
   const add = r => out.push(r);
 
@@ -16382,6 +16837,13 @@ function computeReminders(data, today) {
       text: `${d === 0 ? 'It renews today.' : `It renews in ${d} day${d === 1 ? '' : 's'}.`} Compare offers and check the notice period in your policy before it renews.` });
   }
 
+  return out;
+}
+
+// Tax reminders: once per vault, whatever the number of cars. Unsorted.
+function _taxReminders(data, today) {
+  const out = [], year = +today.slice(0, 4);
+  const add = r => out.push(r);
   // ── tax (only for people with a salary on record) ─────────────────────────
   const hasSalary = data && data.incomes && Object.values(data.incomes).some(i => i && i.amount > 0);
   if (hasSalary) {
@@ -16392,6 +16854,15 @@ function computeReminders(data, today) {
       text: `If you are obliged to file for ${year - 1}, the deadline is 30 June via FinanzOnline (30 April on paper). If not, a voluntary return can be filed for up to five years.` });
   }
 
+  return out;
+}
+
+// Every car's reminders (the Fiat's Pickerl must not wait until the Fiat is the active car) + the tax ones once.
+// With one car the ids and titles are exactly as before; with several, each car's reminder gets "<car>: " and an id suffix.
+function computeReminders(data, today) {
+  const views = carViews(data || {}), many = views.length > 1, out = [];
+  views.forEach(v => _carReminders(v.view, today).forEach(r => out.push(many ? { ...r, id: `${r.id}:${v.id}`, title: `${v.name}: ${r.title}`, car: v.id } : r)));
+  _taxReminders(data, today).forEach(r => out.push(r));
   const rank = { warn: 0, soon: 1, info: 2 };
   return out.sort((a, b) => rank[a.level] - rank[b.level] || a.date.localeCompare(b.date));
 }
@@ -16900,9 +17371,10 @@ function runVaultHealth() {
   if (futureEntries.length) { const ys = String(new Date().getFullYear()); const typo = ys[0]+ys[2]+ys[1]+ys[3]; issues.push({ icon:'⚠', text:`${futureEntries.length} entr${futureEntries.length===1?'y':'ies'} dated more than 1 year in the future`, fix:`Check for typos like ${typo} instead of ${ys}.` }); }
 
   // ── 3b. Refuel odometer readings that can't be right (skews tyre + service km) ──
-  const odoBad = odoAnomalies(DATA.fuel || []);
-  if (odoBad.length) issues.push({ icon:'⚠', text:`${odoBad.length} refuel odometer reading${odoBad.length===1?'':'s'} look wrong`,
-    fix: odoBad.slice(0,3).map(a => `${a.date}: ${a.odo.toLocaleString('de-AT')} km (${a.reason})`).join(' · ') + (odoBad.length > 3 ? ' …' : '') + ' — correct them in the Fuel table (double-click the odometer).' });
+  // Odometers are per car: each car's readings are checked on their own (never compared with another car's).
+  const _carViews = carViews(DATA);
+  _carViews.forEach(v => { const odoBad = odoAnomalies(v.view.fuel || []); if (!odoBad.length) return; issues.push({ icon:'⚠', text:`${odoBad.length} refuel odometer reading${odoBad.length===1?'':'s'} look wrong${_carViews.length > 1 ? ` (${esc(v.name)})` : ''}`,
+    fix: odoBad.slice(0,3).map(a => `${a.date}: ${a.odo.toLocaleString('de-AT')} km (${a.reason})`).join(' · ') + (odoBad.length > 3 ? ' …' : '') + ' — correct them in the Fuel table' + (v.view === DATA ? '' : ' (switch to this car first)') + ' (double-click the odometer).' }); });
 
   // ── 4. Invalid category / type ────────────────────────────────────────────
   const badCat  = (DATA.entries||[]).filter(e => e.category && !VALID_CATS.has(e.category));
@@ -16919,15 +17391,19 @@ function runVaultHealth() {
   if (badRecur.length) issues.push({ icon:'⚠', text:`${badRecur.length} recurring entr${badRecur.length===1?'y':'ies'} with missing description or amount`, fix:'Review recurring entries and correct or delete them.' });
 
   // ── 7. Fuel records with invalid amounts ──────────────────────────────────
-  const badFuel = (DATA.fuel||[]).filter(f => !isFinite(f.total) || f.total < 0 || !isFinite(f.liters) || f.liters <= 0);
+  const badFuel = allFuel(DATA).filter(f => !isFinite(f.total) || f.total < 0 || !isFinite(f.liters) || f.liters <= 0);
   if (badFuel.length) issues.push({ icon:'⚠', text:`${badFuel.length} fuel record${badFuel.length===1?'':'s'} with invalid amounts`, fix:'Review fuel history and delete the affected records.' });
+
+  // ── 7b. Cars: the active car's data is on top, the others' in a stash — a broken list could hide or double a car's data ──
+  const carProblems = carsHealth(DATA);
+  if (carProblems.length) issues.push({ icon:'⚠', text:`Car list is inconsistent (${carProblems.length} problem${carProblems.length===1?'':'s'})`, fix: carProblems.slice(0,3).join(' · ') });
 
   // ── 8. FX accounts with zero or negative balance ─────────────────────────
   const badFx = (DATA.fxAccounts||[]).filter(a => !isFinite(a.amount) || a.amount <= 0);
   if (badFx.length) issues.push({ icon:'⚠', text:`${badFx.length} FX account${badFx.length===1?'':'s'} with invalid balance`, fix:'Remove and re-add affected FX accounts.' });
 
   // ── Info ──────────────────────────────────────────────────────────────────
-  notes.push({ icon:'ℹ', text:`${(DATA.entries||[]).length} entries · ${(DATA.accounts||[]).length} accounts · ${(DATA.fuel||[]).length} fuel records · ${(DATA.fxAccounts||[]).length} FX accounts` });
+  notes.push({ icon:'ℹ', text:`${(DATA.entries||[]).length} entries · ${(DATA.accounts||[]).length} accounts · ${allFuel(DATA).length} fuel records · ${(DATA.fxAccounts||[]).length} FX accounts` });
   notes.push({ icon:'ℹ', text:`${(DATA.recurring||[]).length} recurring · ${(DATA.savingsGoals||[]).length} savings goals · ${(DATA.stocks||[]).length} stock positions` });
 
   // ── Vault size check ────────────────────────────────────────────────────────
@@ -18805,7 +19281,7 @@ function mergeVaultData(local, remote) {
   const mergedPlanned    = { ...remote.plannedIncome, ...local.plannedIncome };
   const mergedNotifFired = { ...(remote.notifFired||{}), ...(local.notifFired||{}) };
 
-  return {
+  const merged = {
     ...local,
     entries:      mergeById(local.entries,      remote.entries).sort((a,b) => b.date.localeCompare(a.date)),
     accounts:     mergeById(local.accounts,     remote.accounts),
@@ -18825,6 +19301,16 @@ function mergeVaultData(local, remote) {
     auditLog:     [...new Map([...(remote.auditLog||[]), ...(local.auditLog||[])].map(a=>[a.ts, a])).values()]
                     .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
   };
+  // Electricity (optional): bills are unioned by id like the other lists; the rates and the recurring link stay as on this device.
+  if (local.energy || remote.energy) merged.energy = { ...(remote.energy||{}), ...(local.energy||{}), bills: mergeById((local.energy||{}).bills, (remote.energy||{}).bills) };
+  // Several cars: the car-aware merge replaces the plain top-level fuel / tyres / service / insurance merge above, so one car's refuels can never land in another's list.
+  if (local.cars || remote.cars) {
+    const c = mergeCarsData(local, remote, mergeById);
+    merged.cars = c.cars; merged.activeCar = c.activeCar;
+    merged.fuel = c.top.fuel; merged.tires = c.top.tires; merged.carService = c.top.carService; merged.insurance = c.top.insurance;
+    merged.fuelSettings = { ...(local.fuelSettings || {}), tankSize: c.top.tankSize };
+  }
+  return merged;
 }
 
 async function mergeAndPush() {
