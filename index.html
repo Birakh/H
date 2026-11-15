@@ -1310,6 +1310,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
             <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-calc"></div>
           </div></details>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">This month's prices (ct/kWh)</span>
+            <select id="en-price-mode" data-action-change="energy-price-mode" aria-label="Prices as shown" style="width:auto;font-size:12px"><option value="net">net</option><option value="gross">incl. VAT</option></select>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="fg" style="margin:0"><label>Low</label><input type="text" inputmode="decimal" id="en-p-off" data-band="off" data-action-change="energy-price" style="width:100%;font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-p-shoulder" data-band="shoulder" data-action-change="energy-price" style="width:100%;font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-p-peak" data-band="peak" data-action-change="energy-price" style="width:100%;font-family:var(--mono)"></div>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:4px">Type the three prices your supplier's app shows for the month, and say whether they include VAT. Empty = the October 2026 bill's prices (grey).</div>
+        </div>
         <div id="d-energy-est" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px"></div>
         <div class="fg" style="margin:0 0 8px"><label>Compare with the recurring item</label><select id="en-link" data-action-change="energy-link" style="width:100%"></select></div>
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px">Log the real bill</div>
@@ -10737,6 +10749,10 @@ function energyRead() {
   else if (given.length) return { error: 'Enter all three band kWh, or none.' };
   return { from, to, kwh, days: per.days, months: per.months, bandKwh, readingOld: bothR ? r0 : null, readingNew: bothR ? r1 : null };
 }
+// The three band prices as a supplier's app shows them: net, or incl. VAT (DATA.energy.priceMode). Stored prices are always NET.
+const ENERGY_BANDS = ['off', 'shoulder', 'peak'];
+const _enMode = en => (en && en.priceMode === 'gross') ? 'gross' : 'net';
+const _enPriceShown = (net, en) => { const g = _enMode(en) === 'gross'; return g ? (net * (1 + energyTariff(en).vat / 100)).toFixed(2).replace('.', ',') : String(Math.round(net * 1e4) / 1e4).replace('.', ','); };
 const _enKwh = n => n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 const _enDelta = (gross, other, label) => {
   const d = _enR2(gross - other);
@@ -10748,7 +10764,8 @@ function energyCalc() {
   if (inp.error) return note(inp.error);
   const r = energyEstimate(energyTariff(DATA.energy), inp); if (r.error) return note(r.error);
   const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${fmt(v)}</span></div>`;
-  let h = `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${_enKwh(r.kwh)} kWh · ${r.days} day${r.days === 1 ? '' : 's'}</div>`
+  const tf = energyTariff(DATA.energy), unit = _enMode(DATA.energy) === 'gross' ? 'incl. VAT' : 'net';
+  let h = `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${_enKwh(r.kwh)} kWh · ${r.days} day${r.days === 1 ? '' : 's'}<br>Prices used: low ${_enPriceShown(tf.bands.off, DATA.energy)} · shoulder ${_enPriceShown(tf.bands.shoulder, DATA.energy)} · peak ${_enPriceShown(tf.bands.peak, DATA.energy)} ct/kWh ${unit}</div>`
     + row('Energy (net)', r.energy.sum) + row('Grid charges (net)', r.grid.sum) + row('Taxes and levies (net)', r.taxes.sum) + row('Net', r.net) + row(`VAT ${energyTariff(DATA.energy).vat} %`, r.vat)
     + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row('Estimated bill', r.gross, true)}</div>`;
   const prev = ((DATA.energy && DATA.energy.bills) || []).filter(b => b.to < inp.from).sort((a, b) => b.to.localeCompare(a.to))[0];
@@ -10764,6 +10781,10 @@ function renderEnergy() {
   set('from', `${today.slice(0, 7)}-01`); set('to', `${today.slice(0, 7)}-${String(last).padStart(2, '0')}`); if (en.lastReading != null) set('r0', String(en.lastReading).replace('.', ','));
   const sel = el('en-link');
   if (sel) { sel.innerHTML = `<option value="">— none</option>` + (DATA.recurring || []).map(r => `<option value="${esc(r.id)}"${r.id === en.recurId ? ' selected' : ''}>${esc(r.desc)} · ${fmt(r.amount)}</option>`).join(''); sel.value = en.recurId || ''; }
+  const pm = el('en-price-mode'); if (pm) pm.value = _enMode(en);
+  { const tf0 = energyTariff({}), ov = en.tariff || {};
+    ENERGY_BANDS.forEach(b => { const inp = el('en-p-' + b); if (!inp) return; const has = Object.prototype.hasOwnProperty.call(ov, 'bands.' + b) && _enIsNum(ov['bands.' + b]);
+      inp.placeholder = _enPriceShown(tf0.bands[b], en); inp.value = has ? _enPriceShown(energyTariff(en).bands[b], en) : ''; }); }
   const t = en.tariff || {}, rates = el('d-energy-rates');
   if (rates) { const def = energyTariff({});
     rates.innerHTML = ENERGY_RATES.map(({ path, label, unit }) => { const [a, b] = path.split('.'), d = b ? def[a][b] : def[a], has = Object.prototype.hasOwnProperty.call(t, path) && _enIsNum(t[path]);
@@ -10786,6 +10807,19 @@ function energySetRate(path, raw) {
   if (n !== null && (Number.isNaN(n) || n < 0)) return toast('Enter a number, 0 or more.', 1);
   commit('Energy rate', d => { d.energy = d.energy || {}; d.energy.tariff = d.energy.tariff || {}; if (n === null) delete d.energy.tariff[path]; else d.energy.tariff[path] = n; },
     { touch: ['energy'], toast: null, render: () => renderEnergy() });
+}
+// A band price typed as the app shows it (net or incl. VAT) → stored as the NET rate, the same override the Rates list edits.
+function energyPrice(band, raw) {
+  if (!ENERGY_BANDS.includes(band)) return;
+  const n = _enNum(raw);
+  if (n !== null && (Number.isNaN(n) || n < 0)) return toast('Enter a price in cents per kWh, 0 or more.', 1);
+  const net = n === null ? null : (_enMode(DATA.energy) === 'gross' ? n / (1 + energyTariff(DATA.energy).vat / 100) : n);
+  energySetRate('bands.' + band, net === null ? '' : String(Math.round(net * 1e6) / 1e6));
+}
+function energySetPriceMode(v) {
+  if (v !== 'net' && v !== 'gross') return;
+  if (_enMode(DATA.energy) === v) return;
+  commit('Energy price display', d => { d.energy = d.energy || {}; d.energy.priceMode = v; }, { touch: ['energy'], toast: null, render: () => renderEnergy() });
 }
 function energySetLink(id) {
   const cur = (DATA.energy && DATA.energy.recurId) || '';
@@ -10810,7 +10844,7 @@ function energyLog() {
     d.entries.unshift({ id: entryId, loggedAt: new Date().toISOString(), date, desc: link ? link.desc : 'Electricity', amount: total, formula: null, type: 'expense', category: 'needs',
       tags: ['energy'], accountId: link ? (link.accountId || null) : null, ...(link ? { recurId: link.id, oneOff: true } : {}) });
     if (!d.energy) d.energy = {};
-    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number,
+    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number, prices: Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round(energyTariff(DATA.energy).bands[b] * 1e4) / 1e4])),
       entryId, month, readingOld: inp.readingOld, readingNew: inp.readingNew });
     if (inp.readingNew != null) d.energy.lastReading = inp.readingNew;
   }, { touch: ['entries', 'energy'], render: () => { render(); renderEnergy(); } });
@@ -10823,6 +10857,8 @@ defineActions({
   'energy-calc':     () => energyCalc(),
   'energy-rate':     t => energySetRate(t.dataset.path, t.value),
   'energy-link':     t => energySetLink(t.value),
+  'energy-price':    t => energyPrice(t.dataset.band, t.value),
+  'energy-price-mode': t => energySetPriceMode(t.value),
   'energy-log':      () => energyLog(),
   'energy-bill-del': t => energyBillDel(t.dataset.id),
 });
