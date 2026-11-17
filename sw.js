@@ -4,7 +4,7 @@
 // only fall back to whatever was last cached when there's no connection.
 // The cache name below is a PLACEHOLDER: `node release.js` stamps release/sw.js with a name derived from the content, so it changes exactly
 // when the app changes (and old caches are evicted). Do not edit it by hand.
-const CACHE_NAME = 'vault-finance-9c37b8a4';
+const CACHE_NAME = 'vault-finance-fc2ed401';
 const APP_SHELL  = ['./', './index.html', './manifest.webmanifest'];
 // Third-party libraries the app depends on at runtime (currently just the Excel
 // export library). Cached separately from APP_SHELL and best-effort per-file —
