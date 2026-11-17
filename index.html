@@ -1338,6 +1338,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <button class="btn sm primary" data-action="energy-log">Log this bill</button>
         <div id="d-energy-bills" style="margin-top:10px"></div>
+        <details id="en-hist-details" style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Monthly tariff history (the prices in force each month)</summary>
+          <div style="margin-top:6px;font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:6px">One record per month. A period is estimated with the prices of its start month, else the latest earlier month, so older months keep their own prices when the tariff changes. A recorded month takes precedence over the single price fields above.</div>
+          <input type="hidden" id="en-h-id">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:6px">
+            <div class="fg" style="margin:0"><label>Month</label><input type="month" id="en-h-month" style="width:100%" data-action-change="energy-tariff-month"></div>
+            <div class="fg" style="margin:0"><label>Prices as <span id="en-h-unit" style="font-weight:400"></span></label><div style="font-size:11px;color:var(--ink3);padding-top:6px">Net / incl. VAT follows the selector above</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Low</label><input type="text" inputmode="decimal" id="en-h-off" style="width:100%;font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-h-shoulder" style="width:100%;font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-h-peak" style="width:100%;font-family:var(--mono)"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px"><button class="btn sm primary" id="en-h-save" data-action="energy-tariff-save">Save month</button><button class="btn sm ghost" data-action="energy-tariff-cancel">Clear</button></div>
+          <div id="d-energy-tariffs"></div></details>
         <details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Rates (net, from the bill — change when your tariff changes)</summary>
           <div id="d-energy-rates" style="margin-top:6px"></div></details>
       </div>
@@ -2837,6 +2851,39 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <input type="number" id="db-extra" min="0" step="1" placeholder="0" style="width:90px;font-family:var(--mono)" data-action-input="debt-extra">
         </div>
         <div id="d-debts"></div>
+      </div>
+
+      <!-- ── Mortgage payment tracker ── -->
+      <div class="card" id="mortgage-card">
+        <div class="card-title">Mortgage payments
+          <span style="display:inline-flex;gap:6px;margin-left:8px">
+            <button class="btn xs success" id="mg-add-btn" style="text-transform:none;letter-spacing:0;display:none" data-action="mg-pay-new">+ Add payment</button>
+            <button class="btn xs ghost" style="text-transform:none;letter-spacing:0" data-action="mg-setup-open">Starting balance</button>
+          </span>
+        </div>
+        <div id="mortgage-setup-form" style="display:none;background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+          <div id="mg-s-title" style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Start tracking your mortgage</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Balance as of</label><input type="date" id="mg-s-date"></div>
+            <div class="fg" style="margin:0"><label>Outstanding balance (€)</label><input type="number" id="mg-s-balance" min="0" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Current rate (% a year)</label><input type="number" id="mg-s-rate" min="0" max="100" step="0.001" style="font-family:var(--mono)"></div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn sm primary" data-action="mg-setup-save">Save</button><button class="btn sm ghost" data-action="mg-setup-cancel">Cancel</button></div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Tracking starts from this balance — nothing is estimated for earlier months. The rate is only the default for new payments; payments already recorded keep their own rate.</div>
+        </div>
+        <div id="mortgage-pay-form" style="display:none;background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+          <input type="hidden" id="mg-id">
+          <div id="mg-title" style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Add payment</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Date</label><input type="date" id="mg-date"></div>
+            <div class="fg" style="margin:0"><label>Payment (€)</label><input type="number" id="mg-amount" min="0" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Rate for this payment (% a year)</label><input type="number" id="mg-rate" min="0" max="100" step="0.001" style="font-family:var(--mono)"></div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn sm primary" data-action="mg-pay-save">Save</button><button class="btn sm ghost" data-action="mg-pay-cancel">Cancel</button></div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">If your rate changed, enter the new rate here — earlier payments are not touched. Interest = opening balance × rate ÷ 12.</div>
+        </div>
+        <div id="d-mortgage"></div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:10px">Monthly interest is an estimate: your lender may calculate interest daily or add fees, and payment dates or other loan terms can change the actual split.</div>
       </div>
 
     </section>
@@ -10242,6 +10289,7 @@ async function renderWealth() {
       ['renderAnnualGrid',       () => renderAnnualGrid()],
       ['renderRateResetCalendar',() => renderRateResetCalendar()],
       ['renderDebts',            () => renderDebts()],
+      ['renderMortgage',         () => renderMortgage()],
     ];
     for (const [name, fn] of _wCalls) {
       try { fn(); } catch(e) { toast(`Wealth / ${name}: ${e.message}`, 1); console.error('[Wealth]', name, e); }
@@ -10474,6 +10522,196 @@ defineActions({
   'debt-pay-cancel': () => _dbFormShow('debt-pay-form', false),
   'debt-extra':      () => renderDebts(),
 });
+
+// ══════════════════════════════════════════
+// MORTGAGE PAYMENT TRACKER — optional DATA.mortgage = { startDate, startBalance, rate, payments:[{ id, date, paymentAmount, annualRate, interest, principal, openingBalance, closingBalance, requestedAmount? }] }
+// (optional key, no migration: every reader goes through mortgageSummary / `DATA.mortgage || null`, and the first write creates the object inside commit()).
+// Tracking starts from the balance the user ENTERS for startDate (e.g. November 2026); nothing is generated or estimated for earlier months.
+// annualRate / rate are ANNUAL PERCENTAGES like the rest of the app (3.5 = 3.5 %): interest = openingBalance × annualRate ÷ 100 ÷ 12, rounded to the cent;
+// principal = payment − interest; closing = opening − principal. Each payment keeps ITS OWN annualRate for good — `rate` is only the default offered for the
+// first payment, it is never applied to a stored payment. A payment is stored as entered; the derived fields are recomputed in date order by mortgageRecompute()
+// after every add / edit / delete, from the stored date, amount and rate of each payment.
+//   • payment below the interest due → all of it is interest, principal 0, balance unchanged (the shortfall is shown as a warning, not tracked)
+//   • payment above what is left → capped so the balance ends at exactly 0; paymentAmount holds the capped amount, requestedAmount keeps what was typed
+//     (so a later edit of an earlier payment can lift the cap again)
+// The numbers are an ESTIMATE: lenders may use daily interest, fees, other payment dates or other loan terms.
+// ══════════════════════════════════════════
+const MORTGAGE_NOTE = 'Monthly interest here is an estimate (balance × annual rate ÷ 12). Your lender may calculate interest daily or add fees, and payment dates or other loan terms can change the actual split.';
+const _mgR2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const _mgOkAmount = n => Number.isFinite(n) && n > 0 && n <= 1e9;
+function _mgNum(v) {                                   // a number, or NaN for blank / non-numeric input (Number('') would be 0)
+  if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  if (typeof v !== 'string') return NaN;
+  const t = v.trim().replace(',', '.'); if (t === '') return NaN;
+  const n = Number(t); return Number.isFinite(n) ? n : NaN;
+}
+const _mgReq = p => _mgR2(+(p.requestedAmount !== undefined ? p.requestedAmount : p.paymentAmount) || 0);   // what the user typed for this payment
+const mortgageInterest = (opening, ratePct) => _mgR2(Math.max(0, +opening || 0) * (+ratePct || 0) / 1200);
+
+// One payment against one opening balance. Pure.
+// → { interestDue, interest, principal, paymentAmount, closingBalance, underpaid, capped }
+function mortgageApplyPayment(opening, amount, ratePct) {
+  const open = _mgR2(Math.max(0, +opening || 0)), amt = _mgR2(Math.max(0, +amount || 0)), due = mortgageInterest(open, ratePct);
+  const interest = Math.min(due, amt);                                  // underpayment: the whole payment goes to interest, never a negative principal
+  let principal = _mgR2(amt - interest), capped = false;
+  if (principal > open) { principal = open; capped = true; }            // the final payment can clear the balance, never push it below 0
+  return { interestDue: due, interest, principal, paymentAmount: _mgR2(interest + principal), closingBalance: _mgR2(open - principal), underpaid: amt < due, capped };
+}
+
+// Re-derives interest / principal / opening / closing of every payment, in date order (ties keep their list order), from startBalance.
+// Date, entered amount and annualRate of each payment are kept exactly as stored. Pure: returns new objects.
+function mortgageRecompute(startBalance, payments) {
+  let bal = _mgR2(Math.max(0, +startBalance || 0));
+  return (Array.isArray(payments) ? payments : []).map((p, i) => ({ p, i })).sort((a, b) => String(a.p.date).localeCompare(String(b.p.date)) || a.i - b.i).map(({ p }) => {
+    const req = _mgReq(p), r = mortgageApplyPayment(bal, req, p.annualRate), out = { ...p };
+    out.paymentAmount = r.paymentAmount; out.interest = r.interest; out.principal = r.principal; out.openingBalance = bal; out.closingBalance = r.closingBalance;
+    if (r.capped) out.requestedAmount = req; else delete out.requestedAmount;
+    bal = r.closingBalance; return out;
+  });
+}
+
+// → null (no mortgage set up) or { startDate, startBalance, balance, principalRepaid, interestPaid, rate (of the latest payment, else the default), count, paidOff }
+function mortgageSummary(m) {
+  if (!m || typeof m !== 'object' || !Number.isFinite(+m.startBalance)) return null;
+  const ps = (Array.isArray(m.payments) ? m.payments : []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))), last = ps[ps.length - 1];
+  const balance = last ? _mgR2(+last.closingBalance || 0) : _mgR2(+m.startBalance);
+  return { startDate: m.startDate || null, startBalance: _mgR2(+m.startBalance), balance, principalRepaid: _mgR2(ps.reduce((s, p) => s + (+p.principal || 0), 0)),
+    interestPaid: _mgR2(ps.reduce((s, p) => s + (+p.interest || 0), 0)), rate: last ? +last.annualRate : (+m.rate || 0), count: ps.length, paidOff: balance <= 0 };
+}
+
+// → { ok, error } | { ok, setup:{ startDate, startBalance, rate } }
+function validateMortgageSetup(raw) {
+  const startBalance = _mgNum(raw && raw.startBalance), rate = _mgNum(raw && raw.rate), startDate = raw && raw.startDate;
+  if (!_dbRealDate(startDate)) return { ok: false, error: 'Pick a valid date for the starting balance.' };
+  if (!_mgOkAmount(startBalance)) return { ok: false, error: 'Enter the outstanding mortgage balance (more than 0).' };
+  if (!(rate >= 0 && rate <= 100)) return { ok: false, error: 'Enter the annual interest rate as a percentage between 0 and 100.' };
+  return { ok: true, setup: { startDate, startBalance: _mgR2(startBalance), rate } };
+}
+// → { ok, error } | { ok, payment:{ date, amount, annualRate } } — `amount` is what was entered
+function validateMortgagePayment(raw, m) {
+  const amount = _mgNum(raw && raw.paymentAmount), rate = _mgNum(raw && raw.annualRate), date = raw && raw.date;
+  if (!_dbRealDate(date)) return { ok: false, error: 'Pick a valid payment date.' };
+  if (m && m.startDate && date < m.startDate) return { ok: false, error: `Tracking starts on ${m.startDate} — a payment cannot be dated before it.` };
+  if (!_mgOkAmount(amount)) return { ok: false, error: 'Enter the payment amount (more than 0).' };
+  if (!(rate >= 0 && rate <= 100)) return { ok: false, error: 'Enter the annual interest rate as a percentage between 0 and 100.' };
+  return { ok: true, payment: { date, amount: _mgR2(amount), annualRate: rate } };
+}
+
+// Set up (or change) the starting balance / date / default rate. Existing payments keep their dates, amounts and rates and are re-chained from the new balance.
+function mortgageSetStart(d, raw) {
+  const v = validateMortgageSetup(raw); if (!v.ok) return v;
+  const ps = (d.mortgage && Array.isArray(d.mortgage.payments)) ? d.mortgage.payments : [];
+  if (ps.some(p => p.date < v.setup.startDate)) return { ok: false, error: 'A payment is dated before that start date — edit or delete it first.' };
+  d.mortgage = { ...(d.mortgage || {}), ...v.setup, payments: mortgageRecompute(v.setup.startBalance, ps) };
+  return { ok: true };
+}
+const _mgDup = (ps, date, amount, exceptId) => ps.some(p => p.id !== exceptId && p.date === date && _mgReq(p) === amount);
+// Validates, applies and re-chains; leaves `d` untouched on any error. → { ok, error } | { ok, payment (derived), underpaid, capped, interestDue }
+function _mgPlace(d, id, raw, isNew) {
+  const m = d.mortgage; if (!m || !Number.isFinite(+m.startBalance)) return { ok: false, error: 'Set the starting balance first.' };
+  const v = validateMortgagePayment(raw, m); if (!v.ok) return v;
+  const ps = Array.isArray(m.payments) ? m.payments : [];
+  if (!isNew && !ps.some(p => p.id === id)) return { ok: false, error: 'That payment no longer exists.' };
+  if (_mgDup(ps, v.payment.date, v.payment.amount, isNew ? null : id)) return { ok: false, error: 'A payment with the same date and amount is already recorded.' };
+  const rec = { id, date: v.payment.date, paymentAmount: v.payment.amount, annualRate: v.payment.annualRate };
+  const next = mortgageRecompute(m.startBalance, isNew ? [...ps, rec] : ps.map(p => p.id === id ? rec : p)), mine = next.find(p => p.id === id);
+  if (mine.openingBalance <= 0) return { ok: false, error: 'The mortgage is already fully repaid at that date.' };
+  m.payments = next;
+  const r = mortgageApplyPayment(mine.openingBalance, v.payment.amount, v.payment.annualRate);
+  return { ok: true, payment: mine, underpaid: r.underpaid, capped: r.capped, interestDue: r.interestDue };
+}
+const mortgageAddPayment    = (d, raw, id) => _mgPlace(d, id || uid(), raw, true);
+const mortgageEditPayment   = (d, id, raw) => _mgPlace(d, id, raw, false);
+function mortgageDeletePayment(d, id) {
+  const m = d.mortgage; if (!m || !(m.payments || []).some(p => p.id === id)) return { ok: false, error: 'That payment no longer exists.' };
+  m.payments = mortgageRecompute(m.startBalance, m.payments.filter(p => p.id !== id)); return { ok: true };
+}
+
+// Conflict merge of two devices' mortgages (pure). Setup (start date / balance / default rate) of THIS device wins; payments are unioned by id (local wins), a payment
+// that is the same date + amount as one already kept is the same payment entered on both devices and is dropped; the chain is then recomputed. → undefined when neither has one.
+function mergeMortgage(local, remote) {
+  if (!local && !remote) return undefined;
+  const base = local || remote, seenId = new Set(), seenKey = new Set(), keep = [];
+  [...((local && local.payments) || []), ...((remote && remote.payments) || [])].forEach(p => {
+    if (!p || typeof p.id !== 'string' || seenId.has(p.id)) return;
+    const key = p.date + '|' + _mgReq(p); if (seenKey.has(key)) return;
+    seenId.add(p.id); seenKey.add(key); keep.push(p);
+  });
+  const merged = { ...(remote || {}), ...(local || {}), payments: keep };
+  if (Number.isFinite(+base.startBalance)) merged.payments = mortgageRecompute(base.startBalance, keep);
+  return merged;
+}
+
+// ── UI ──
+const _mgRate = r => (+r || 0).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 3 }) + ' %';
+function renderMortgage() {
+  const box = el('d-mortgage'); if (!box) return;
+  const m = DATA.mortgage, S = mortgageSummary(m), addBtn = el('mg-add-btn');
+  if (addBtn) addBtn.style.display = S ? '' : 'none';
+  if (!S) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not set up yet. Enter your outstanding balance for the month you want to start tracking (e.g. November 2026) and the current annual rate — payments before that date are not estimated.</div>'; return; }
+  const stat = (l, v, c) => `<div class="stat"><div class="stat-lbl">${l}</div><div class="stat-val${c ? ' ' + c : ''}">${v}</div></div>`;
+  const stats = `<div class="stat-grid" style="margin-bottom:10px">${stat('Starting balance (' + esc(S.startDate || '') + ')', fmt(S.startBalance))}${stat('Outstanding now', fmt(S.balance))}${stat('Principal repaid', fmt(S.principalRepaid))}${stat('Interest paid', fmt(S.interestPaid), 'cr')}${stat('Current rate', _mgRate(S.rate))}</div>`;
+  const ps = (m.payments || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const rows = ps.map(p => {
+    const note = p.requestedAmount !== undefined ? ` <span title="You entered ${esc(fmt(p.requestedAmount))}; capped so the balance ends at €0.00" style="color:var(--Am)">capped</span>` : (p.interest > 0 && +p.principal === 0 ? ' <span title="Payment is below the interest due" style="color:var(--Rm)">below interest</span>' : '');
+    return `<tr><td>${esc(p.date)}</td><td>${fmt(p.paymentAmount)}${note}</td><td>${_mgRate(p.annualRate)}</td><td>${fmt(p.interest)}</td><td>${fmt(p.principal)}</td><td>${fmt(p.openingBalance)}</td><td>${fmt(p.closingBalance)}</td>`
+      + `<td style="white-space:nowrap"><button class="btn xs ghost" data-action="mg-pay-edit" data-id="${esc(p.id)}">Edit</button> <button class="btn xs danger" data-action="mg-pay-del" data-id="${esc(p.id)}">Delete</button></td></tr>`;
+  }).join('');
+  const table = ps.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Date</th><th>Payment</th><th>Rate</th><th>Interest</th><th>Principal</th><th>Opening</th><th>Closing</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : '<div style="font-size:13px;color:var(--ink3)">No payments yet — use “+ Add payment”.</div>';
+  box.innerHTML = stats + (S.paidOff ? '<div class="banner info" style="margin-bottom:10px">Mortgage fully repaid.</div>' : '') + table;
+}
+function _mgForm(id, on) { const f = el(id); if (f) f.style.display = on ? '' : 'none'; }
+function mortgageSetupOpen() {
+  const m = DATA.mortgage || {}, set = (k, v) => { el('mg-s-' + k).value = v === undefined || v === null ? '' : v; };
+  set('date', m.startDate || '2026-11-01'); set('balance', m.startBalance); set('rate', m.rate);
+  el('mg-s-title').textContent = m.startBalance !== undefined ? 'Change starting balance' : 'Start tracking your mortgage';
+  _mgForm('mortgage-pay-form', false); _mgForm('mortgage-setup-form', true); el('mg-s-balance').focus();
+}
+function mortgageSetupSave() {
+  const raw = { startDate: el('mg-s-date').value, startBalance: el('mg-s-balance').value, rate: el('mg-s-rate').value };
+  const v = validateMortgageSetup(raw); if (!v.ok) return toast(v.error, 1);
+  _mgForm('mortgage-setup-form', false);
+  const r = commit('Mortgage start saved', d => mortgageSetStart(d, raw), { touch: ['mortgage'], render: renderMortgage, toast: res => res.ok ? 'Mortgage start saved' : null });
+  if (r.result && !r.result.ok) { toast(r.result.error, 1); _mgForm('mortgage-setup-form', true); }
+}
+function mortgagePayOpen(id) {
+  const m = DATA.mortgage, S = mortgageSummary(m); if (!S) return mortgageSetupOpen();
+  const p = id ? (m.payments || []).find(x => x.id === id) : null; if (id && !p) return;
+  const lastP = (m.payments || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).pop();
+  el('mg-id').value = p ? p.id : '';
+  el('mg-date').value = p ? p.date : (ymd() < S.startDate ? S.startDate : ymd());
+  el('mg-amount').value = p ? _mgReq(p) : (lastP ? _mgReq(lastP) : '');
+  el('mg-rate').value = p ? p.annualRate : S.rate;
+  el('mg-title').textContent = p ? 'Edit payment' : 'Add payment';
+  _mgForm('mortgage-setup-form', false); _mgForm('mortgage-pay-form', true); el('mg-amount').focus();
+}
+function mortgagePaySave() {
+  const id = el('mg-id').value, raw = { date: el('mg-date').value, paymentAmount: el('mg-amount').value, annualRate: el('mg-rate').value };
+  const v = validateMortgagePayment(raw, DATA.mortgage); if (!v.ok) return toast(v.error, 1);
+  const msg = r => !r.ok ? null : 'Payment ' + (id ? 'updated' : 'added') + (r.capped ? ` — capped at ${fmt(r.payment.paymentAmount)} so the balance ends at €0.00` : r.underpaid ? ` — below the ${fmt(r.interestDue)} interest due, so no principal was repaid` : '');
+  const r = commit(id ? 'Payment updated' : 'Payment added', d => id ? mortgageEditPayment(d, id, raw) : mortgageAddPayment(d, raw), { touch: ['mortgage'], render: renderMortgage, toast: msg });
+  if (r.result && !r.result.ok) return toast(r.result.error, 1);
+  _mgForm('mortgage-pay-form', false);
+}
+function mortgagePayDelete(id) {
+  const p = ((DATA.mortgage || {}).payments || []).find(x => x.id === id); if (!p) return;
+  showConfirm(`Delete the payment of ${fmt(p.paymentAmount)} on ${p.date}?`, 'Later payments keep their own amounts, dates and rates; only their balances are recalculated.', () => {
+    _mgForm('mortgage-pay-form', false);
+    commit('Mortgage payment deleted', d => mortgageDeletePayment(d, id), { touch: ['mortgage'], render: renderMortgage });
+  });
+}
+defineActions({
+  'mg-setup-open':   () => mortgageSetupOpen(),
+  'mg-setup-save':   () => mortgageSetupSave(),
+  'mg-setup-cancel': () => _mgForm('mortgage-setup-form', false),
+  'mg-pay-new':      () => mortgagePayOpen(null),
+  'mg-pay-edit':     t => mortgagePayOpen(t.dataset.id),
+  'mg-pay-save':     () => mortgagePaySave(),
+  'mg-pay-cancel':   () => _mgForm('mortgage-pay-form', false),
+  'mg-pay-del':      t => mortgagePayDelete(t.dataset.id),
+});
+
 
 
 function renderSettings() {
@@ -11480,9 +11718,9 @@ function energyCalc() {
   const box = el('d-energy-est'); if (!box) return;
   const inp = energyRead(), note = t => { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">${esc(t)}</div>`; };
   if (inp.error) return note(inp.error);
-  const r = energyEstimate(energyTariff(DATA.energy), inp); if (r.error) return note(r.error);
+  const r = energyEstimate(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), inp); if (r.error) return note(r.error);
   const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${fmt(v)}</span></div>`;
-  const tf = energyTariff(DATA.energy), unit = _enMode(DATA.energy) === 'gross' ? 'incl. VAT' : 'net';
+  const tf = energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), unit = _enMode(DATA.energy) === 'gross' ? 'incl. VAT' : 'net';
   let h = `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${_enKwh(r.kwh)} kWh · ${r.days} day${r.days === 1 ? '' : 's'}<br>Prices used: low ${_enPriceShown(tf.bands.off, DATA.energy)} · shoulder ${_enPriceShown(tf.bands.shoulder, DATA.energy)} · peak ${_enPriceShown(tf.bands.peak, DATA.energy)} ct/kWh ${unit}</div>`
     + row('Energy (net)', r.energy.sum) + row('Grid charges (net)', r.grid.sum) + row('Taxes and levies (net)', r.taxes.sum) + row('Net', r.net) + row(`VAT ${energyTariff(DATA.energy).vat} %`, r.vat)
     + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row('Estimated bill', r.gross, true)}</div>`;
@@ -11517,6 +11755,7 @@ function renderEnergy() {
     : `<div style="font-size:12px;color:var(--ink3)">No bills logged yet.</div>`;
   energyCalc();
   renderEnergyRate();
+  renderEnergyTariffs();
 }
 
 function energySetRate(path, raw) {
@@ -11547,7 +11786,7 @@ function energySetLink(id) {
 }
 function energyLog() {
   const inp = energyRead(); if (inp.error) return toast(inp.error, 1);
-  const est = energyEstimate(energyTariff(DATA.energy), inp); if (est.error) return toast(est.error, 1);
+  const est = energyEstimate(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), inp); if (est.error) return toast(est.error, 1);
   const typed = _enNum(el('en-amount') ? el('en-amount').value : ''), gross = typed == null ? est.gross : typed;
   if (!(gross > 0)) return toast('Enter the bill amount (more than 0).', 1);
   const total = _enR2(gross);
@@ -11563,7 +11802,7 @@ function energyLog() {
     d.entries.unshift({ id: entryId, loggedAt: new Date().toISOString(), date, desc: link ? link.desc : 'Electricity', amount: total, formula: null, type: 'expense', category: 'needs',
       tags: ['energy'], accountId: link ? (link.accountId || null) : null, ...(link ? { recurId: link.id, oneOff: true } : {}) });
     if (!d.energy) d.energy = {};
-    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number, prices: Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round(energyTariff(DATA.energy).bands[b] * 1e4) / 1e4])),
+    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number, prices: Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)).bands[b] * 1e4) / 1e4])),
       entryId, month, readingOld: inp.readingOld, readingNew: inp.readingNew });
     if (inp.readingNew != null) d.energy.lastReading = inp.readingNew;
   }, { touch: ['entries', 'energy'], render: () => { render(); renderEnergy(); } });
@@ -11572,6 +11811,104 @@ function energyBillDel(id) {
   if (!((DATA.energy && DATA.energy.bills) || []).some(b => b.id === id)) return;
   commit('Bill record removed', d => { d.energy.bills = d.energy.bills.filter(b => b.id !== id); }, { touch: ['energy'], render: () => renderEnergy() });
 }
+// ── Monthly tariff history ──
+// DATA.energy.tariffHistory (optional) = [{ id, month:'YYYY-MM', bands:{ off, shoulder, peak } }] — the three smartTIMES prices IN FORCE for each month, in ct/kWh NET (typed net or incl. VAT
+// like the price fields above, stored net). One record per month. A period's prices come from the record of its start month, else the latest EARLIER record (a tariff stays until it changes),
+// else the single price fields / bill defaults — so a past month keeps ITS prices when a later month changes. Only the band prices are history; every other rate stays as in "Rates".
+const _enMonthOk = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ''));
+const _enHist = en => ((en && Array.isArray(en.tariffHistory)) ? en.tariffHistory : []).filter(r => r && _enMonthOk(r.month) && r.bands && ENERGY_BANDS.every(b => _enIsNum(r.bands[b]) && r.bands[b] >= 0))
+  .slice().sort((a, b) => a.month.localeCompare(b.month));
+// raw = { month, off, shoulder, peak } as typed; mode 'net' | 'gross'; vatPct → { error } | { ok, record:{ month, bands } } (bands NET)
+function energyValidateMonthTariff(raw, mode, vatPct) {
+  const month = raw && raw.month; if (!_enMonthOk(month)) return { error: 'Pick the month the prices apply to.' };
+  const bands = {};
+  for (const b of ENERGY_BANDS) {
+    const n = _enNum(raw[b]);
+    if (n === null) return { error: 'Enter all three prices (low, shoulder, peak) in ct/kWh.' };
+    if (Number.isNaN(n) || n < 0 || n > 1000) return { error: 'Prices must be numbers in ct/kWh, between 0 and 1000.' };
+    bands[b] = Math.round((mode === 'gross' ? n / (1 + (+vatPct || 0) / 100) : n) * 1e6) / 1e6;
+  }
+  return { ok: true, record: { month, bands } };
+}
+// Adds the month, or — one record per month — replaces that month's prices (keeping its id). With `id`, edits that record (its month may change, but not onto another record's month).
+function energySetMonthTariff(d, raw, mode, vatPct, id, newId) {
+  const v = energyValidateMonthTariff(raw, mode, vatPct); if (v.error) return v;
+  const list = Array.isArray(d.energy && d.energy.tariffHistory) ? d.energy.tariffHistory : [], atMonth = list.find(r => r && r.month === v.record.month);
+  if (id && !list.some(r => r && r.id === id)) return { error: 'That month no longer exists.' };
+  if (id && atMonth && atMonth.id !== id) return { error: `${v.record.month} already has prices — edit that one.` };
+  const keepId = id || (atMonth ? atMonth.id : (newId || uid()));
+  d.energy = d.energy || {};
+  d.energy.tariffHistory = list.filter(r => r && r.id !== keepId && r.month !== v.record.month).concat({ id: keepId, month: v.record.month, bands: v.record.bands }).sort((a, b) => a.month.localeCompare(b.month));
+  return { ok: true, id: keepId, replaced: !id && !!atMonth };
+}
+function energyDeleteMonthTariff(d, id) {
+  const list = (d.energy && d.energy.tariffHistory) || []; if (!list.some(r => r && r.id === id)) return { error: 'That month no longer exists.' };
+  d.energy.tariffHistory = list.filter(r => r && r.id !== id); return { ok: true };
+}
+// → { bands, month, exact } for the period's start month, or null when no record is at or before it.
+function energyPricesForMonth(en, month) {
+  if (!_enMonthOk(month)) return null;
+  const r = _enHist(en).filter(x => x.month <= month).pop(); return r ? { bands: { ...r.bands }, month: r.month, exact: r.month === month } : null;
+}
+// The rates in force for a month: energyTariff() with that month's recorded band prices on top (no record → exactly energyTariff()).
+function energyTariffForMonth(en, month) {
+  const t = energyTariff(en), p = energyPricesForMonth(en, month); if (p) t.bands = { ...p.bands }; return t;
+}
+// Records oldest → newest, each with delta = change in ct/kWh against the record before it (null for the first).
+function energyTariffChanges(en) {
+  const h = _enHist(en); return h.map((r, i) => ({ ...r, delta: i ? Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round((r.bands[b] - h[i - 1].bands[b]) * 1e4) / 1e4])) : null }));
+}
+// Conflict merge (pure): union by id and by month, this device wins; oldest → newest.
+function mergeEnergyTariffHistory(local, remote) {
+  const ids = new Set(), months = new Set(), out = [];
+  [...(Array.isArray(local) ? local : []), ...(Array.isArray(remote) ? remote : [])].forEach(r => {
+    if (!r || typeof r.id !== 'string' || !_enMonthOk(r.month) || ids.has(r.id) || months.has(r.month)) return; ids.add(r.id); months.add(r.month); out.push(r);
+  });
+  return out.sort((a, b) => a.month.localeCompare(b.month));
+}
+function renderEnergyTariffs() {
+  const box = el('d-energy-tariffs'); if (!box) return;
+  const en = DATA.energy || {}, mode = _enMode(en), unit = mode === 'gross' ? 'incl. VAT' : 'net', mi = el('en-h-month');
+  if (mi && !mi.value) mi.value = ymd().slice(0, 7);
+  const eff = energyTariffForMonth(en, (mi && mi.value) || ymd().slice(0, 7));
+  ENERGY_BANDS.forEach(b => { const i = el('en-h-' + b); if (i) i.placeholder = _enPriceShown(eff.bands[b], en); });
+  const ul = el('en-h-unit'); if (ul) ul.textContent = `ct/kWh, ${unit}`;
+  const rows = energyTariffChanges(en).reverse(), sh = (r, b) => _enPriceShown(r.bands[b], en);
+  const dl = (r, b) => !r.delta || !r.delta[b] ? '' : ` <span style="font-size:10px;color:${r.delta[b] > 0 ? 'var(--Rm)' : 'var(--Gm)'}">${r.delta[b] > 0 ? '▲' : '▼'}${Math.abs(r.delta[b]).toLocaleString('de-AT', { maximumFractionDigits: 3 })}</span>`;
+  box.innerHTML = rows.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Month</th><th>Low</th><th>Shoulder</th><th>Peak</th><th></th></tr></thead><tbody>${rows.map(r =>
+    `<tr><td>${esc(r.month)}</td><td>${sh(r, 'off')}${dl(r, 'off')}</td><td>${sh(r, 'shoulder')}${dl(r, 'shoulder')}</td><td>${sh(r, 'peak')}${dl(r, 'peak')}</td><td style="white-space:nowrap"><button class="btn xs ghost" data-action="energy-tariff-edit" data-id="${esc(r.id)}">Edit</button> <button class="btn xs danger" data-action="energy-tariff-del" data-id="${esc(r.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
+    : '<div style="font-size:12px;color:var(--ink3)">No months recorded yet. Until you add one, the price fields above (or the October 2026 bill prices) are used for every period.</div>';
+}
+function energyTariffSave() {
+  const v = n => (el('en-h-' + n) ? el('en-h-' + n).value : ''), id = v('id'), raw = { month: v('month'), off: v('off'), shoulder: v('shoulder'), peak: v('peak') };
+  const chk = energyValidateMonthTariff(raw, _enMode(DATA.energy), energyTariff(DATA.energy).vat); if (chk.error) return toast(chk.error, 1);
+  const r = commit('Tariff month saved', d => energySetMonthTariff(d, raw, _enMode(d.energy), energyTariff(d.energy).vat, id || null),
+    { touch: ['energy'], render: () => renderEnergy(), toast: res => res.ok ? (res.replaced ? `Prices for ${raw.month} replaced` : `Prices for ${raw.month} saved`) : null });
+  if (r.result && r.result.error) return toast(r.result.error, 1);
+  energyTariffCancel();
+}
+function energyTariffEdit(id) {
+  const r = _enHist(DATA.energy).find(x => x.id === id); if (!r) return;
+  const set = (n, val) => { el('en-h-' + n).value = val; };
+  set('id', r.id); set('month', r.month); ENERGY_BANDS.forEach(b => set(b, _enPriceShown(r.bands[b], DATA.energy))); el('en-h-save').textContent = 'Update month'; el('en-hist-details').open = true;
+}
+function energyTariffCancel() {
+  ['id', ...ENERGY_BANDS].forEach(n => { el('en-h-' + n).value = ''; }); el('en-h-month').value = ymd().slice(0, 7); el('en-h-save').textContent = 'Save month'; renderEnergyTariffs();
+}
+function energyTariffDel(id) {
+  const r = _enHist(DATA.energy).find(x => x.id === id); if (!r) return;
+  showConfirm(`Delete the prices recorded for ${r.month}?`, 'Periods in that month then use the latest earlier record. Bills already logged keep the prices they were estimated with.', () => {
+    commit('Tariff month deleted', d => energyDeleteMonthTariff(d, id), { touch: ['energy'], render: () => renderEnergy() });
+  });
+}
+defineActions({
+  'energy-tariff-save':   () => energyTariffSave(),
+  'energy-tariff-edit':   t => energyTariffEdit(t.dataset.id),
+  'energy-tariff-del':    t => energyTariffDel(t.dataset.id),
+  'energy-tariff-cancel': () => energyTariffCancel(),
+  'energy-tariff-month':  () => renderEnergyTariffs(),
+});
+
 defineActions({
   'energy-calc':     () => energyCalc(),
   'energy-rate':     t => energySetRate(t.dataset.path, t.value),
@@ -19414,6 +19751,93 @@ function runSmokeTest() {
       expect('debts' in mergeVaultData({ entries: [] }, { entries: [] }), false, 'no debts anywhere → no key is created (optional, no migration)');
       expect(JSON.stringify(L.debts), '[{"id":"d1","name":"Local","balance":1}]', 'merge does not modify its inputs');
     });
+    // ── Mortgage payment tracker ──
+    test('mortgage: €200,000 at 3.5 % → €583.33 interest; a €1,000 payment → €416.67 principal, closing balance €199,583.33', () => {
+      expectClose(mortgageInterest(200000, 3.5), 583.33, 0.001, 'monthly interest');
+      const r = mortgageApplyPayment(200000, 1000, 3.5);
+      expectClose(r.interest, 583.33, 0.001, 'interest portion'); expectClose(r.principal, 416.67, 0.001, 'principal repayment'); expectClose(r.closingBalance, 199583.33, 0.001, 'closing balance');
+      expect(r.paymentAmount, 1000, 'interest + principal = the payment'); expect(r.underpaid || r.capped, false, 'a normal payment is neither flagged');
+    });
+    test('mortgage: zero interest → the whole payment is principal', () => {
+      const r = mortgageApplyPayment(50000, 800, 0);
+      expect(r.interest + '|' + r.principal + '|' + r.closingBalance, '0|800|49200', '0 % → all principal'); expect(mortgageInterest(50000, 0), 0, 'no interest at 0 %');
+    });
+    test('mortgage: the final payment cannot take the balance below zero; early repayment is capped, and a repaid mortgage takes no further payment', () => {
+      const r = mortgageApplyPayment(500, 1000, 3.5);   // interest 1.46, so 501.46 clears it
+      expect(r.interest + '|' + r.principal + '|' + r.paymentAmount + '|' + r.closingBalance + '|' + r.capped, '1.46|500|501.46|0|true', 'capped at what is left');
+      const z = mortgageApplyPayment(0, 100, 3.5); expect(z.closingBalance + '|' + z.principal + '|' + z.interest, '0|0|0', 'nothing owed → nothing repaid, never negative');
+      const d = { mortgage: { startDate: '2026-11-01', startBalance: 300, rate: 0, payments: [] } };
+      const a = mortgageAddPayment(d, { date: '2026-11-05', paymentAmount: '1000', annualRate: '0' }, 'p1');
+      expect(a.ok + '|' + a.capped + '|' + d.mortgage.payments[0].paymentAmount + '|' + d.mortgage.payments[0].requestedAmount + '|' + d.mortgage.payments[0].closingBalance, 'true|true|300|1000|0', 'stored capped, typed amount kept');
+      const b = mortgageAddPayment(d, { date: '2026-12-05', paymentAmount: '50', annualRate: '0' }, 'p2'); expect(b.ok, false, 'already repaid'); expect(d.mortgage.payments.length, 1, 'nothing added');
+    });
+    test('mortgage: an underpayment (less than the interest due) gives no negative principal and an unchanged balance', () => {
+      const r = mortgageApplyPayment(200000, 400, 3.5);
+      expect(r.underpaid, true, 'flagged'); expect(r.interest + '|' + r.principal + '|' + r.closingBalance, '400|0|200000', 'all interest, principal 0, balance unchanged');
+      expectTrue(r.principal >= 0 && r.closingBalance <= 200000 && r.closingBalance >= 0, 'balance valid');
+    });
+    const mgFixture = () => ({ mortgage: { startDate: '2026-11-01', startBalance: 100000, rate: 12, payments: [] } });
+    const mgAdd = (d, date, amt, rate, id) => { const r = mortgageAddPayment(d, { date, paymentAmount: String(amt), annualRate: String(rate) }, id); expect(r.ok, true, 'add ' + id + ': ' + r.error); };
+    const mgRow = p => [p.interest, p.principal, p.openingBalance, p.closingBalance].join('/');
+    test('mortgage: editing or deleting an earlier payment recalculates the later balances with each payment\'s own rate', () => {
+      const d = mgFixture(); mgAdd(d, '2026-11-15', 2000, 12, 'p1'); mgAdd(d, '2026-12-15', 2000, 12, 'p2'); mgAdd(d, '2027-01-15', 2000, 12, 'p3');
+      expect(d.mortgage.payments.map(mgRow).join(' '), '1000/1000/100000/99000 990/1010/99000/97990 979.9/1020.1/97990/96969.9', 'hand-calculated chain at 12 %');
+      expect(mortgageEditPayment(d, 'p1', { date: '2026-11-15', paymentAmount: '3000', annualRate: '12' }).ok, true, 'edit ok');
+      expect(d.mortgage.payments.map(mgRow).join(' '), '1000/2000/100000/98000 980/1020/98000/96980 969.8/1030.2/96980/95949.8', 'p1 raised → p2 and p3 re-chained, their own amounts kept');
+      expect(d.mortgage.payments.map(p => p.paymentAmount).join(), '3000,2000,2000', 'later payment amounts untouched');
+      expect(mortgageDeletePayment(d, 'p1').ok, true, 'delete ok');
+      expect(d.mortgage.payments.map(mgRow).join(' '), '1000/1000/100000/99000 990/1010/99000/97990', 'p1 gone → p2 now opens at the start balance');
+      expect(mortgageDeletePayment(d, 'nope').ok, false, 'unknown id');
+      mgAdd(d, '2026-11-02', 1500, 12, 'p0'); expect(d.mortgage.payments[0].id + '|' + d.mortgage.payments[1].openingBalance, 'p0|99500', 'a payment dated earlier goes first and the chain follows');
+    });
+    test('mortgage: each payment keeps its own historical rate — a later rate change, or changing the default rate, never rewrites earlier payments', () => {
+      const d = mgFixture(); mgAdd(d, '2026-11-15', 2000, 3.5, 'a'); mgAdd(d, '2026-12-15', 2000, 4, 'b');
+      const a0 = JSON.stringify(d.mortgage.payments[0]);
+      expect(d.mortgage.payments.map(p => p.annualRate).join(), '3.5,4', 'each payment has its rate');
+      expectClose(d.mortgage.payments[1].interest, _mgR2(d.mortgage.payments[0].closingBalance * 4 / 1200), 0.001, 'the second payment is charged at 4 %');
+      expect(mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '5.5' }).ok, true, 'default rate changed');
+      expect(JSON.stringify(d.mortgage.payments[0]), a0, 'earlier payment untouched by a new default rate'); expect(d.mortgage.payments.map(p => p.annualRate).join(), '3.5,4', 'rates intact');
+      mortgageEditPayment(d, 'a', { date: '2026-11-15', paymentAmount: '2500', annualRate: '3.5' }); expect(d.mortgage.payments[1].annualRate, 4, 'editing an earlier payment keeps the later one\'s 4 %');
+      expect(mortgageSummary(d.mortgage).rate, 4, 'current rate = latest payment\'s');
+      expect(mortgageSummary({ startDate: '2026-11-01', startBalance: 1000, rate: 3, payments: [] }).rate, 3, 'no payments → the default');
+    });
+    test('mortgage: invalid and duplicate input is rejected, never silently accepted', () => {
+      const d = mgFixture(), bad = (date, amt, rate) => mortgageAddPayment(d, { date, paymentAmount: amt, annualRate: rate }, 'x').ok;
+      expect([bad('2026-02-30', '100', '3'), bad('', '100', '3'), bad('2026-11-15', '0', '3'), bad('2026-11-15', '-5', '3'), bad('2026-11-15', 'abc', '3'), bad('2026-11-15', '', '3'), bad('2026-11-15', '100', '-1'), bad('2026-11-15', '100', '101'), bad('2026-11-15', '100', 'x'), bad('2026-11-15', '100', ''), bad('2026-10-31', '100', '3')].join(),
+        'false,false,false,false,false,false,false,false,false,false,false', 'bad dates, amounts, rates and a date before the start are refused'); expect(d.mortgage.payments.length, 0, 'nothing stored');
+      mgAdd(d, '2026-11-15', 1000, 3, 'p1'); expect(mortgageAddPayment(d, { date: '2026-11-15', paymentAmount: '1000', annualRate: '3' }, 'p2').ok, false, 'same date + amount = duplicate'); expect(d.mortgage.payments.length, 1, 'duplicate not added');
+      expect(mortgageEditPayment(d, 'ghost', { date: '2026-11-16', paymentAmount: '5', annualRate: '3' }).ok, false, 'editing an unknown payment');
+      expect(mortgageAddPayment({}, { date: '2026-11-15', paymentAmount: '1', annualRate: '3' }, 'z').ok, false, 'no start balance yet');
+      expect([{}, { startDate: '2026-13-01', startBalance: 1, rate: 1 }, { startDate: '2026-11-01', startBalance: 0, rate: 1 }, { startDate: '2026-11-01', startBalance: 5, rate: 120 }].map(s => validateMortgageSetup(s).ok).join(), 'false,false,false,false', 'bad start values');
+      expect(mortgageSetStart(d, { startDate: '2026-12-01', startBalance: '1000', rate: '3' }).ok, false, 'start after an existing payment is refused');
+      expect(d.mortgage.startDate, '2026-11-01', 'refused change leaves the data alone');
+    });
+    test('mortgage: summary, commit()/Undo, old vaults without the key, and an export/import round-trip', () => {
+      expect(mortgageSummary(undefined), null, 'no mortgage → null'); expect(mortgageSummary({}), null, 'empty object → null'); expect(mortgageSummary({ startBalance: 'x' }), null, 'garbage → null');
+      expect(mortgageRecompute(100, undefined).length, 0, 'no list → empty');
+      const vault = {}, io = { save: () => {}, render: () => {}, toast: (m, er, u) => { undo = u; } }; let undo = null;
+      commitCore(() => vault, 'start', d => mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12' }), { touch: ['mortgage'] }, io);
+      expect(vault.mortgage.startBalance, 100000, 'first write creates the key through commit()');
+      commitCore(() => vault, 'pay', d => mortgageAddPayment(d, { date: '2026-11-15', paymentAmount: '2000', annualRate: '12' }, 'p1'), { touch: ['mortgage'] }, io);
+      const S = mortgageSummary(vault.mortgage); expect([S.startBalance, S.balance, S.principalRepaid, S.interestPaid, S.rate, S.count].join(), '100000,99000,1000,1000,12,1', 'summary figures');
+      undo(); expect(vault.mortgage.payments.length, 0, 'Undo removes the payment'); expect(vault.mortgage.startBalance, 100000, 'and keeps the start');
+      const r = commitCore(() => vault, 'bad', d => mortgageAddPayment(d, { date: 'nope', paymentAmount: '1', annualRate: '1' }), { touch: ['mortgage'] }, io); expect(r.changed, false, 'a rejected payment changes nothing');
+      mortgageAddPayment(vault, { date: '2026-11-15', paymentAmount: '2000', annualRate: '12' }, 'p1'); mortgageAddPayment(vault, { date: '2026-12-15', paymentAmount: '2000', annualRate: '11' }, 'p2');
+      const back = JSON.parse(JSON.stringify(vault.mortgage)); expect(JSON.stringify(mortgageRecompute(back.startBalance, back.payments)), JSON.stringify(back.payments), 'export → import: stored values equal a fresh recompute');
+      expect(Object.keys(back.payments[0]).sort().join(), 'annualRate,closingBalance,date,id,interest,openingBalance,paymentAmount,principal', 'all eight required fields are stored');
+    });
+    test('mortgage: the conflict merge unions payments by id (local wins), drops a payment entered on both devices, re-chains, and adds no key when there is none', () => {
+      const mk = () => mgFixture(); const A = mk(), B = mk();
+      mgAdd(A, '2026-11-15', 2000, 12, 'p1'); mgAdd(B, '2026-11-15', 2000, 12, 'p1'); mgAdd(B, '2026-12-15', 2000, 12, 'p2'); mgAdd(A, '2026-11-15', 1, 12, 'pA');
+      const Ls = JSON.stringify(A.mortgage), Rs = JSON.stringify(B.mortgage), m = mergeVaultData({ entries: [], mortgage: A.mortgage }, { entries: [], mortgage: B.mortgage }).mortgage;
+      expect(m.payments.map(p => p.id).sort().join(), 'p1,p2,pA', 'union by id, no duplicate p1'); expect(JSON.stringify(A.mortgage) + JSON.stringify(B.mortgage), Ls + Rs, 'inputs not modified');
+      expect(JSON.stringify(m.payments), JSON.stringify(mortgageRecompute(100000, m.payments)), 'chain consistent after the merge');
+      const same = mergeMortgage({ ...mk().mortgage, payments: [{ id: 'x1', date: '2026-11-15', paymentAmount: 500, annualRate: 12 }] }, { ...mk().mortgage, payments: [{ id: 'y9', date: '2026-11-15', paymentAmount: 500, annualRate: 12 }] });
+      expect(same.payments.length + '|' + same.payments[0].id, '1|x1', 'same date + amount from the other device is the same payment');
+      expect(mergeVaultData({ entries: [] }, { entries: [], mortgage: B.mortgage }).mortgage.payments.length, 2, 'an older local vault (no mortgage) keeps the newer vault\'s data');
+      expect(mergeVaultData({ entries: [], mortgage: B.mortgage }, { entries: [] }).mortgage.payments.length, 2, 'an older remote vault does not remove it');
+      expect('mortgage' in mergeVaultData({ entries: [] }, { entries: [] }), false, 'no mortgage anywhere → no key (optional, no migration)');
+    });
     test('tag budgets: progress, rollover, alerts fire once per month, edits through commit() with Undo, merge', () => {
       const ex = (id, date, amount, tags, extra = {}) => ({ id, date, desc: id, amount, type: 'expense', category: 'wants', tags, ...extra });
       const data = (entries, tb = { holiday: { amount: 200 } }) => ({ entries, tagBudgets: tb });
@@ -19483,6 +19907,64 @@ function runSmokeTest() {
       renderVerifyCard(String(+ENERGY_AT_AVG_VERIFIED.slice(0, 4) + 1) + '-01-02'); expectTrue(/⚠ check for/.test(el('verify-list').innerHTML.split('padding:8px 0;border-bottom').find(x => /Austrian electricity average/.test(x))), 'due once the year changes (verifyDue)');
       renderVerifyCard();
       expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2027-01-01'), true, 'verifyDue pattern: new year'); expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2026-12-31'), false, 'same year');
+    });
+    // ── Monthly electricity tariff history ──
+    const enP = (month, off, sh, pk) => ({ month, off: String(off), shoulder: String(sh), peak: String(pk) });
+    test('tariff history: validation — month and all three prices required, numbers 0–1000, gross → stored net', () => {
+      const ok = energyValidateMonthTariff(enP('2026-11', '18,46', '21,23', '25,85'), 'net', 20);
+      expect(ok.ok + '|' + ok.record.month + '|' + [ok.record.bands.off, ok.record.bands.shoulder, ok.record.bands.peak].join(), 'true|2026-11|18.46,21.23,25.85', 'comma decimals accepted, net kept');
+      const g = energyValidateMonthTariff(enP('2026-11', '22.152', '25.476', '31.02'), 'gross', 20); expectClose(g.record.bands.peak, 25.85, 0.0001, 'incl. VAT 31.02 → net 25.85'); expectClose(g.record.bands.off, 18.46, 0.0001, 'off-peak gross → net');
+      const bad = [enP('', 1, 2, 3), enP('2026-13', 1, 2, 3), enP('2026-11', '', 2, 3), enP('2026-11', 1, 'x', 3), enP('2026-11', 1, 2, -3), enP('2026-11', 1, 2, 1001), enP('2026-11', 1, 2, '1,2,3')].map(r => !!energyValidateMonthTariff(r, 'net', 20).error);
+      expect(bad.join(), 'true,true,true,true,true,true,true', 'bad month, missing / non-numeric / negative / absurd prices are refused'); expectTrue(!energyValidateMonthTariff(enP('2026-11', 0, 0, 0), 'net', 20).error, 'a price of 0 is allowed');
+    });
+    test('tariff history: one record per month (no duplicates), kept sorted, edit and delete, failures change nothing', () => {
+      const d = { energy: { bills: [] } };
+      expect(energySetMonthTariff(d, enP('2026-12', 20, 22, 26), 'net', 20, null, 'b').ok, true, 'add Dec'); expect(energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a').ok, true, 'add Nov');
+      expect(d.energy.tariffHistory.map(r => r.month + ':' + r.id).join(), '2026-11:a,2026-12:b', 'oldest first'); expect(d.energy.bills.length, 0, 'other energy data untouched');
+      const again = energySetMonthTariff(d, enP('2026-11', 19, 21.5, 25.5), 'net', 20, null, 'zzz'); expect(again.ok + '|' + again.replaced + '|' + again.id, 'true|true|a', 'same month → replaced in place, id kept');
+      expect(d.energy.tariffHistory.length + '|' + d.energy.tariffHistory[0].bands.off, '2|19', 'still one record per month');
+      expect(energySetMonthTariff(d, enP('2026-12', 1, 1, 1), 'net', 20, 'a').error !== undefined, true, 'editing Nov onto Dec is refused'); expect(d.energy.tariffHistory[0].month, '2026-11', 'unchanged');
+      expect(energySetMonthTariff(d, enP('2027-01', 20, 22, 26), 'net', 20, 'a').ok, true, 'editing may move a record to a free month'); expect(d.energy.tariffHistory.map(r => r.month).join(), '2026-12,2027-01', 'moved and re-sorted');
+      expect(energySetMonthTariff(d, enP('2027-02', 1, 1, 1), 'net', 20, 'ghost').error !== undefined, true, 'unknown id'); expect(energyDeleteMonthTariff(d, 'a').ok, true, 'delete'); expect(energyDeleteMonthTariff(d, 'a').error !== undefined, true, 'delete twice');
+      const e = {}; expect(energySetMonthTariff(e, enP('bad', 1, 2, 3), 'net', 20).error !== undefined && !('energy' in e), true, 'a rejected record does not even create DATA.energy');
+    });
+    test('tariff history: a month uses its own prices, then the latest earlier ones, then the defaults — later changes never rewrite earlier months', () => {
+      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); energySetMonthTariff(d, enP('2027-03', 30, 33, 40), 'net', 20, null, 'b');
+      const bp = m => { const t = energyTariffForMonth(d.energy, m).bands; return [t.off, t.shoulder, t.peak].join('/'); };
+      expect([bp('2026-11'), bp('2027-01'), bp('2027-03'), bp('2027-08')].join(' '), '18/21/25 18/21/25 30/33/40 30/33/40', 'exact, then carried forward');
+      expect(bp('2026-10'), [ENERGY_DEFAULTS.bands.off, ENERGY_DEFAULTS.bands.shoulder, ENERGY_DEFAULTS.bands.peak].join('/'), 'before the first record → the defaults');
+      energySetMonthTariff(d, enP('2027-06', 50, 55, 60), 'net', 20, null, 'c'); expect(bp('2027-03') + ' ' + bp('2026-11'), '30/33/40 18/21/25', 'adding a later month leaves the earlier ones');
+      const o = { energy: { tariff: { 'bands.peak': 99, vat: 13 } } }; expect(energyTariffForMonth(o.energy, '2026-11').bands.peak, 99, 'no history → the single price fields still apply');
+      energySetMonthTariff(o, enP('2026-11', 1, 2, 3), 'net', 20, null, 'x'); const t = energyTariffForMonth(o.energy, '2026-11'); expect(t.bands.peak + '|' + t.vat + '|' + t.baseFee, '3|13|2.49', 'a record replaces the band prices only; VAT override and other rates stay');
+      expect(JSON.stringify(energyTariffForMonth({}, '2026-11')), JSON.stringify(energyTariff({})), 'empty energy → exactly energyTariff()'); expect(energyPricesForMonth(d.energy, 'nope'), null, 'bad month → null');
+    });
+    test('tariff history: the estimate for a period follows that month\'s prices, so an old month is not re-priced', () => {
+      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); energySetMonthTariff(d, enP('2026-12', 36, 42, 50), 'net', 20, null, 'b');
+      const inp = { kwh: 150, days: 30, months: 1 }, nov = energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp), dec = energyEstimate(energyTariffForMonth(d.energy, '2026-12'), inp);
+      expectTrue(dec.energy.sum > nov.energy.sum && dec.gross > nov.gross, 'December prices are higher → a higher estimate'); expect(energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp).gross, nov.gross, 'November still estimates the same');
+      expect(energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp).grid.sum, dec.grid.sum, 'grid charges and levies are not part of the history');
+    });
+    test('tariff history: changes against the previous month, oldest first', () => {
+      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-12', 20, 22, 24), 'net', 20, null, 'b'); energySetMonthTariff(d, enP('2026-11', 18.5, 22, 25), 'net', 20, null, 'a');
+      const c = energyTariffChanges(d.energy); expect(c.map(r => r.month).join(), '2026-11,2026-12', 'ordered'); expect(c[0].delta, null, 'first month has no change');
+      expect([c[1].delta.off, c[1].delta.shoulder, c[1].delta.peak].join(), '1.5,0,-1', 'Δ ct/kWh per band'); expect(energyTariffChanges({}).length + '|' + energyTariffChanges(undefined).length, '0|0', 'no history → none');
+    });
+    test('tariff history: old vaults, junk records, commit()/Undo and an export/import round-trip', () => {
+      const old = { energy: { bills: [{ id: 'b1' }], tariff: {} } }; expect(energyPricesForMonth(old.energy, '2026-11'), null, 'energy without the key → null'); expect(energyTariffChanges(old.energy).length, 0, 'and no rows');
+      const junk = { tariffHistory: [null, { id: 'x' }, { id: 'y', month: '2026-11', bands: { off: 'a', shoulder: 1, peak: 1 } }, { id: 'z', month: '2026-11', bands: { off: 1, shoulder: 2, peak: 3 } }] };
+      expect(energyTariffChanges(junk).length, 1, 'malformed records are ignored, never thrown on'); expect(energyTariffForMonth(junk, '2026-12').bands.peak, 3, 'the valid one applies');
+      const vault = { energy: { bills: [{ id: 'b1' }] } }; let undo = null; const io = { save: () => {}, render: () => {}, toast: (m, er, u) => { undo = u; } };
+      commitCore(() => vault, 'tariff', d => energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'), { touch: ['energy'] }, io);
+      expect(vault.energy.tariffHistory.length + '|' + vault.energy.bills.length, '1|1', 'saved through commit(), bills intact'); undo(); expect((vault.energy.tariffHistory || []).length + '|' + vault.energy.bills.length, '0|1', 'Undo removes only the month');
+      energySetMonthTariff(vault, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); const back = JSON.parse(JSON.stringify(vault)); expect(JSON.stringify(energyTariffChanges(back.energy)), JSON.stringify(energyTariffChanges(vault.energy)), 'export → import identical');
+    });
+    test('tariff history: the conflict merge unions by id and month (local wins), keeps old vaults\' data, adds no key when there is none', () => {
+      const L = { entries: [], energy: { bills: [], tariffHistory: [{ id: 'a', month: '2026-11', bands: { off: 1, shoulder: 2, peak: 3 } }] } };
+      const R = { entries: [], energy: { bills: [], tariffHistory: [{ id: 'a2', month: '2026-11', bands: { off: 9, shoulder: 9, peak: 9 } }, { id: 'c', month: '2026-10', bands: { off: 5, shoulder: 5, peak: 5 } }] } };
+      const Ls = JSON.stringify(L), Rs = JSON.stringify(R), m = mergeVaultData(L, R).energy.tariffHistory;
+      expect(m.map(r => r.month + ':' + r.id + ':' + r.bands.off).join(), '2026-10:c:5,2026-11:a:1', 'one record per month, local wins, sorted'); expect(JSON.stringify(L) + JSON.stringify(R), Ls + Rs, 'inputs not modified');
+      expect(mergeVaultData({ entries: [], energy: { bills: [] } }, R).energy.tariffHistory.length, 2, 'an older local vault keeps the newer vault\'s history'); expect(mergeVaultData(L, { entries: [] }).energy.tariffHistory.length, 1, 'an older remote vault does not remove it');
+      expect('tariffHistory' in mergeVaultData({ entries: [], energy: { bills: [] } }, { entries: [], energy: { bills: [] } }).energy, false, 'no history anywhere → no key'); expect(mergeEnergyTariffHistory(undefined, undefined).length, 0, 'pure merge tolerates nothing');
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
@@ -20396,8 +20878,13 @@ function mergeVaultData(local, remote) {
   if (local.debts || remote.debts) merged.debts = mergeById(local.debts, remote.debts);
   // Tag budgets (optional): unioned by tag, the local copy of a tag wins (a budget removed here can come back from a device that still has it).
   if (local.tagBudgets || remote.tagBudgets) merged.tagBudgets = { ...(remote.tagBudgets || {}), ...(local.tagBudgets || {}) };
+  // Mortgage (optional): setup stays as on this device, payments are unioned by id (same date + amount = same payment) and the balance chain is recomputed.
+  if (local.mortgage || remote.mortgage) merged.mortgage = mergeMortgage(local.mortgage, remote.mortgage);
   // Electricity (optional): bills are unioned by id like the other lists; the rates and the recurring link stay as on this device.
   if (local.energy || remote.energy) merged.energy = { ...(remote.energy||{}), ...(local.energy||{}), bills: mergeById((local.energy||{}).bills, (remote.energy||{}).bills) };
+  // Monthly tariff history (optional): unioned by id and by month, this device wins.
+  if ((local.energy || {}).tariffHistory || (remote.energy || {}).tariffHistory) merged.energy.tariffHistory = mergeEnergyTariffHistory((local.energy || {}).tariffHistory, (remote.energy || {}).tariffHistory);
+  else if (merged.energy) delete merged.energy.tariffHistory;
   // Several cars: the car-aware merge replaces the plain top-level fuel / tyres / service / insurance merge above, so one car's refuels can never land in another's list.
   if (local.cars || remote.cars) {
     const c = mergeCarsData(local, remote, mergeById);
