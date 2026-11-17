@@ -799,7 +799,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 /* ── OFFLINE INDICATOR ── */
 #offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:var(--Abg);color:var(--Am);font-size:12px;font-weight:500;text-align:center;padding:5px 12px;border-bottom:.5px solid rgba(176,110,20,.25)}
-#offline-bar.show{display:block}
 
 /* ── NET WORTH TIMELINE ── */
 .nw-chart-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -863,6 +862,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .ins-x{font-size:12.5px;color:var(--ink2);line-height:1.45;margin-top:1px}
 .ins-none{font-size:12px;color:var(--ink3);padding:4px 0}
 /* Overview layout: hide / fold / reorder cards (state is kept in the vault: DATA.settings.overview) */
+.cf-strip{display:flex;align-items:flex-end;gap:1px;height:64px;margin:8px 0 4px}
+.cf-bar{flex:1 1 0;min-width:2px;border-radius:1px;cursor:pointer;opacity:.85}
+.cf-bar:hover,.cf-bar.cf-sel{opacity:1;outline:1px solid var(--ink2)}
+.cf-pos{background:var(--Gm)}.cf-neg{background:var(--Rm)}
+.cf-pop{background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:12px;margin-top:6px}
+.cf-pop-row{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
 #d-cards .ov-hidden{display:none!important}
 #d-cards .card-title{cursor:pointer;-webkit-user-select:none;user-select:none}
 #d-cards .card-title::before{content:'▾';display:inline-block;width:1.1em;font-size:10px;opacity:.45}
@@ -1296,6 +1301,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
       <div class="card" id="ov-energy">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-energy">Electricity bill</div>
+        <div id="d-energy-rate" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px"></div>
         <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:8px">Estimate the bill from the meter before it arrives, then log the real one. The rates are those of one real bill and change over time: check them below.</div>
         <div class="g2" style="margin-bottom:8px">
           <div class="fg" style="margin:0"><label>Period from</label><input type="date" id="en-from" style="width:100%" data-action-input="energy-calc" data-action-change="energy-calc"></div>
@@ -1366,6 +1372,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <span id="forecast-lbl" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--ink3)"></span>
         </div>
         <div id="d-forecast"></div>
+      </div>
+
+      <div class="card" id="ov-cashflow">
+        <div class="card-title" data-action="ov-title-fold" data-id="ov-cashflow">Cash-flow forecast</div>
+        <div id="d-cashflow"></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px">
+          <span style="font-size:12px;color:var(--ink2)">Can I afford this?</span>
+          <input type="text" id="cf-aff-amt" placeholder="€ amount" autocomplete="off" style="width:110px;font-family:var(--mono)" data-action-keydown="cf-afford-key">
+          <button class="btn xs" data-action="cf-afford">Check</button>
+        </div>
+        <div id="cf-aff-res" style="font-size:12px;margin-top:6px"></div>
       </div>
 
       <div class="card" id="ov-merchants">
@@ -1699,6 +1716,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
             <input type="checkbox" id="ef-inst" data-action-change="ef-inst-toggle"> Pay in installments
           </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+            <input type="checkbox" id="ef-warr" data-action-change="ef-warr-toggle"> Track warranty
+          </label>
+          <span id="ef-warr-wrap" style="display:none;align-items:center;gap:4px;font-size:12px;color:var(--ink2)">
+            <input type="number" id="ef-warr-n" value="24" min="1" max="120" step="1" style="width:64px;font-family:var(--mono)"> months
+          </span>
         </div>
         <!-- Installment sub-form -->
         <div id="inst-form" style="display:none;margin-top:10px;padding:10px 12px;background:var(--Tbg);border-radius:var(--rs)">
@@ -2074,6 +2097,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="btn xs ghost" data-action="set-render-split-suggestion" title="Compare your targets with what you actually spent — you decide what to change">💡 Compare with my real spending</button>
         </div>
         <div id="split-suggest" style="display:none;margin-top:12px"></div>
+        <hr class="sep" style="margin:16px 0 12px">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Tag budgets</div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:8px">A monthly limit for everything tagged with one tag. It shows on the Overview and alerts at your early-warning threshold and at 100 %.</div>
+        <div id="tagbud-list"></div>
+        <div class="goal-row" style="margin-top:8px">
+          <input type="text" id="tb-tag" list="tb-tags" placeholder="tag, e.g. holiday" maxlength="30" autocomplete="off" style="width:150px"><datalist id="tb-tags"></datalist>
+          <span style="color:var(--ink3);font-size:12px">€</span><input type="number" id="tb-amount" min="0.01" step="1" placeholder="per month" style="width:100px;font-family:var(--mono)">
+          <button class="btn xs success" data-action="tagbud-add">Add / update</button>
+        </div>
       </div>
 
       <div class="card">
@@ -2757,6 +2789,56 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
       </div>
 
+      <!-- ── Debts ── -->
+      <div class="card" id="debts-card">
+        <div class="card-title">Debts
+          <button class="btn xs success" style="margin-left:8px;text-transform:none;letter-spacing:0" data-action="debt-new">+ Add debt</button>
+        </div>
+        <div id="debt-form" style="display:none;background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+          <input type="hidden" id="db-id">
+          <div id="db-form-title" style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">New debt</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Name</label><input type="text" id="db-name" maxlength="60" placeholder="Card, loan…" autocomplete="off"></div>
+            <div class="fg" style="margin:0"><label>Balance (€)</label><input type="number" id="db-balance" min="0" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Interest (% a year)</label><input type="number" id="db-rate" min="0" max="100" step="0.01" style="font-family:var(--mono)"></div>
+          </div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Minimum payment (€/mo)</label><input type="number" id="db-min" min="0" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Promo rate (%) <span class="muted" style="text-transform:none;letter-spacing:0">optional</span></label><input type="number" id="db-promo-rate" min="0" max="100" step="0.01" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Promo ends <span class="muted" style="text-transform:none;letter-spacing:0">optional</span></label><input type="date" id="db-promo-end"></div>
+          </div>
+          <div class="g2" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Started <span class="muted" style="text-transform:none;letter-spacing:0">optional</span></label><input type="date" id="db-start"></div>
+            <div class="fg" style="margin:0"><label>Note <span class="muted" style="text-transform:none;letter-spacing:0">optional</span></label><input type="text" id="db-note" maxlength="200" autocomplete="off"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn sm primary" data-action="debt-save">Save</button>
+            <button class="btn sm ghost" data-action="debt-cancel">Cancel</button>
+            <button class="btn sm danger" id="db-delete" data-action="debt-delete" style="margin-left:auto;display:none">Delete</button>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Leave the promo rate empty when there is no promotion — it then defaults to the interest rate.</div>
+        </div>
+        <div id="debt-pay-form" style="display:none;background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+          <input type="hidden" id="dp-id">
+          <div id="dp-title" style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Log a payment</div>
+          <div class="g3" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Amount (€)</label><input type="text" id="dp-amount" style="font-family:var(--mono)" autocomplete="off"></div>
+            <div class="fg" style="margin:0"><label>Date</label><input type="date" id="dp-date"></div>
+            <div class="fg" style="margin:0"><label>Paid from</label><select id="dp-acct"></select></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm primary" data-action="debt-pay-save">Log payment</button>
+            <button class="btn sm ghost" data-action="debt-pay-cancel">Cancel</button>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px">Creates an expense under Needs linked to this debt and lowers its balance by the amount. Interest is not added for you — correct the balance with Edit when your statement differs.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--ink2)">Extra payment per month (€)</span>
+          <input type="number" id="db-extra" min="0" step="1" placeholder="0" style="width:90px;font-family:var(--mono)" data-action-input="debt-extra">
+        </div>
+        <div id="d-debts"></div>
+      </div>
+
     </section>
 
     <!-- FUEL -->
@@ -3253,6 +3335,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <button class="btn sm ghost" data-action="entry-edit-close">Cancel</button>
         <button class="btn sm" data-action="entry-edit-confirm" data-fuel="false">Change expense only</button>
         <button class="btn sm primary" data-action="entry-edit-confirm" data-fuel="true">Change expense + refuel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Warranty of an expense: track / change / remove ── -->
+  <div class="modal-overlay" id="warr-edit-overlay" data-action="warr-edit-backdrop">
+    <div class="modal-box" style="width:min(420px,100%)">
+      <div class="modal-title">Warranty</div>
+      <div id="warr-edit-info" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;font-size:13px;margin-bottom:10px"></div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0 0 8px">
+        <input type="checkbox" id="warr-edit-on" data-action-change="warr-edit-toggle"> Track warranty
+      </label>
+      <div id="warr-edit-fields" style="display:none;margin-bottom:10px">
+        <div class="g2">
+          <div class="fg" style="margin:0"><label>Months (1–120)</label><input type="number" id="warr-edit-n" min="1" max="120" step="1" style="font-family:var(--mono)"></div>
+          <div class="fg" style="margin:0"><label>Starts <span class="muted" style="text-transform:none;letter-spacing:0">(empty = entry date)</span></label><input type="date" id="warr-edit-start"></div>
+        </div>
+        <div id="warr-edit-expiry" style="font-size:11px;color:var(--ink3);font-family:var(--mono);margin-top:6px"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn sm ghost" data-action="warr-edit-close">Cancel</button>
+        <button class="btn sm primary" data-action="warr-edit-save">Save</button>
       </div>
     </div>
   </div>
@@ -5155,11 +5259,9 @@ function renderDash() {
   // banners
   renderDashBanners(month, act, budgetInc);
 
-  // Net worth across all accounts
+  // Net worth across all accounts — the subtitle of the Runway tile, which took over the primary slot
   const netWorth = DATA.accounts.reduce((s, a) => s + computeAcctBalance(a), 0);
-  const nwStat = DATA.accounts.length
-    ? `<div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val ${netWorth>=0?'cg':'cr'}">${fmt(netWorth)}</div></div>`
-    : '';
+  const nwStat = DATA.accounts.length ? runwayTileHtml(computeRunway(DATA, ymdOf(now)), netWorth) : '';
 
   // Month-over-month comparison
   const prevMon  = prevMonStr(month);
@@ -5228,6 +5330,7 @@ function renderDash() {
   renderBillCalendar(month);
   renderStreak();
   renderSpendingForecast(month, mes, totalInc, isCurrentMonth, daysElapsed, daysInMonth);
+  try { renderCashflow(); } catch (e) { console.error('Cash-flow forecast failed:', e); }    // never breaks the Overview
   renderMerchantAnalytics(month, mes);
   renderSavingsGoals();
   try { renderEnergy(); } catch (e) { console.error('Electricity failed:', e); }    // never breaks the Overview
@@ -5239,7 +5342,7 @@ function renderDash() {
   try { applyOverviewLayout(); } catch (e) { console.error('Overview layout failed:', e); }   // hide / fold / reorder — never breaks the Overview either
 
   // Expensive cross-month renders — skip if entry count + account balances haven't changed
-  const _dashKey = `${DATA.entries.length}|${DATA.accounts.map(a=>a.id+a.balance).join(',')}|${DATA.stocks.length}|${DATA.fxAccounts?.length}`;
+  const _dashKey = dashCacheKey(DATA);
   if (_dashKey !== renderDash._cacheKey) {
     renderDash._cacheKey = _dashKey;
     renderBudgetVsActualHeatmap();
@@ -5252,6 +5355,12 @@ function renderDash() {
   updateStepStatus();
 }
 renderDash._cacheKey = null;
+function dashCacheKey(data) {
+  const es = data.entries || [];
+  let amt = 0, dt = 0;
+  es.forEach(e => { amt += +e.amount || 0; dt += +String(e.date || '').replace(/-/g, '') || 0; });
+  return `${es.length}|${(data.accounts || []).map(a => a.id + a.balance).join(',')}|${(data.stocks || []).length}|${data.fxAccounts?.length}|${amt.toFixed(2)}|${dt}`;
+}
 
 // ══════════════════════════════════════════
 // ACCOUNT BALANCE  —  computed live from entries
@@ -5724,6 +5833,148 @@ function hmTip(e, cat, mon, val) {
 function hmHide() { el('d-heatmap-tip').style.display = 'none'; }
 
 // ══════════════════════════════════════════
+// CASH-FLOW FORECAST + RUNWAY — one shared pure projection (projectCashflow), a runway figure (computeRunway), a what-if (canAfford).
+//   "Liquid" = every account except the one named "Cash". An entry or recurring item with NO account counts as liquid money too (unassigned = assumed
+//   paid from the accounts); one on Cash does not. The projection starts at the end of TODAY (balances up to and including today) and covers the
+//   next `days` dates, tomorrow first. Everything below only READS `data`.
+//   WHAT IS APPLIED, per date:
+//     • entries already dated in the future — this is where installments live (createInstallmentEntries books every instalment up front), plus any
+//       recurring item already applied for a future day, or planned by hand;
+//     • recurring items NOT yet applied: recurFiresInMonth + recurDatesInMonth per month, minus the dates the item already has an entry for that month
+//       (the same count rule as applyRecurring) → a booked recurring or installment expense is never counted twice. Dates today or earlier are not
+//       forecast (apply them first); a later date is;
+//     • plannedIncome[month] on day 1 of each month in the window — unless that month already has an income entry (it would be counted twice);
+//     • a flat variable-spending baseline on every day (see _cfVariableDaily).
+//   UNBOOKED-EXPENSE RULE (variable baseline): the average per day, over the 90 days before today, of expense entries that are NOT already modelled
+//   above — no recurId, no installmentId — and that were paid from liquid money. Recurring and installment payments are excluded precisely because
+//   they are applied on their own dates, so the baseline cannot double them. A vault younger than 90 days divides by the days it has existed (≥ 1),
+//   not by 90, so a new vault is not under-estimated.
+//   Returns { startBalance, days:[{date,incoming,outgoing,balance,items}], deficitDays, minBalance, minDate, noIncome, variableDaily }.
+//   items = what happened that day [{kind:'entry'|'installment'|'recurring'|'planned'|'variable', name, amount (signed)}] — for the day popover.
+//   noIncome = nothing comes in during the whole window (an empty vault, or no planned income / recurring income / future income entry).
+// ══════════════════════════════════════════
+const _cfAddDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const _cfR2 = n => Math.round(n * 100) / 100;
+function _cfLiquidIds(data) {
+  return new Set(((data && data.accounts) || []).filter(a => (a.name || '').trim().toLowerCase() !== 'cash').map(a => a.id));
+}
+// days the vault has existed before today, capped at 90 (the divisor of the trailing averages); 0 when there is nothing before today
+function _cfSpan(entries, today) {
+  let first = null; entries.forEach(e => { if (e.date && (first === null || e.date < first)) first = e.date; });
+  return first === null ? 0 : Math.min(90, Math.max(0, _remDiff(first, today)));
+}
+function _cfVariableDaily(data, today) {
+  const entries = (data && data.entries) || [], liq = _cfLiquidIds(data), span = _cfSpan(entries, today);
+  if (!span) return 0;
+  const from = _cfAddDays(today, -90);
+  const sum = entries.filter(e => e.type === 'expense' && !e.recurId && !e.installmentId && e.date >= from && e.date < today && (!e.accountId || liq.has(e.accountId))).reduce((a, e) => a + e.amount, 0);
+  return sum / span;
+}
+function projectCashflow(data, today, days = 90) {
+  const d0 = data || {}, entries = d0.entries || [], accounts = d0.accounts || [], liq = _cfLiquidIds(d0);
+  const startBalance = _cfR2(accounts.filter(a => liq.has(a.id)).reduce((s, a) => s + acctBalanceAsOf(a, entries, today), 0));
+  const n = _remValidDate(today) ? Math.max(0, Math.floor(+days || 0)) : 0;
+  const dates = Array.from({ length: n }, (_, i) => _cfAddDays(today, i + 1)), end = dates[n - 1] || today;
+  const byDate = {}; dates.forEach(dt => { byDate[dt] = []; });
+  const put = (dt, kind, name, amount) => { if (byDate[dt] && amount) byDate[dt].push({ kind, name, amount }); };
+  const isLiq = id => !id || liq.has(id);
+  // 1) entries already dated in the window
+  entries.forEach(e => {
+    if (!(e.date > today && e.date <= end)) return;
+    let eff = 0;
+    if (e.type === 'transfer') eff = (liq.has(e.accountId) ? -e.amount : 0) + (liq.has(e.accountIdTo) ? e.amount : 0);
+    else if (isLiq(e.accountId)) eff = e.type === 'income' ? e.amount : (e.type === 'expense' || e.type === 'savings') ? -e.amount : 0;
+    put(e.date, e.installmentId ? 'installment' : e.recurId ? 'recurring' : 'entry', e.desc || '(no description)', eff);
+  });
+  // 2) recurring items not yet applied, 3) planned income — month by month
+  [...new Set(dates.map(dt => dt.slice(0, 7)))].forEach(m => {
+    (d0.recurring || []).forEach(r => {
+      if (!isLiq(r.accountId) || !recurFiresInMonth(r, m, entries)) return;
+      const booked = entries.filter(e => e.recurId === r.id && e.date.slice(0, 7) === m).length;
+      recurDatesInMonth(r, m).slice(booked).forEach(dt => put(dt, 'recurring', r.desc || 'Recurring item', r.type === 'income' ? r.amount : (r.type === 'expense' || r.type === 'savings' || r.type === 'transfer') ? -r.amount : 0));
+    });
+    const planned = +(d0.plannedIncome && d0.plannedIncome[m]) || 0;
+    if (planned > 0 && !entries.some(e => e.type === 'income' && e.date.slice(0, 7) === m)) put(m + '-01', 'planned', 'Planned income', planned);
+  });
+  // 4) variable baseline, then the running balance
+  const variableDaily = _cfVariableDaily(d0, today);
+  let bal = startBalance, deficitDays = 0, minBalance = startBalance, minDate = today, incomingTotal = 0;
+  const out = dates.map((date, i) => {
+    const items = byDate[date].slice();
+    if (variableDaily > 0) items.push({ kind: 'variable', name: 'Variable spending (90-day average)', amount: -variableDaily });
+    let incoming = 0, outgoing = 0; items.forEach(it => { if (it.amount > 0) incoming += it.amount; else outgoing += -it.amount; });
+    bal += incoming - outgoing; incomingTotal += incoming;
+    const balance = _cfR2(bal);
+    if (balance < 0) deficitDays++;
+    if (i === 0 || balance < minBalance) { minBalance = balance; minDate = date; }
+    return { date, incoming: _cfR2(incoming), outgoing: _cfR2(outgoing), balance, items };
+  });
+  return { startBalance, days: out, deficitDays, minBalance, minDate, noIncome: incomingTotal <= 0, variableDaily: _cfR2(variableDaily) };
+}
+// "Can I afford this?" — the same projection with `amount` spent TODAY: today's balance and every later balance drop by it (the caller's data is not touched).
+// The lowest point counts today too. → { affordable:true, remaining, remainingDate }  remaining = the LOWEST balance from today to the end of the window;
+//   { affordable:false, shortfall, date, worstShortfall, worstDate }  date = the first day the balance is below zero, shortfall = by how much on that day.
+function canAfford(data, today, amount, days = 90) {
+  const p = projectCashflow(data, today, days), amt = +amount, shift = amt > 0 ? amt : 0;
+  const line = [{ date: today, balance: _cfR2(p.startBalance - shift) }, ...p.days.map(x => ({ date: x.date, balance: _cfR2(x.balance - shift) }))];
+  const low = line.reduce((m, x) => (x.balance < m.balance ? x : m), line[0]), first = line.find(x => x.balance < 0);
+  if (!first) return { affordable: true, remaining: low.balance, remainingDate: low.date, ...(amt > 0 ? {} : { invalid: true }) };
+  return { affordable: false, shortfall: _cfR2(-first.balance), date: first.date, worstShortfall: _cfR2(-low.balance), worstDate: low.date };
+}
+// RUNWAY = liquid balance today ÷ the trailing-90-day daily average of NEEDS-category expenses (all of them, however paid; same divisor rule as above).
+// → { liquid, dailyNeeds, days (whole; 0 when the balance is not positive), months (1 decimal), status:'ok'|'no-needs' }; no needs recorded → no runway.
+function computeRunway(data, today) {
+  const d0 = data || {}, entries = d0.entries || [], liq = _cfLiquidIds(d0), span = _cfSpan(entries, today), from = _cfAddDays(today, -90);
+  const liquid = _cfR2((d0.accounts || []).filter(a => liq.has(a.id)).reduce((s, a) => s + acctBalanceAsOf(a, entries, today), 0));
+  const needs = span ? entries.filter(e => e.type === 'expense' && e.category === 'needs' && e.date >= from && e.date < today).reduce((a, e) => a + e.amount, 0) : 0, dailyNeeds = needs / (span || 1);
+  if (!(dailyNeeds > 0)) return { liquid, dailyNeeds: 0, days: null, months: null, status: 'no-needs' };
+  const raw = Math.max(0, liquid) / dailyNeeds;
+  return { liquid, dailyNeeds: _cfR2(dailyNeeds), days: Math.floor(raw), months: +(raw / 30.4375).toFixed(1), status: 'ok' };
+}
+
+// ── Overview: the cash-flow card (90 daily bars, day popover, "Can I afford this?") and the Runway tile ──
+let _cfPick = null;                                     // the date whose popover is open
+const _cfFmtDay = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const _cfKind = { entry: 'Planned entry', installment: 'Installment', recurring: 'Recurring', planned: 'Planned income', variable: 'Variable baseline' };
+function renderCashflow() {
+  const box = el('d-cashflow'); if (!box) return;
+  const p = projectCashflow(DATA, ymdOf(new Date()));
+  if (!(DATA.accounts || []).length && !(DATA.entries || []).length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Add an account and some entries to see your next 90 days.</div>'; return; }
+  const maxAbs = Math.max(1, ...p.days.map(x => Math.abs(x.balance)));
+  const head = `Next 90 days · lowest ${fmt(p.minBalance)} on ${_cfFmtDay(p.minDate)} · ${p.deficitDays} red day${p.deficitDays === 1 ? '' : 's'}`;
+  const note = p.noIncome ? '<div style="font-size:11px;color:var(--ink3);margin-top:4px">No income is planned in this window — add planned income or a recurring income item for a meaningful forecast.</div>' : '';
+  const bars = p.days.map(x => `<div class="cf-bar ${x.balance < 0 ? 'cf-neg' : 'cf-pos'}${x.date === _cfPick ? ' cf-sel' : ''}" style="height:${Math.max(3, Math.round(Math.abs(x.balance) / maxAbs * 100))}%" data-action="cf-day" data-date="${x.date}" title="${x.date}: ${esc(fmt(x.balance))}"></div>`).join('');
+  const day = _cfPick && p.days.find(x => x.date === _cfPick);
+  const pop = day ? `<div class="cf-pop"><div style="font-weight:600;margin-bottom:4px">${_cfFmtDay(day.date)} · balance ${fmt(day.balance)}</div>`
+    + (day.items.length ? day.items.map(it => `<div class="cf-pop-row"><span>${esc(_cfKind[it.kind] || it.kind)} · ${esc(it.name)}</span><span style="font-family:var(--mono)">${it.amount > 0 ? '+' : '−'}${fmt(Math.abs(it.amount))}</span></div>`).join('') : '<div style="color:var(--ink3)">Nothing scheduled — the balance carries over.</div>') + '</div>' : '';
+  box.innerHTML = `<div style="font-size:12px;color:var(--ink2)">${esc(head)}</div><div class="cf-strip">${bars}</div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3)"><span>${_cfFmtDay(p.days[0].date)}</span><span>${_cfFmtDay(p.days[p.days.length - 1].date)}</span></div>${pop}${note}`;
+  if (el('cf-aff-amt') && el('cf-aff-amt').value.trim()) checkAfford();       // keep an open what-if in step with the data
+}
+function checkAfford() {
+  const out = el('cf-aff-res'); if (!out) return;
+  let amt = 0; try { amt = evalExpr(el('cf-aff-amt').value); } catch (_) { amt = 0; }
+  if (!(amt > 0)) { out.className = ''; out.textContent = 'Enter an amount to check.'; return; }
+  const r = canAfford(DATA, ymdOf(new Date()), amt);
+  if (r.affordable) { out.className = 'cg'; out.textContent = `Yes — after ${fmt(amt)} your lowest balance in the next 90 days is ${fmt(r.remaining)} (${_cfFmtDay(r.remainingDate)}).`; }
+  else { out.className = 'cr'; out.textContent = `No — it would leave you ${fmt(r.shortfall)} short on ${_cfFmtDay(r.date)}` + (r.worstShortfall > r.shortfall ? `, and up to ${fmt(r.worstShortfall)} short on ${_cfFmtDay(r.worstDate)}.` : '.'); }
+}
+// The Runway tile replaces the old Net worth tile in the Overview's stat row; net worth is its subtitle.
+function runwayTileHtml(rw, netWorth) {
+  const nw = `<div style="font-size:10px;color:var(--ink3);margin-top:2px">Net worth ${esc(fmt(netWorth))}</div>`;
+  const tip = esc('Liquid money (all accounts except Cash) ÷ your average daily spending on Needs over the last 90 days');
+  if (rw.status !== 'ok') return `<div class="stat" title="${tip}"><div class="stat-lbl">Runway</div><div class="stat-val">—</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">no Needs spending recorded yet</div>${nw}</div>`;
+  const low = rw.days < 30, bar = t => `<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--ink3);margin-top:3px"><span style="width:30px">${t} mo</span><div style="flex:1;height:4px;background:var(--s2);border-radius:2px;overflow:hidden"><div style="width:${Math.min(100, Math.round(rw.months / t * 100))}%;height:100%;background:var(--Gm)"></div></div></div>`;
+  return `<div class="stat ${low ? 'danger-hi' : ''}" title="${tip}"><div class="stat-lbl">Runway</div><div class="stat-val ${low ? 'cr' : rw.months >= 3 ? 'cg' : 'ca'}">${rw.days} days</div>
+    <div style="font-size:10px;color:var(--ink3);margin-top:2px">≈ ${rw.months} months</div>${bar(3)}${bar(6)}${nw}</div>`;
+}
+defineActions({
+  'cf-day':        t => { _cfPick = _cfPick === t.dataset.date ? null : t.dataset.date; renderCashflow(); },
+  'cf-afford':     () => checkAfford(),
+  'cf-afford-key': (t, ev) => { if (ev.key === 'Enter') checkAfford(); },
+});
+
+// ══════════════════════════════════════════
 // SAFE TO SPEND — what you can still spend per day without going over, for the CURRENT month.
 //   safe per day = ( Left to spend − recurring bills that are due but not yet in your Entries ) ÷ days left INCLUDING today
 // "Left to spend" (the Overview tile, unchanged) only knows what is already in Entries. Recurring items reach Entries only when you press
@@ -5782,6 +6033,7 @@ const OVERVIEW_CARDS = [      // default order — a test checks it against the 
   { id: 'ov-tags',        label: 'Spending by tag' },
   { id: 'ov-bills',       label: 'Bill calendar' },
   { id: 'ov-forecast',    label: 'Spending forecast' },
+  { id: 'ov-cashflow',    label: 'Cash-flow forecast (90 days)' },
   { id: 'ov-merchants',   label: 'Top merchants' },
   { id: 'ov-goals',       label: 'Savings goals' },
   { id: 'ov-sinking',     label: 'Sinking funds' },
@@ -5886,13 +6138,21 @@ function renderTagAnalytics(month, mes) {
   document.querySelectorAll('#tag-filter-row [data-tf]').forEach(btn => {
     btn.classList.toggle('filter-active', btn.dataset.tf === _tagFilter);
   });
-  const entries = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
-  if (!entries.length) {
+  // Tag budgets: a budgeted tag always shows its progress bar (the whole tag's spend, whatever the category filter above), so it replaces its plain row
+  const budgets = tagBudgetList(DATA, month), budgeted = new Set(budgets.map(b => b.tag)), warnAt = DATA.splits.alertThreshold || 80;
+  const budgetRow = b => {
+    const w = b.budget > 0 ? Math.min(100, Math.round(b.pct)) : 0, color = b.over ? 'var(--Rm)' : b.pct >= warnAt ? 'var(--Am)' : 'var(--Gm)';
+    return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(b.tag)}</span><span style="font-family:var(--mono)">${fmt(b.spent)} / ${fmt(b.budget)}</span></div>
+      <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${w}%;background:${color}"></div></div>
+      <div style="font-size:11px;color:${b.over ? 'var(--Rm)' : 'var(--ink3)'}">${b.over ? 'Over by ' + fmt(b.spent - b.budget) : fmt(b.remaining) + ' left'} · ${Math.round(b.pct)}%${b.carry > 0 ? ' · incl. ' + fmt(b.carry) + ' carried over' : ''}</div></div>`;
+  };
+  const entries = Object.entries(totals).filter(([t]) => !budgeted.has(normTagKey(t))).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length && !budgets.length) {
     el('d-tags').innerHTML = `<div style="font-size:13px;color:var(--ink3)">No tagged ${_tagFilter==='all'?'expenses':_tagFilter+' expenses'} this month. Add tags when creating entries.</div>`;
     return;
   }
-  const max = entries[0][1];
-  el('d-tags').innerHTML = entries.map(([tag, amt]) =>
+  const max = entries.length ? entries[0][1] : 0;
+  el('d-tags').innerHTML = budgets.map(budgetRow).join('') + entries.map(([tag, amt]) =>
     barRow(tag, amt, max)
   ).join('');
 }
@@ -6185,8 +6445,8 @@ function recurDatesInMonth(r, month) {
 async function applyRecurring(month) {
   try {
   const [yr, mo] = month.split('-').map(Number);
-  let added = 0;
-  const msg = () => `Applied ${added} recurring entr${added===1?'y':'ies'}`;
+  let added = 0, goalAdded = 0;
+  const msg = () => `Applied ${added} recurring entr${added===1?'y':'ies'}` + (goalAdded ? ` and ${goalAdded} goal contribution${goalAdded===1?'':'s'}` : '');
 
   const r0 = commit('Recurring applied', d => {
   d.recurring.forEach(r => {
@@ -6206,7 +6466,8 @@ async function applyRecurring(month) {
       added++;
     });
   });
-  }, { touch: ['entries'], toast: msg });
+  goalAdded = applyGoalContributionsTo(d, month);   // savings-goal contributions of this month, in the SAME commit → one Undo for both
+  }, { touch: ['entries', 'savingsGoals'], toast: msg });
   if (!r0.changed) { toast(msg()); render(); }   // nothing missing: still says so and redraws, as before
   } catch(e) { toast(e.message || 'Failed to apply recurring entries.', 1); }
 }
@@ -6671,6 +6932,8 @@ async function addEntry(skipDupCheck = false) {
   if (!amtRaw) return toast('Enter an amount.', 1);
   const { amount, formula } = parseAmt(amtRaw);
   if (!amount || amount<=0) return toast('Invalid amount.', 1);
+  const warrOn = !!el('ef-warr')?.checked, warrN = warrOn ? parseWarrantyMonths(el('ef-warr-n')?.value) : null;     // read BEFORE anything changes: a bad value leaves the form as typed
+  if (warrOn && warrN === null) return toast('Warranty months must be a whole number from 1 to 120.', 1);
 
   // flush pending tag from input
   const pendingTag = el('tags-input').value.trim().toLowerCase();
@@ -6742,6 +7005,7 @@ async function addEntry(skipDupCheck = false) {
         if (s) entry.desc = `Dividend — ${s.name}`;
       }
     }
+    if (warrN && entryType === 'expense') entry.warrantyMonths = warrN;   // optional field; start date = the entry date unless set later in the Warranty dialog
     d.entries.unshift(entry);
 
     // Save as recurring
@@ -6771,6 +7035,7 @@ async function addEntry(skipDupCheck = false) {
   if (wasRecur) el('ef-recur').checked = false;
   if (wasInst) { el('ef-inst').checked = false; el('inst-form').style.display = 'none'; }
   } // end split else
+  resetWarrantyAddRow();
 
   el('ef-amt').value=''; el('ef-desc').value='';
   _curTags=[]; renderTagChips();
@@ -6782,6 +7047,63 @@ async function addEntry(skipDupCheck = false) {
 }
 
 let _entryDeleteId = null;
+
+// ── Warranty UI: the Add-entry row (collapsed until ticked, auto-ticked from WARRANTY_TRIGGER_AMOUNT) and the Warranty dialog on each expense ──
+let _warrTouched = false;                       // the person ticked / unticked it themselves → auto-tick leaves it alone until the form is reset
+function syncWarrantyRow() { const w = el('ef-warr-wrap'); if (w) w.style.display = el('ef-warr')?.checked ? 'inline-flex' : 'none'; }
+function autoTickWarranty() {
+  const cb = el('ef-warr'); if (!cb || _warrTouched) return;
+  let amt = 0; try { amt = evalExpr(el('ef-amt')?.value); } catch (_) { amt = 0; }     // half-typed formulas must not break typing
+  cb.checked = warrantyShouldAutoTrack(amt, el('ef-type')?.value, el('ef-cat')?.value);
+  syncWarrantyRow();
+}
+function resetWarrantyAddRow() {
+  _warrTouched = false;
+  const cb = el('ef-warr'); if (cb) cb.checked = false;
+  const n = el('ef-warr-n'); if (n) n.value = 24;
+  syncWarrantyRow();
+}
+document.addEventListener('input',  e => { if (e.target.id === 'ef-amt') autoTickWarranty(); });
+document.addEventListener('change', e => { if (e.target.id === 'ef-type' || e.target.id === 'ef-cat') autoTickWarranty(); });
+
+let _warrEditId = null;
+function syncWarrantyEdit() {
+  const on = el('warr-edit-on').checked; el('warr-edit-fields').style.display = on ? '' : 'none';
+  const exp = on ? warrantyExpiry(el('warr-edit-start').value || (DATA.entries.find(x => x.id === _warrEditId) || {}).date, el('warr-edit-n').value) : null;
+  el('warr-edit-expiry').textContent = on ? (exp ? `Last day (inclusive): ${exp}` : 'Enter 1–120 months and a valid start date') : '';
+}
+function openWarrantyEdit(id) {
+  const e = DATA.entries.find(x => x.id === id); if (!e) return;
+  _warrEditId = id;
+  const has = parseWarrantyMonths(e.warrantyMonths) !== null;
+  el('warr-edit-info').textContent = `${e.desc || '(no description)'} · ${e.date} · ${fmt(e.amount)}`;
+  el('warr-edit-on').checked = has || warrantyShouldAutoTrack(e.amount, e.type, e.category);   // same auto-tick as the Add form; Save is still a deliberate step
+  el('warr-edit-n').value = has ? e.warrantyMonths : 24;
+  el('warr-edit-start').value = e.warrantyStartDate || '';
+  syncWarrantyEdit();
+  el('warr-edit-overlay').classList.add('open');
+}
+function closeWarrantyEdit() { el('warr-edit-overlay').classList.remove('open'); _warrEditId = null; }
+function saveWarrantyEdit() {
+  const id = _warrEditId; if (!id) return;
+  const on = el('warr-edit-on').checked, n = on ? parseWarrantyMonths(el('warr-edit-n').value) : null, sd = (el('warr-edit-start').value || '').trim();
+  if (on && n === null) return toast('Warranty months must be a whole number from 1 to 120.', 1);
+  if (on && sd && warrantyExpiry(sd, n) === null) return toast('The start date is not a valid date.', 1);
+  closeWarrantyEdit();
+  commit(on ? 'Warranty saved' : 'Warranty removed', d => {
+    const e = d.entries.find(x => x.id === id); if (!e) return;
+    if (on) { e.warrantyMonths = n; if (sd) e.warrantyStartDate = sd; else delete e.warrantyStartDate; }
+    else { delete e.warrantyMonths; delete e.warrantyStartDate; }
+  }, { touch: ['entries'] });
+}
+defineActions({
+  'ef-warr-toggle':     () => { _warrTouched = true; syncWarrantyRow(); },
+  'ent-warr':           t => openWarrantyEdit(t.dataset.id),
+  'warr-edit-toggle':   () => syncWarrantyEdit(),
+  'warr-edit-close':    () => closeWarrantyEdit(),
+  'warr-edit-save':     () => saveWarrantyEdit(),
+  'warr-edit-backdrop': (t, ev) => { if (ev && ev.target === t) closeWarrantyEdit(); },
+});
 function deleteEntry(id) {
   const entry = DATA.entries.find(e => e.id === id);
   const fuel = entry ? findFuelForEntry(entry) : null;
@@ -7110,6 +7432,9 @@ function renderEntries() {
     const salaryBadge = e.isSalaryMirror ? '<span class="badge" style="background:var(--s2);color:var(--ink2);font-size:9px;vertical-align:middle;text-transform:none;letter-spacing:0" title="Kept in sync with the Overview\'s monthly income field">Overview</span>' : '';
     const tagChips = (e.tags||[]).map(t=>`<span class="tag-chip" data-action="ent-tag-filter" data-tag="${esc(t)}">${esc(t)}</span>`).join('');
     const tagEditBtn = `<span class="tag-chip" data-action="ent-tags-edit" data-id="${esc(e.id)}" title="Edit tags" style="opacity:.5">+tag</span>`;
+    // Warranty button (expenses only): bright + dated tooltip when tracked, dim when not — opens the small Warranty dialog
+    const wExp = e.type === 'expense' ? warrantyExpiry(e.warrantyStartDate || e.date, e.warrantyMonths) : null;
+    const warrBtn = e.type === 'expense' ? `<button class="btn xs ghost" data-action="ent-warr" data-id="${esc(e.id)}" title="${wExp ? 'Warranty until ' + esc(wExp) : 'Track warranty'}" style="margin-right:2px${wExp ? '' : ';opacity:.4'}">🛡️</button>` : '';
     const checked = _selEntries.has(e.id) ? 'checked' : '';
     // Account cell: show name if linked, '—' if not; click opens select
     const acct = DATA.accounts.find(a => a.id === e.accountId);
@@ -7130,7 +7455,7 @@ function renderEntries() {
       <td class="editable" style="cursor:pointer" data-action="ent-acct-edit" data-id="${esc(e.id)}" title="Click to assign account">${acctLabel}</td>
       <td>${tagChips}${tagEditBtn}</td>
       <td>${e.formula?`<span class="formula-pill">${esc(e.formula)}</span>`:'<span class="muted">—</span>'}</td>
-      <td><button class="btn xs ghost" data-action="ent-dup" data-id="${esc(e.id)}" title="Duplicate entry" style="margin-right:2px">⧉</button><button class="btn xs danger" data-action="ent-delete" data-id="${esc(e.id)}">✕</button></td>
+      <td>${warrBtn}<button class="btn xs ghost" data-action="ent-dup" data-id="${esc(e.id)}" title="Duplicate entry" style="margin-right:2px">⧉</button><button class="btn xs danger" data-action="ent-delete" data-id="${esc(e.id)}">✕</button></td>
     </tr>`;
   }).join('') + `<tr class="trow-sum">
     <td></td>
@@ -8018,6 +8343,7 @@ function renderSplitsUI() {
     </div>
     <hr class="sep" style="margin:0 0 12px">
   `).join('');
+  try { renderTagBudgetsUI(); } catch (e) { console.error('Tag budgets failed:', e); }
 }
 function updateSplitBar(key,color) {
   const v=Math.max(0,Math.min(100,parseInt(el('split-'+key).value)||0));
@@ -8553,6 +8879,32 @@ function _insIncome(data, month) {
 }
 const _insPct = (a, b) => Math.round((a - b) / b * 100);
 
+// SUBSCRIPTION PRICE-CHANGE DETECTOR (pure). renderSubscriptions() is deliberately left untouched, so its consistency rule is repeated here:
+// same description (trim + lower-case), and over ALL its charges max / min ≤ _SUBCHG_MAX_RATIO (the ±40% filter). For each subscription that passes:
+// exactly ONE charge in `month` and exactly one in the month before (charges dated after `today` have not happened yet and are ignored),
+// and a relative change of MORE than 5% — compared in integer cents (|Δ| × 100 > 5 × before) so exactly 5% never fires on float noise.
+// Returns [{name, before, after, month, delta, deltaYearly}] — delta = after − before per month, deltaYearly = delta × 12; biggest yearly effect first.
+const _SUBCHG_MAX_RATIO = 1.4;
+function detectSubscriptionPriceChanges(data, month, today) {
+  const prevM = _insMonthsBefore(month, 1)[0], byDesc = {}, out = [];
+  ((data && data.entries) || []).forEach(e => {
+    if (e.type !== 'expense' || !e.desc) return;
+    const key = e.desc.trim().toLowerCase();
+    (byDesc[key] = byDesc[key] || []).push(e);
+  });
+  Object.values(byDesc).forEach(list => {
+    const amounts = list.map(e => e.amount);
+    if (Math.max(...amounts) / Math.min(...amounts) > _SUBCHG_MAX_RATIO) return;      // a variable shop, not a subscription (same test as renderSubscriptions)
+    const real = list.filter(e => !today || String(e.date) <= today);
+    const cur = real.filter(e => ym(e.date) === month), prev = real.filter(e => ym(e.date) === prevM);
+    if (cur.length !== 1 || prev.length !== 1) return;                                // ambiguous → silent
+    const bC = Math.round(prev[0].amount * 100), aC = Math.round(cur[0].amount * 100);
+    if (!(bC > 0) || !(aC > 0) || Math.abs(aC - bC) * 100 <= 5 * bC) return;          // not more than 5%
+    out.push({ name: cur[0].desc.trim(), before: bC / 100, after: aC / 100, month, delta: (aC - bC) / 100, deltaYearly: (aC - bC) * 12 / 100 });
+  });
+  return out.sort((a, b) => Math.abs(b.deltaYearly) - Math.abs(a.deltaYearly) || a.name.localeCompare(b.name));
+}
+
 function computeInsights(data, month, today) {
   const entries = (data && data.entries) || [];
   const thisMonth = today.slice(0, 7);
@@ -8603,6 +8955,14 @@ function computeInsights(data, month, today) {
     const name = byM[month][0].desc.trim();
     add({ id: 'price-' + _insNorm(name), level: diff > 0 ? 'warn' : 'good', icon: diff > 0 ? '🏷️' : '💚', impact: Math.abs(diff) * 12, title: `${name} ${diff > 0 ? 'got more expensive' : 'got cheaper'}`,
       text: `${name}: ${fmt(b)} → ${fmt(a)} (${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff))} a month, about ${fmt(Math.abs(diff) * 12)} a year).`, facts: { name, before: b, after: a, month } });
+  });
+
+  // 4b) subscriptions whose latest monthly price moved by more than 5% (detectSubscriptionPriceChanges); a rule-4 finding for the same charge already says it, so it wins
+  detectSubscriptionPriceChanges(data, month, today).forEach(c => {
+    const id = 'price-' + _insNorm(c.name); if (out.some(o => o.id === id)) return;
+    const up = c.delta > 0;
+    add({ id, level: up ? 'warn' : 'good', icon: up ? '🏷️' : '💚', impact: Math.abs(c.deltaYearly), title: `${c.name} ${up ? 'got more expensive' : 'got cheaper'}`,
+      text: `${c.name}: ${fmt(c.before)} → ${fmt(c.after)} (${up ? '+' : '−'}${fmt(Math.abs(c.delta))} a month, about ${fmt(Math.abs(c.deltaYearly))} a year).`, facts: { name: c.name, before: c.before, after: c.after, month: c.month } });
   });
 
   // 5) savings-rate trend (finished months only: a running month has not had its full income-vs-spending yet)
@@ -9881,12 +10241,240 @@ async function renderWealth() {
       ['renderSubscriptions',    () => renderSubscriptions()],
       ['renderAnnualGrid',       () => renderAnnualGrid()],
       ['renderRateResetCalendar',() => renderRateResetCalendar()],
+      ['renderDebts',            () => renderDebts()],
     ];
     for (const [name, fn] of _wCalls) {
       try { fn(); } catch(e) { toast(`Wealth / ${name}: ${e.message}`, 1); console.error('[Wealth]', name, e); }
     }
   } catch(e) { toast(e.message || 'Wealth tab error', 1); console.error('[Wealth boot]', e); }
 }
+
+// ══════════════════════════════════════════
+// DEBT TRACKER — optional DATA.debts = [{ id, name, balance, rate, minPayment, promoRate, promoEndDate, startDate, note, paymentLog:[{id,date,amount}] }]
+// (optional key, no migration: every reader uses `DATA.debts || []`). rate / promoRate are ANNUAL percentages; interest accrues monthly at rate ÷ 12, rounded to
+// the cent each month. promoRate is optional and DEFAULTS TO rate (debtPromoRate); it applies on every payment date up to and including promoEndDate.
+// A payment is an ordinary expense Entry linked by debtId (the fuel pattern: findDebtForEntry / syncDebtEntry); its paymentLog item has the SAME id as the
+// entry, so the two can be matched without another field. Deleting a debt leaves its payment entries as plain expenses (findDebtForEntry → null).
+// The simulations are PURE: `from` (YYYY-MM-DD, default today) is the date of "now"; the first payment falls one month after it.
+// Not financial advice — and retroactive interest is only ever reported as a conditional possibility (DEBT_RETRO_NOTE), never assumed.
+// ══════════════════════════════════════════
+const DEBT_RETRO_NOTE = 'If your contract has that clause — check your policy';
+const _dbR2 = n => Math.round(n * 100) / 100;
+const _dbLabel = d => `Debt payment — ${d.name}`;                       // what a logged payment is called in Entries
+function _dbRealDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); if (!m) return false;
+  const t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return t.getUTCFullYear() === +m[1] && t.getUTCMonth() === +m[2] - 1 && t.getUTCDate() === +m[3];
+}
+function _dbAddMonths(iso, k) {                                         // same day of month, clamped to the month's length (31 Jan + 1 → 28 Feb)
+  const [y, m, d] = iso.split('-').map(Number), t = m - 1 + k, yy = y + Math.floor(t / 12), mm = ((t % 12) + 12) % 12;
+  return `${yy}-${String(mm + 1).padStart(2, '0')}-${String(Math.min(d, new Date(Date.UTC(yy, mm + 1, 0)).getUTCDate())).padStart(2, '0')}`;
+}
+const debtPromoRate = d => (d && d.promoRate !== undefined && d.promoRate !== null && d.promoRate !== '' && isFinite(+d.promoRate)) ? +d.promoRate : (+(d && d.rate) || 0);
+
+// → null (no promotion) or { end, active, daysLeft, monthsLeft (whole months), rate }
+function debtPromoStatus(debt, today) {
+  const end = debt && debt.promoEndDate; if (!_dbRealDate(end)) return null;
+  const days = _remDiff(today, end), [ty, tm, td] = today.split('-').map(Number), [ey, em, ed] = end.split('-').map(Number);
+  const months = days < 0 ? 0 : Math.max(0, (ey - ty) * 12 + (em - tm) - (ed < td ? 1 : 0));
+  return { end, active: days >= 0, daysLeft: Math.max(0, days), monthsLeft: months, rate: debtPromoRate(debt) };
+}
+// → { total, monthly (sum of minimum payments), weightedRate (average of the rates charged TODAY, weighted by balance), count } over debts with a balance
+function debtSummary(debts, today) {
+  const act = (Array.isArray(debts) ? debts : []).filter(d => d && +d.balance > 0), total = act.reduce((s, d) => s + +d.balance, 0);
+  const rateToday = d => { const p = debtPromoStatus(d, today); return p && p.active ? p.rate : (+d.rate || 0); };
+  return { total: _dbR2(total), monthly: _dbR2(act.reduce((s, d) => s + (+d.minPayment || 0), 0)), weightedRate: total > 0 ? _dbR2(act.reduce((s, d) => s + d.balance * rateToday(d), 0) / total) : 0, count: act.length };
+}
+
+// Payoff plan. strategy: 'snowball' (smallest balance first), 'avalanche' (highest rate charged that month first), anything else = 'custom' (the order of `debts`).
+// Every month: interest, then each debt's minimum, then everything left of the monthly budget (all minimums at the start + `extra`) goes to the first debt in the
+// strategy's order — a cleared debt's minimum is NOT dropped, it rolls into that pool. Never paid off within 600 months → months/paidOffDate null, totalMonths null.
+// → { plan:[{debtId, months, interestPaid, paidOffDate}] (in the order of `debts`), totalMonths, totalInterest, monthlyOutlayPerMonth }
+function payoffPlan(debts, strategy, extra = 0, from) {
+  const start = from || ymd();
+  const L = (Array.isArray(debts) ? debts : []).map((d, i) => ({ id: d.id, i, bal: _dbR2(Math.max(0, +d.balance || 0)), rate: +d.rate || 0, promo: debtPromoRate(d),
+    end: _dbRealDate(d.promoEndDate) ? d.promoEndDate : null, min: Math.max(0, +d.minPayment || 0), int: 0, months: null, date: null }));
+  L.forEach(x => { if (x.bal <= 0) { x.months = 0; x.date = start; } });
+  const budget = _dbR2(L.filter(x => x.months === null).reduce((s, x) => s + x.min, 0) + Math.max(0, +extra || 0));
+  const rateAt = (x, date) => (x.end && date <= x.end ? x.promo : x.rate);
+  for (let k = 1; k <= 600 && L.some(x => x.months === null); k++) {
+    const date = _dbAddMonths(start, k), act = L.filter(x => x.months === null);
+    act.forEach(x => { const i = _dbR2(x.bal * rateAt(x, date) / 1200); x.bal = _dbR2(x.bal + i); x.int = _dbR2(x.int + i); });
+    let pool = budget;
+    act.forEach(x => { const p = Math.min(x.min, x.bal); x.bal = _dbR2(x.bal - p); pool = _dbR2(pool - p); });
+    const order = act.filter(x => x.bal > 0).sort(strategy === 'snowball' ? (a, b) => a.bal - b.bal || a.i - b.i : strategy === 'avalanche' ? (a, b) => rateAt(b, date) - rateAt(a, date) || a.i - b.i : (a, b) => a.i - b.i);
+    order.forEach(x => { const p = Math.min(pool, x.bal); x.bal = _dbR2(x.bal - p); pool = _dbR2(pool - p); });
+    act.forEach(x => { if (x.bal <= 0) { x.months = k; x.date = date; } });
+  }
+  const never = L.some(x => x.months === null);
+  return { plan: L.map(x => ({ debtId: x.id, months: x.months, interestPaid: x.int, paidOffDate: x.date })), totalMonths: never ? null : Math.max(0, ...L.map(x => x.months)),
+    totalInterest: _dbR2(L.reduce((s, x) => s + x.int, 0)), monthlyOutlayPerMonth: budget };
+}
+
+// Promotion simulation for ONE debt, paying minPayment + extra a month. Month by month until promoEndDate at the promo rate (schedule = the balance after each
+// of those months), then — if anything is left — at the standard rate until it is gone (postPromoEndDate; null when it never is within 600 months → neverPaidOff).
+// retroactiveRiskIfAny: only when a balance remains at promo end AND the promo rate is below the standard rate → { amount, note } where amount is what the
+// standard rate would have added during the promo months MINUS what was charged. It is a possibility some contracts have, so it is never added to postPromoInterest.
+// → { schedule, promoInterest, promoEndBalance, postPromoInterest, postPromoEndDate, debtFreeDate, retroactiveRiskIfAny, neverPaidOff, monthlyPayment }
+function promoSimulation(debt, extra = 0, from) {
+  const start = from || ymd(), rate = +debt.rate || 0, pr = debtPromoRate(debt), end = _dbRealDate(debt.promoEndDate) ? debt.promoEndDate : null;
+  const pay = Math.max(0, +debt.minPayment || 0) + Math.max(0, +extra || 0), schedule = [];
+  let bal = _dbR2(Math.max(0, +debt.balance || 0)), promoInterest = 0, retro = 0, k = 0, last = bal > 0 ? null : start;
+  while (end && bal > 0 && k < 600 && _dbAddMonths(start, k + 1) <= end) {
+    k++; const date = _dbAddMonths(start, k), i = _dbR2(bal * pr / 1200);
+    retro = _dbR2(retro + Math.max(0, _dbR2(bal * rate / 1200) - i)); promoInterest = _dbR2(promoInterest + i);
+    bal = _dbR2(Math.max(0, bal + i - pay)); schedule.push({ date, balance: bal }); if (bal <= 0) last = date;
+  }
+  const promoEndBalance = bal; let postInterest = 0, postEnd = null, never = false;
+  while (bal > 0) {
+    k++; if (k > 600) { never = true; break; }
+    const date = _dbAddMonths(start, k), i = _dbR2(bal * rate / 1200); postInterest = _dbR2(postInterest + i); bal = _dbR2(bal + i - pay);
+    if (bal <= 0) { postEnd = date; bal = 0; }
+  }
+  return { schedule, promoInterest, promoEndBalance, postPromoInterest: postInterest, postPromoEndDate: postEnd, debtFreeDate: promoEndBalance <= 0 ? last : postEnd,
+    retroactiveRiskIfAny: promoEndBalance > 0 && retro > 0 ? { amount: retro, note: DEBT_RETRO_NOTE } : null, neverPaidOff: never, monthlyPayment: _dbR2(pay) };
+}
+// The fixed monthly payment that clears the debt exactly by promoEndDate at the promo rate (rounded UP to the cent) → { monthly, months } or null (no promotion
+// still ahead / nothing owed). months = payments that fall on or before promoEndDate.
+function payoffByPromoEnd(debt, from) {
+  const start = from || ymd(), end = debt && debt.promoEndDate, bal = _dbR2(Math.max(0, +(debt && debt.balance) || 0));
+  if (!_dbRealDate(end) || !(bal > 0)) return null;
+  let n = 0; while (n < 600 && _dbAddMonths(start, n + 1) <= end) n++;
+  if (n < 1) return null;
+  const r = debtPromoRate(debt) / 1200, m = r === 0 ? bal / n : bal * r / (1 - Math.pow(1 + r, -n));
+  return { monthly: Math.ceil(m * 100 - 1e-9) / 100, months: n };
+}
+
+// The refuel pattern, for debts. Pure.
+// the debt a payment expense belongs to, or null (not a debt payment, or its debt was deleted)
+function findDebtForEntry(entry, debts = DATA.debts) {
+  if (!entry || entry.type !== 'expense' || !entry.debtId) return null;
+  return (debts || []).find(d => d.id === entry.debtId) || null;
+}
+// after a debt was edited (`before` = a copy taken BEFORE the edit), bring a linked payment's description into line — only if it still carries the old name
+// (a description you changed yourself stays yours). Returns the labels of what changed ([] = nothing).
+function syncDebtEntry(debt, before, entry) {
+  const changed = [];
+  if (debt.name !== before.name && entry.desc === _dbLabel(before)) { entry.desc = _dbLabel(debt); changed.push('name'); }
+  return changed;
+}
+// Logs a payment INTO `data` (call it inside commit()): the linked expense, the paymentLog item (same id), and the balance goes down by the amount (not below 0).
+// Interest is not added by the app — correct the balance in Edit when your statement says otherwise. → the entry, or null (unknown debt, bad amount or date).
+function applyDebtPayment(data, debtId, date, amount, accountId, id = uid()) {
+  const debt = (data.debts || []).find(x => x.id === debtId), amt = +amount;
+  if (!debt || !(amt > 0) || !_dbRealDate(date)) return null;
+  const entry = { id, loggedAt: new Date().toISOString(), date, desc: _dbLabel(debt), amount: _dbR2(amt), formula: null, type: 'expense', category: 'needs', tags: ['debt'], accountId: accountId || null, recurId: null, debtId: debt.id };
+  data.entries.unshift(entry);
+  (debt.paymentLog = Array.isArray(debt.paymentLog) ? debt.paymentLog : []).push({ id: entry.id, date, amount: entry.amount });
+  debt.balance = _dbR2(Math.max(0, (+debt.balance || 0) - entry.amount));
+  return entry;
+}
+// Form values (strings) → { ok:true, debt:{name,balance,rate,minPayment[,promoRate,promoEndDate,startDate,note]} } or { ok:false, error }. A blank promoRate is left out
+// (it then defaults to rate); a promoRate needs a promoEndDate.
+function validateDebt(f) {
+  const num = v => (String(v === undefined || v === null ? '' : v).trim() === '' ? null : Number(v)), name = String(f.name || '').trim();
+  const bal = num(f.balance), rate = num(f.rate), min = num(f.minPayment), pr = num(f.promoRate), pe = String(f.promoEndDate || '').trim(), sd = String(f.startDate || '').trim(), note = String(f.note || '').trim();
+  if (!name || name.length > 60) return { ok: false, error: 'Give the debt a name (up to 60 characters).' };
+  if (bal === null || !isFinite(bal) || bal < 0) return { ok: false, error: 'The balance must be 0 or more.' };
+  if (rate === null || !isFinite(rate) || rate < 0 || rate > 100) return { ok: false, error: 'The interest rate must be between 0 and 100 %.' };
+  if (min !== null && (!isFinite(min) || min < 0)) return { ok: false, error: 'The minimum payment must be 0 or more.' };
+  if (pr !== null && (!isFinite(pr) || pr < 0 || pr > 100)) return { ok: false, error: 'The promotional rate must be between 0 and 100 %.' };
+  if (pe && !_dbRealDate(pe)) return { ok: false, error: 'The promotion end date is not a valid date.' };
+  if (pr !== null && !pe) return { ok: false, error: 'A promotional rate needs a promotion end date.' };
+  if (sd && !_dbRealDate(sd)) return { ok: false, error: 'The start date is not a valid date.' };
+  if (note.length > 200) return { ok: false, error: 'The note is too long (up to 200 characters).' };
+  const debt = { name, balance: _dbR2(bal), rate, minPayment: _dbR2(min === null ? 0 : min) };
+  if (pr !== null) debt.promoRate = pr; if (pe) debt.promoEndDate = pe; if (sd) debt.startDate = sd; if (note) debt.note = note;
+  return { ok: true, debt };
+}
+
+// ── Wealth tab: the Debts card ──
+const _dbMonthYear = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+const _dbDay = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const _DB_STRAT = [['snowball', 'Snowball', 'smallest balance first'], ['avalanche', 'Avalanche', 'highest rate first'], ['custom', 'Custom', 'the order of your list']];
+function renderDebts() {
+  const box = el('d-debts'); if (!box) return;
+  const debts = DATA.debts || [], today = ymd();
+  if (!debts.length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">No debts yet. Add a loan, a card or a 0 % promotion to see when you are debt-free and what a promotion really costs.</div>'; return; }
+  const S = debtSummary(debts, today), extra = Math.max(0, parseFloat((el('db-extra') || {}).value) || 0), cell = (p, f) => p.months === null ? 'not paid off' : `${p.months === 0 ? 'nothing owed' : p.months + ' mo · ' + _dbMonthYear(p.paidOffDate)}`;
+  const stats = `<div class="stat-grid" style="margin-bottom:12px"><div class="stat"><div class="stat-lbl">Total debt</div><div class="stat-val cr">${fmt(S.total)}</div></div><div class="stat"><div class="stat-lbl">Monthly payments</div><div class="stat-val">${fmt(S.monthly)}</div></div><div class="stat"><div class="stat-lbl">Avg rate today</div><div class="stat-val">${S.weightedRate.toFixed(2)} %</div></div></div>`;
+  const rows = debts.map(d => {
+    const ps = debtPromoStatus(d, today), promo = ps ? (ps.active ? `<span style="color:var(--G)">${ps.rate} % until ${esc(_dbDay(ps.end))} · ${ps.monthsLeft > 0 ? ps.monthsLeft + ' month' + (ps.monthsLeft === 1 ? '' : 's') + ' left' : ps.daysLeft + ' day' + (ps.daysLeft === 1 ? '' : 's') + ' left'}</span>` : `<span style="color:var(--ink3)">promotion ended ${esc(_dbDay(ps.end))}</span>`) : '';
+    return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--bd)"><div style="flex:1;min-width:150px"><div style="font-weight:600">${esc(d.name)}</div><div style="font-size:11px;color:var(--ink3)">${d.rate} % · min ${fmt(d.minPayment || 0)}/mo ${promo ? '· ' + promo : ''}</div>${d.note ? `<div style="font-size:11px;color:var(--ink3)">${esc(d.note)}</div>` : ''}</div>
+      <div style="font-family:var(--mono);font-weight:600" class="${d.balance > 0 ? 'cr' : 'cg'}">${fmt(d.balance)}</div>
+      <button class="btn xs success" data-action="debt-pay" data-id="${esc(d.id)}">Log payment</button><button class="btn xs ghost" data-action="debt-edit" data-id="${esc(d.id)}">Edit</button></div>`;
+  }).join('');
+  const P = {}; _DB_STRAT.forEach(([k]) => { P[k] = payoffPlan(debts, k, extra, today); });
+  const head = `<tr><th style="text-align:left"></th>${_DB_STRAT.map(([, n, h]) => `<th style="text-align:left" title="${esc(h)}">${n}</th>`).join('')}</tr>`;
+  const body = debts.map((d, i) => `<tr><td>${esc(d.name)}</td>${_DB_STRAT.map(([k]) => `<td>${cell(P[k].plan[i])}</td>`).join('')}</tr>`).join('');
+  const foot = `<tr style="font-weight:600"><td>Debt-free</td>${_DB_STRAT.map(([k]) => `<td>${P[k].totalMonths === null ? 'never at these payments' : P[k].totalMonths + ' mo'}</td>`).join('')}</tr><tr><td>Interest paid</td>${_DB_STRAT.map(([k]) => `<td>${fmt(P[k].totalInterest)}</td>`).join('')}</tr><tr><td>Paid per month</td>${_DB_STRAT.map(([k]) => `<td>${fmt(P[k].monthlyOutlayPerMonth)}</td>`).join('')}</tr>`;
+  const plans = `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px">Debt-free timelines${extra > 0 ? ` · with ${fmt(extra)} extra a month` : ''}</div><div style="overflow-x:auto"><table style="font-size:12px;width:100%">${head}${body}${foot}</table></div><div style="font-size:11px;color:var(--ink3);margin-top:4px">A paid-off debt's minimum rolls onto the next one. Simulation only — it does not know about fees or changes to your rates.</div>`;
+  const promos = debts.filter(d => d.balance > 0 && (debtPromoStatus(d, today) || {}).active).map(d => {
+    const need = payoffByPromoEnd(d, today), cur = promoSimulation(d, 0, today), min = +d.minPayment || 0;
+    const sc = [['Current plan', cur], ...(extra > 0 ? [[`Extra ${fmt(extra)} a month`, promoSimulation(d, extra, today)]] : []), ...(need ? [['Paid by promo end', promoSimulation(d, Math.max(0, need.monthly - min), today)]] : [])];
+    const line = ([n, r]) => `<tr><td>${esc(n)}</td><td>${fmt(r.monthlyPayment)}</td><td>${fmt(r.promoEndBalance)}</td><td>${fmt(r.postPromoInterest)}</td><td>${r.neverPaidOff ? 'never at this payment' : r.debtFreeDate ? esc(_dbMonthYear(r.debtFreeDate)) : '—'}</td></tr>`;
+    const risk = cur.retroactiveRiskIfAny ? `<div style="font-size:11px;color:var(--A);margin-top:4px">⚠ ${esc(DEBT_RETRO_NOTE)}: some contracts charge the standard rate back over the promotional months — up to ${fmt(cur.retroactiveRiskIfAny.amount)} here, on top of the figures above.</div>` : '';
+    const sched = cur.schedule.length ? `<div style="font-size:11px;color:var(--ink3);margin-top:4px">Balance month by month until it ends (current plan): ${cur.schedule.slice(0, 36).map(s => esc(fmtBare(s.balance))).join(' → ')}</div>` : '';
+    return `<div style="margin-top:12px"><div style="font-weight:600;font-size:13px">${esc(d.name)} · ${debtPromoRate(d)} % promotion</div><div style="overflow-x:auto"><table style="font-size:12px;width:100%"><tr><th style="text-align:left">Scenario</th><th style="text-align:left">Per month</th><th style="text-align:left">Left at promo end</th><th style="text-align:left">Interest after</th><th style="text-align:left">Debt-free</th></tr>${sc.map(line).join('')}</table></div>${sched}${risk}</div>`;
+  }).join('');
+  box.innerHTML = stats + rows + plans + promos;
+}
+function _dbFormShow(id, on) { const f = el(id); if (f) f.style.display = on ? '' : 'none'; }
+function debtFormOpen(id) {
+  const d = id ? (DATA.debts || []).find(x => x.id === id) : null; if (id && !d) return;
+  const set = (k, v) => { el('db-' + k).value = v === undefined || v === null ? '' : v; };
+  set('id', d ? d.id : ''); set('name', d && d.name); set('balance', d && d.balance); set('rate', d && d.rate); set('min', d && d.minPayment); set('promo-rate', d && d.promoRate);
+  set('promo-end', d && d.promoEndDate); set('start', d && d.startDate); set('note', d && d.note);
+  el('db-delete').style.display = d ? '' : 'none'; el('db-form-title').textContent = d ? 'Edit debt' : 'New debt';
+  _dbFormShow('debt-pay-form', false); _dbFormShow('debt-form', true); el('db-name').focus();
+}
+function debtSave() {
+  const id = el('db-id').value, v = validateDebt({ name: el('db-name').value, balance: el('db-balance').value, rate: el('db-rate').value, minPayment: el('db-min').value,
+    promoRate: el('db-promo-rate').value, promoEndDate: el('db-promo-end').value, startDate: el('db-start').value, note: el('db-note').value });
+  if (!v.ok) return toast(v.error, 1);
+  _dbFormShow('debt-form', false);
+  commit(id ? 'Debt updated' : 'Debt added', d => {
+    d.debts = Array.isArray(d.debts) ? d.debts : [];
+    if (!id) { d.debts.push({ id: uid(), ...v.debt, paymentLog: [] }); return; }
+    const x = d.debts.find(y => y.id === id); if (!x) return;
+    const before = { ...x };
+    ['promoRate', 'promoEndDate', 'startDate', 'note'].forEach(k => delete x[k]); Object.assign(x, v.debt);
+    d.entries.forEach(e => { if (findDebtForEntry(e, [x])) syncDebtEntry(x, before, e); });   // a rename follows into the payments that still carry the old name
+  }, { touch: ['debts', 'entries'], render: renderDebts });
+}
+function debtDelete() {
+  const id = el('db-id').value, d = (DATA.debts || []).find(x => x.id === id); if (!d) return;
+  showConfirm(`Delete “${d.name}”?`, 'Payments already logged stay in Entries as ordinary expenses.', () => {
+    _dbFormShow('debt-form', false);
+    commit(`Debt “${d.name}” deleted`, x => { x.debts = (x.debts || []).filter(y => y.id !== id); }, { touch: ['debts'], render: renderDebts });
+  });
+}
+function debtPayOpen(id) {
+  const d = (DATA.debts || []).find(x => x.id === id); if (!d) return;
+  el('dp-id').value = id; el('dp-title').textContent = `Log a payment — ${d.name}`; el('dp-amount').value = d.minPayment > 0 ? Math.min(d.minPayment, d.balance || d.minPayment) : '';
+  el('dp-date').value = ymd(); el('dp-acct').innerHTML = accountOptionsHtml({ placeholder: 'No account', showBank: false });
+  _dbFormShow('debt-form', false); _dbFormShow('debt-pay-form', true); el('dp-amount').focus();
+}
+function debtPaySave() {
+  const id = el('dp-id').value, amt = evalExpr(el('dp-amount').value), date = el('dp-date').value, acct = el('dp-acct').value || null;
+  if (!(DATA.debts || []).some(x => x.id === id)) return toast('That debt no longer exists.', 1);
+  if (!(amt > 0)) return toast('Enter the amount you paid.', 1);
+  if (!_dbRealDate(date)) return toast('Pick a valid date.', 1);
+  _dbFormShow('debt-pay-form', false);
+  commit('Payment logged', d => { applyDebtPayment(d, id, date, amt, acct); }, { touch: ['debts', 'entries'], render: renderDebts });
+}
+defineActions({
+  'debt-new':        () => debtFormOpen(null),
+  'debt-edit':       t => debtFormOpen(t.dataset.id),
+  'debt-save':       () => debtSave(),
+  'debt-cancel':     () => _dbFormShow('debt-form', false),
+  'debt-delete':     () => debtDelete(),
+  'debt-pay':        t => debtPayOpen(t.dataset.id),
+  'debt-pay-save':   () => debtPaySave(),
+  'debt-pay-cancel': () => _dbFormShow('debt-pay-form', false),
+  'debt-extra':      () => renderDebts(),
+});
+
 
 function renderSettings() {
   renderVarsUI();
@@ -10187,9 +10775,76 @@ function renderSavingsGoals() {
           ${goalSparkline}
         </div>
       </div>
+      <div class="goal-auto" style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--ink3)">
+        <span style="${g.contribution ? 'color:var(--ink2);font-weight:600' : ''}">${g.contribution ? `auto ${fmt(g.contribution.amount)} on the ${ordinalDay(g.contribution.day)}` : 'No auto-contribution'}</span>
+        <span>· €</span><input type="number" id="gc-amt-${esc(g.id)}" min="0" step="1" placeholder="amount" value="${g.contribution ? g.contribution.amount : ''}" style="width:80px;font-family:var(--mono);font-size:12px;padding:3px 8px"
+          data-action-change="dash-goal-auto" data-id="${esc(g.id)}" aria-label="Monthly contribution">
+        <span>on day</span><input type="number" id="gc-day-${esc(g.id)}" min="1" max="31" step="1" placeholder="1–31" value="${g.contribution ? g.contribution.day : ''}" style="width:60px;font-family:var(--mono);font-size:12px;padding:3px 8px"
+          data-action-change="dash-goal-auto" data-id="${esc(g.id)}" aria-label="Day of the month">
+      </div>
     </div>`;
   }).join('');
 }
+
+// ══════════════════════════════════════════
+// RECURRING GOAL CONTRIBUTIONS — a savings goal may carry  contribution: { amount, day }  (optional field, no migration): "put €amount into this goal on day N
+// of every month". applyGoalContributionsTo books ONE savings entry per goal and month — tagged 'auto-contribution', carrying goalId — and adds the amount to the
+// goal's saved total (as Auto-fill does). The ENTRY IS THE LOG: a goal already has its entry for that month when an entry with its goalId and the tag exists
+// in that month, which is what makes applying twice harmless; delete the entry and the next apply books it again. It runs INSIDE applyRecurring's commit
+// (so one Undo takes recurring items and contributions back together; the month wizard applies through applyRecurring too). Not applied: goals without a
+// contribution, or with an amount ≤ 0 / a day outside 1–31.
+// ══════════════════════════════════════════
+const ordinalDay = n => { const v = n % 100; return n + (v >= 11 && v <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'); };
+// 'YYYY-MM' + day → 'YYYY-MM-DD', the day clamped to the month's length (31 in February = the 28th / 29th); null for a bad month or day
+function goalContributionDate(month, day) {
+  const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month || ''), d = Number(day);
+  if (!m || !Number.isInteger(d) || d < 1 || d > 31) return null;
+  return `${month}-${String(Math.min(d, new Date(+m[1], +m[2], 0).getDate())).padStart(2, '0')}`;
+}
+// Form values → { ok:true, contribution:null } (blank or 0 = remove) | { ok:true, contribution:{amount,day} } | { ok:false, error }. A blank day means the 1st.
+function parseGoalContribution(amountRaw, dayRaw) {
+  const a = String(amountRaw === undefined || amountRaw === null ? '' : amountRaw).trim(), dd = String(dayRaw === undefined || dayRaw === null ? '' : dayRaw).trim();
+  if (a === '' || Number(a) === 0) return { ok: true, contribution: null };
+  const n = Number(a); if (!isFinite(n) || n < 0) return { ok: false, error: 'Enter the monthly amount as a number of 0 or more.' };
+  const day = dd === '' ? 1 : Number(dd); if (!Number.isInteger(day) || day < 1 || day > 31) return { ok: false, error: 'The day must be a whole number from 1 to 31.' };
+  return { ok: true, contribution: { amount: Math.round(n * 100) / 100, day } };
+}
+// PURE: the contributions still missing for `month` → [{ goalId, name, date, amount }]
+function goalContributionsDue(data, month) {
+  const entries = (data && data.entries) || [];
+  return ((data && data.savingsGoals) || []).filter(g => g && g.contribution && +g.contribution.amount > 0 && goalContributionDate(month, g.contribution.day))
+    .filter(g => !entries.some(e => e.goalId === g.id && (e.tags || []).includes('auto-contribution') && (e.date || '').slice(0, 7) === month))
+    .map(g => ({ goalId: g.id, name: g.name, date: goalContributionDate(month, g.contribution.day), amount: +(+g.contribution.amount).toFixed(2) }));
+}
+// Books what goalContributionsDue lists INTO `d` (call it inside commit()). → how many entries were added.
+function applyGoalContributionsTo(d, month, mkId = uid) {
+  const due = goalContributionsDue(d, month);
+  due.forEach(c => {
+    d.entries.unshift({ id: mkId(), loggedAt: new Date().toISOString(), date: c.date, desc: `Auto-contribution → ${c.name}`, amount: c.amount, formula: null, type: 'savings', category: 'savings',
+      tags: ['auto-contribution'], accountId: null, recurId: null, goalId: c.goalId });
+    const g = d.savingsGoals.find(x => x.id === c.goalId); g.saved = +((+g.saved || 0) + c.amount).toFixed(2);
+  });
+  return due.length;
+}
+// The same on its own, as one undoable commit (applyRecurring does it inside its own commit instead).
+function applyGoalContributions(month) {
+  let n = 0;
+  commit('Goal contributions applied', d => { n = applyGoalContributionsTo(d, month); }, { touch: ['savingsGoals', 'entries'], toast: () => `Added ${n} goal contribution${n === 1 ? '' : 's'}` });
+  return n;
+}
+function updateGoalContribution(id, amountRaw, dayRaw) {
+  if (!(DATA.savingsGoals || []).some(x => x.id === id)) return;
+  const p = parseGoalContribution(amountRaw, dayRaw);
+  if (!p.ok) { toast(p.error, 1); renderSavingsGoals(); return; }
+  const r = commit(p.contribution ? 'Auto-contribution saved' : 'Auto-contribution removed', d => {
+    const g = d.savingsGoals.find(x => x.id === id); if (!g) return;
+    if (p.contribution) g.contribution = p.contribution; else delete g.contribution;
+  }, { touch: ['savingsGoals'], render: renderSavingsGoals });
+  if (!r.changed) renderSavingsGoals();   // the fields show the stored values again (a blank day becomes the 1st)
+}
+defineActions({
+  'dash-goal-auto': t => updateGoalContribution(t.dataset.id, el('gc-amt-' + t.dataset.id).value, el('gc-day-' + t.dataset.id).value),
+});
 
 // ══════════════════════════════════════════
 // SINKING FUNDS — "set aside €X a month" for lumpy costs (insurance, vignette, Pickerl, tyres, holidays).
@@ -10751,6 +11406,69 @@ function energyRead() {
 }
 // The three band prices as a supplier's app shows them: net, or incl. VAT (DATA.energy.priceMode). Stored prices are always NET.
 const ENERGY_BANDS = ['off', 'shoulder', 'peak'];
+
+// ══════════════════════════════════════════
+// ELECTRICITY — what you really pay per kWh, next to the Austrian average, and a nudge to compare providers. NO scraping, NO API call: the average below is
+// written into the app (like KEST_RATE) and Settings → Yearly checks says when it was last checked and where to check it again; the comparison is a plain link to
+// E-Control's public tariff calculator, opened in a new tab — nothing from the vault is sent anywhere.
+// EFFECTIVE RATE = the bill's gross amount ÷ its kWh (€/kWh): energy, grid, taxes and VAT all in, fixed fees spread over the consumption. It is therefore comparable with
+// an ALL-IN household price (ENERGY_AT_AVG_CENTS_PER_KWH, VAT included), not with a bare energy price — and a small consumption makes it look dearer.
+// ══════════════════════════════════════════
+const ENERGY_AT_AVG_CENTS_PER_KWH = 28;
+// Last time the average was checked against the sources below. A BUILD constant on purpose (see KEST_VERIFIED); yearly: re-check, then bump this date.
+const ENERGY_AT_AVG_VERIFIED = '2026-10-30';
+const ENERGY_AT_SOURCES = [
+  { label: 'BMWET: Energiepreise (weighted averages incl. taxes)', url: 'https://www.bmwet.gv.at/Themen/Energie/preise.html' },
+  { label: 'E-Control: Tarifkalkulator',                           url: 'https://www.e-control.at/tarifkalkulator' },
+];
+const ENERGY_COMPARE = { url: 'https://www.e-control.at/tarifkalkulator', label: 'E-Control tariff calculator' };
+
+// One bill → its effective rate in €/kWh (4 decimals), or null when the bill has no usable kWh / amount.
+function energyEffectiveRate(bill) {
+  const kwh = +(bill && bill.kwh), gross = +(bill && bill.gross);
+  return kwh > 0 && isFinite(gross) && gross > 0 ? Math.round(gross / kwh * 1e4) / 1e4 : null;
+}
+// Bills → [{ date (the bill's end date), rate }] oldest first; bills without a usable rate or end date are left out.
+function energyRateHistory(bills) {
+  return (Array.isArray(bills) ? bills : []).map(b => ({ date: String((b && b.to) || ''), rate: energyEffectiveRate(b) })).filter(x => x.rate !== null && /^\d{4}-\d{2}-\d{2}$/.test(x.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+// → { pct (whole %, > 0 above / < 0 below the average), above, avgCents, diffCents } for a rate in €/kWh against the all-in average in ct/kWh
+function energyVsAverage(rateEuro, avgCents = ENERGY_AT_AVG_CENTS_PER_KWH) {
+  const cents = rateEuro * 100, pct = Math.round((cents / avgCents - 1) * 100);
+  return { pct, above: pct > 0, avgCents, diffCents: Math.round((cents - avgCents) * 100) / 100 };
+}
+// The €/kWh history as a small line chart with the average as a dashed line (SVG text, colours from the theme variables). '' with fewer than two bills.
+function energyRateChartSvg(history, avgCents = ENERGY_AT_AVG_CENTS_PER_KWH) {
+  if (!Array.isArray(history) || history.length < 2) return '';
+  const W = 320, H = 96, P = 8, avg = avgCents / 100, vals = history.map(h => h.rate).concat(avg), lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 0.01;
+  const x = i => (P + i / (history.length - 1) * (W - 2 * P)).toFixed(1), y = v => (H - P - (v - lo) / span * (H - 2 * P)).toFixed(1);
+  const pts = history.map((h, i) => `${x(i)},${y(h.rate)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Effective electricity rate per bill, in euro per kWh" style="display:block;margin-top:6px">`
+    + `<line x1="${P}" y1="${y(avg)}" x2="${W - P}" y2="${y(avg)}" stroke="var(--ink3)" stroke-width="1" stroke-dasharray="4,3" opacity=".6"/>`
+    + `<polyline points="${pts}" fill="none" stroke="var(--Bm)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+    + history.map((h, i) => `<circle cx="${x(i)}" cy="${y(h.rate)}" r="3" fill="var(--Bm)"><title>${h.date}: €${h.rate.toFixed(4)}/kWh</title></circle>`).join('')
+    + `</svg><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3)"><span>${history[0].date}</span><span>- - Austrian average ${avgCents} ct</span><span>${history[history.length - 1].date}</span></div>`;
+}
+// The autumn reminder: on every day of September, once a year — nothing is stored about it (no dismissals), it just lives in its own window.
+function _energyReminders(data, today) {
+  if (String(today).slice(5, 7) !== '09') return [];
+  const last = energyRateHistory((data && data.energy && data.energy.bills) || []).slice(-1)[0];
+  return [{ id: 'energy-autumn', level: 'info', icon: '⚡', date: `${String(today).slice(0, 4)}-09-01`, link: ENERGY_COMPARE, title: 'A good time to compare electricity tariffs',
+    text: `Once a year, before the heating season, it is worth comparing your electricity tariff. E-Control's tariff calculator is the independent public comparison.`
+      + (last ? ` Your last bill (${last.date}) came to €${last.rate.toFixed(4)} per kWh all in, against about ${ENERGY_AT_AVG_CENTS_PER_KWH} ct for an average Austrian household.` : '') }];
+}
+// The Overview's electricity card: headline, versus the average, the history chart and the (outbound-only) link.
+function renderEnergyRate() {
+  const box = el('d-energy-rate'); if (!box) return;
+  const hist = energyRateHistory((DATA.energy && DATA.energy.bills) || []);
+  const link = `<div style="margin-top:6px;font-size:12px"><a href="${ENERGY_COMPARE.url}" target="_blank" rel="noopener">Compare providers on E-Control's tariff calculator ↗</a> <span style="color:var(--ink3);font-size:11px">· opens E-Control's public site, nothing from your vault is sent</span></div>`;
+  if (!hist.length) { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">Log a bill below to see what you really pay per kWh, all in, next to the Austrian average.</div>${link}`; return; }
+  const last = hist[hist.length - 1], v = energyVsAverage(last.rate);
+  box.innerHTML = `<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-family:var(--mono);font-size:22px;font-weight:600">€${last.rate.toFixed(4)}</span><span style="font-size:12px;color:var(--ink3)">per kWh, all in · last bill (${esc(last.date)})</span></div>
+    <div style="font-size:12px;margin-top:2px;color:${v.pct === 0 ? 'var(--ink2)' : v.above ? 'var(--Rm)' : 'var(--Gm)'}">${v.pct === 0 ? 'About the same as' : Math.abs(v.pct) + ' % ' + (v.above ? 'above' : 'below')} the Austrian average of ${ENERGY_AT_AVG_CENTS_PER_KWH} ct/kWh <span style="color:var(--ink3)">(checked ${esc(ENERGY_AT_AVG_VERIFIED)})</span></div>`
+    + (hist.length >= 2 ? energyRateChartSvg(hist) : '<div style="font-size:11px;color:var(--ink3);margin-top:4px">One more bill makes a trend line.</div>') + link;
+}
 const _enMode = en => (en && en.priceMode === 'gross') ? 'gross' : 'net';
 const _enPriceShown = (net, en) => { const g = _enMode(en) === 'gross'; return g ? (net * (1 + energyTariff(en).vat / 100)).toFixed(2).replace('.', ',') : String(Math.round(net * 1e4) / 1e4).replace('.', ','); };
 const _enKwh = n => n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
@@ -10798,6 +11516,7 @@ function renderEnergy() {
       + `<span style="font-family:var(--mono);font-weight:600">${fmt(b.gross)}</span><button class="btn xs ghost" data-action="energy-bill-del" data-id="${esc(b.id)}" title="Remove this record (the expense stays)">×</button></div>`; }).join('')
     : `<div style="font-size:12px;color:var(--ink3)">No bills logged yet.</div>`;
   energyCalc();
+  renderEnergyRate();
 }
 
 function energySetRate(path, raw) {
@@ -12925,10 +13644,13 @@ function renderVerifyCard(today = ymd()) {
   const rBody = `Winter-tyre window (1 Nov – 15 Apr), §57a Pickerl rules, vignette purchase delay, tax deadlines — this build was checked on ${esc(REMINDER_RULES_VERIFIED)}.`;
   const tDue = verifyDue(TAX_RULES_VERIFIED, today), tStatus = tDue ? chip('Am', `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
   const tBody = `Werbungskosten allowance (€132), furniture cap (€300), church-contribution cap, the Telearbeitspauschale ending 1 Jan 2027 — this build was checked on ${esc(TAX_RULES_VERIFIED)}.`;
+  const eDue = verifyDue(ENERGY_AT_AVG_VERIFIED, today), eStatus = eDue ? chip('Am', `⚠ check for ${esc(today.slice(0, 4))} changes`) : chip('Gm', '✓ OK');
+  const eBody = `${ENERGY_AT_AVG_CENTS_PER_KWH} ct/kWh, all in (energy, grid, taxes, VAT), for an average household — the benchmark your electricity card compares your effective rate with · this build was checked on ${esc(ENERGY_AT_AVG_VERIFIED)}.`;
   box.innerHTML = row('ECB meeting dates', ecbStatus, ecbBody, link(ECB_CALENDAR_URL, 'ECB meeting calendar'))
                 + row('Car & tax reminders', rStatus, rBody, Object.values(REMINDER_LINKS).map(x => link(x.url, x.label)).join(''))
                 + row('Tax-year helper', tStatus, tBody, TAX_SOURCES.map(x => link(x.url, x.label)).join(''))
                 + row('KESt rate', kStatus, kBody, KEST_SOURCES.map(x => link(x.url, x.label)).join(''))
+                + row('Austrian electricity average', eStatus, eBody, ENERGY_AT_SOURCES.map(x => link(x.url, x.label)).join(''))
                 + `<div style="font-size:11px;color:var(--ink3);margin-top:8px">These are written into the app, not fetched. Once a year, open the links, and if something changed, ask for an updated build.</div>`;
 }
 
@@ -13590,9 +14312,8 @@ function onFuelOdoInput() {
   const last = _lastRecordedOdo();
   // Auto-fill trip km if we have a previous reading
   if (odo > 0 && last != null) {
-    const trip = odo - last;
     const th = el('fuel-trip-helper');
-    if (th) th.textContent = trip > 0 ? '' : '';
+    if (th) th.textContent = '';
   }
   updateOdoHelper();
 }
@@ -16824,6 +17545,43 @@ const _remDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse
 const _remMonthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
 const _remValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(Date.parse(s));
 
+// ── WARRANTY TRACKER (pure) ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Optional fields on an expense entry — no migration: warrantyMonths (integer 1–120) and warrantyStartDate (YYYY-MM-DD; absent = the entry's own date).
+// EXPIRY RULE: the warranty runs `months` months from its start date, and its last day is the LAST DAY OF THE LAST WARRANTY MONTH, INCLUSIVE.
+//   The "last warranty month" is the month that contains the final day of the period (start + months − 1 day):
+//   start on the 1st  → that is the month before the anniversary month   (2026-01-01 + 24 → 2027-12-31)
+//   start any other day → the anniversary month itself                    (2026-01-15 + 24 → 2028-01-31)
+//   On the expiry day itself the warranty still counts (days left = 0, "expires today"); the day after, it is expired.
+// REMINDER: from 30 days before the expiry day (level 'soon'; 'warn' in the last 7 days) and — with no end — after it ('warn'). No link: nothing leaves the app.
+const WARRANTY_TRIGGER_AMOUNT = 150;   // build constant: an expense of at least this many € pre-ticks "Track warranty" (the person can untick)
+const warrantyShouldAutoTrack = (amount, type, category) => type === 'expense' && category !== 'savings' && +amount >= WARRANTY_TRIGGER_AMOUNT;
+function parseWarrantyMonths(raw) {
+  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 120 ? n : null;
+}
+function warrantyExpiry(startISO, months) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startISO || ''), n = parseWarrantyMonths(months);
+  if (!m || n === null) return null;
+  const y = +m[1], mo = +m[2], d = +m[3], t = new Date(Date.UTC(y, mo - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;     // a REAL date (Date.parse alone accepts 2026-02-31)
+  return new Date(Date.UTC(y, (mo - 1) + n - (d === 1 ? 1 : 0) + 1, 0)).toISOString().slice(0, 10);   // day 0 of the next month = last day of the last warranty month
+}
+function _warrantyReminders(data, today) {
+  const out = [];
+  ((data && data.entries) || []).forEach(e => {
+    if (!e || e.type !== 'expense') return;
+    const exp = warrantyExpiry(e.warrantyStartDate || e.date, e.warrantyMonths); if (!exp) return;
+    const left = _remDiff(today, exp); if (left > 30) return;
+    const what = e.desc || '(no description)', bought = `${what}, ${e.date}, ${fmt(e.amount)}`;
+    out.push(left < 0
+      ? { id: 'warranty:' + e.id, level: 'warn', icon: '🧾', date: exp, link: null, title: `Warranty expired: ${what}`, text: `The ${e.warrantyMonths}-month warranty on ${bought} ended on ${exp}. Untick it on the entry (🛡️) once you no longer need the reminder.` }
+      : { id: 'warranty:' + e.id, level: left <= 7 ? 'warn' : 'soon', icon: '🧾', date: exp, link: null, title: left === 0 ? `Warranty ends today: ${what}` : `Warranty ends ${exp}: ${what}`,
+          text: `The ${e.warrantyMonths}-month warranty on ${bought} ${left === 0 ? 'ends today (the last day still counts)' : `ends on ${exp}, in ${left} day${left === 1 ? '' : 's'}`}. If something is wrong with it, claim before then.` });
+  });
+  return out;
+}
+
 // The reminders of ONE car (`data` = that car's view, see carViews). Unsorted.
 function _carReminders(data, today) {
   const out = [], year = +today.slice(0, 4), md = today.slice(5), cs = (data && data.carService) || {};
@@ -16903,6 +17661,8 @@ function computeReminders(data, today) {
   const views = carViews(data || {}), many = views.length > 1, out = [];
   views.forEach(v => _carReminders(v.view, today).forEach(r => out.push(many ? { ...r, id: `${r.id}:${v.id}`, title: `${v.name}: ${r.title}`, car: v.id } : r)));
   _taxReminders(data, today).forEach(r => out.push(r));
+  _warrantyReminders(data, today).forEach(r => out.push(r));
+  _energyReminders(data, today).forEach(r => out.push(r));
   const rank = { warn: 0, soon: 1, info: 2 };
   return out.sort((a, b) => rank[a.level] - rank[b.level] || a.date.localeCompare(b.date));
 }
@@ -18496,6 +19256,264 @@ function runSmokeTest() {
       expect(reminderRulesDue('2026-11-01', '2026-12-31'), false, 'same year'); expect(reminderRulesDue('2026-11-01', '2027-01-01'), true, 'new year');
       expect(reminderRulesDue('2027-03-01', '2027-06-01'), true, 'checked before 19 May 2027, now after it'); expect(reminderRulesDue('2027-06-01', '2027-12-01'), false, 'checked after the reform: fine until next year');
     });
+    test('reminders: warranty — expiry rule (last day of the last warranty month, inclusive), 30-day window, untracked = silent', () => {
+      const w = (id, date, amount, extra = {}) => ({ id, date, desc: 'TV', amount, type: 'expense', category: 'wants', tags: [], ...extra });
+      const wr = (entries, today) => computeReminders(_rd({ entries }), today).filter(r => r.id.startsWith('warranty:'));
+      const tv = w('w1', '2026-01-01', 899, { warrantyMonths: 24 });
+      expect(warrantyExpiry('2026-01-01', 24), '2027-12-31', '2026-01-01 + 24 months ends on 31 Dec 2027');
+      expect(warrantyExpiry('2026-01-15', 24), '2028-01-31', 'a mid-month start: the whole last month counts');
+      expect(warrantyExpiry('2026-03-31', 12), '2027-03-31', 'end-of-month start'); expect(warrantyExpiry('2026-02-31', 12), null, 'not a real date');
+      expect(wr([tv], '2027-11-30').length, 0, '31 days before the last day: nothing yet');
+      const dec = wr([tv], '2027-12-01'); expect(dec.length, 1, 'December 2027: one reminder'); expect(dec[0].date, '2027-12-31', 'it names the expiry date');
+      expect([dec[0].level, dec[0].link].join('|'), 'soon|', '30 days out = soon, and no external URL'); expectTrue(/TV/.test(dec[0].title) && /2027-12-31/.test(dec[0].title + dec[0].text), 'identifies the entry and the expiry date');
+      expect(wr([tv], '2027-12-24')[0].level, 'warn', 'last 7 days = warn');
+      const last = wr([tv], '2027-12-31'); expect(last.length, 1, 'the expiry day itself is inclusive'); expectTrue(/today/.test(last[0].title) && !/expired/i.test(last[0].title), 'still valid on 31 Dec');
+      const gone = wr([tv], '2028-01-01'); expect(gone.length, 1, 'after expiry: still reminded'); expectTrue(/expired/i.test(gone[0].title) && gone[0].level === 'warn', '1 Jan 2028: expired, warn');
+      expect(wr([w('w2', '2026-01-01', 50)], '2027-12-15').length, 0, '€50 with warranty unticked: no reminder');
+      expect(wr([w('w3', '2026-01-01', 50, { warrantyMonths: null })], '2027-12-15').length, 0, 'null months = untracked');
+      expect(wr([w('w4', '2026-01-01', 300, { warrantyMonths: 12, warrantyStartDate: '2026-06-01' })], '2027-05-20')[0].date, '2027-05-31', 'an explicit start date overrides the entry date');
+      expect(wr([w('w5', '2026-01-01', 300, { warrantyMonths: 24, type: 'income' })], '2027-12-15').length, 0, 'only expenses');
+      expect(wr([w('w6', '2026-01-01', 300, { warrantyMonths: 0 }), w('w7', '2026-01-01', 300, { warrantyMonths: 121 }), w('w8', '2026-01-01', 300, { warrantyMonths: 2.5 }), w('w9', 'garbage', 300, { warrantyMonths: 12 })], '2027-12-15').length, 0, 'out-of-range, fractional or dateless: silent, no throw');
+      const ent = [tv], snap = JSON.stringify(ent); wr(ent, '2027-12-10'); expect(JSON.stringify(ent), snap, 'entries are not modified');
+      expect(computeReminders({}, '2027-12-10').filter(r => r.id.startsWith('warranty:')).length, 0, 'no entries at all does not throw');
+    });
+    test('warranty: auto-tick from WARRANTY_TRIGGER_AMOUNT and the months field are validated', () => {
+      expect(WARRANTY_TRIGGER_AMOUNT, 150, 'build constant');
+      expect(warrantyShouldAutoTrack(150, 'expense', 'wants'), true, '€150 ticks'); expect(warrantyShouldAutoTrack(149.99, 'expense', 'wants'), false, 'just under does not');
+      expect(warrantyShouldAutoTrack(500, 'income', 'income'), false, 'income is not a purchase'); expect(warrantyShouldAutoTrack(500, 'expense', 'savings'), false, 'savings is not a purchase');
+      expect([1, 24, 120, '36'].map(parseWarrantyMonths).join(), '1,24,120,36', 'valid months'); expect([0, 121, 2.5, '', null, undefined, 'abc', -3].map(parseWarrantyMonths).join('|'), '|||||||', 'invalid months → null');
+    });
+    test('cash flow: projectCashflow — salary/rent order, double-counting, weekly dates, baseline, Cash excluded, empty vault, no mutation', () => {
+      const T = '2026-11-15', main = (bal = 1000) => ({ id: 'a1', name: 'Main', bank: 'Bank', balance: bal });
+      const rent = { id: 'r1', desc: 'Rent', amount: 800, type: 'expense', category: 'needs', freq: 'monthly', day: 28, accountId: 'a1' };
+      const ok = { accounts: [main(1000)], entries: [], recurring: [rent], plannedIncome: { '2026-12': 2500, '2027-01': 2500, '2027-02': 2500 } };
+      const snap = JSON.stringify(ok), p = projectCashflow(ok, T);
+      expect(p.days.length, 90, '90 dates, none skipped'); expect(p.days[0].date + '|' + p.days[89].date, '2026-11-16|2027-02-13', 'tomorrow … day 90, every date present');
+      expect(p.startBalance, 1000, 'starts at the liquid balance'); expect(p.deficitDays, 0, 'salary on day 1, rent on day 28: never negative');
+      expectTrue(p.days.every(x => x.balance > 0), 'every day positive'); expect(p.minBalance + '|' + p.minDate, '200|2026-11-28', 'the low point is the day the first rent leaves');
+      expect(p.days.find(x => x.date === '2026-12-01').balance, 2700, 'planned income lands on day 1'); expect(p.noIncome, false, 'there is income');
+      expect(JSON.stringify(ok), snap, 'projectCashflow does not modify its input');
+      expect(p.days.find(x => x.date === '2026-11-20').balance, 1000, 'a zero-activity day keeps the balance');
+      const low = projectCashflow({ ...ok, accounts: [main(300)] }, T);
+      expect(low.deficitDays, 3, 'rent (28th) before the first salary (1st): 28, 29, 30 Nov are red'); expect(low.minBalance + '|' + low.minDate, '-500|2026-11-28', 'lowest point and its date');
+      expectTrue(low.days.filter(x => x.balance < 0).map(x => x.date).join() === '2026-11-28,2026-11-29,2026-11-30', 'exactly those days are negative');
+      const wk = projectCashflow({ accounts: [main(500)], entries: [], recurring: [{ id: 'w1', desc: 'Gym', amount: 10, type: 'expense', category: 'wants', freq: 'weekly', day: 3, accountId: 'a1' }] }, T, 40);
+      expect(wk.days.filter(x => x.outgoing > 0).map(x => x.date).join(), '2026-11-17,2026-11-24,2026-12-03,2026-12-10,2026-12-17,2026-12-24', 'weekly: the 3rd, 10th, 17th, 24th of each month (past dates of today\'s month are not forecast)');
+      expect(wk.days.length, 40, 'the days argument is honoured');
+      const dbl = projectCashflow({ accounts: [main(5000)], entries: [{ id: 'e1', date: '2026-11-28', desc: 'Rent', amount: 800, type: 'expense', category: 'needs', recurId: 'r1', accountId: 'a1' }, { id: 'e2', date: '2026-12-10', desc: 'Sofa (2/3)', amount: 100, type: 'expense', category: 'wants', installmentId: 'i1', accountId: 'a1' }], recurring: [rent] }, T);
+      expect(dbl.days.find(x => x.date === '2026-11-28').outgoing, 800, 'rent already booked for November is counted once, not twice');
+      const dec10 = dbl.days.find(x => x.date === '2026-12-10'); expect(dec10.outgoing + '|' + dec10.items[0].kind, '100|installment', 'an installment is applied on its due date, once');
+      expect(dbl.days.find(x => x.date === '2026-12-28').outgoing, 800, 'December rent, not yet applied, is forecast');
+      const cash = projectCashflow({ accounts: [main(1000), { id: 'c0', name: 'Cash', bank: 'Cash', balance: 500 }], entries: [] }, T, 5);
+      expect(cash.startBalance, 1000, 'the account named Cash is not liquid money');
+      const vb = projectCashflow({ accounts: [main(5000)], entries: [{ id: 'v0', date: '2026-08-10', desc: 'old', amount: 90, type: 'expense', category: 'wants', accountId: null }, { id: 'v1', date: '2026-10-01', desc: 'shop', amount: 900, type: 'expense', category: 'wants', accountId: null }, { id: 'v2', date: '2026-10-02', desc: 'Rent', amount: 500, type: 'expense', category: 'needs', recurId: 'r1', accountId: null }, { id: 'v3', date: '2026-10-03', desc: 'TV (1/2)', amount: 400, type: 'expense', category: 'wants', installmentId: 'i1', accountId: null }] }, T, 10);
+      expect(vb.variableDaily, 10, 'baseline = unbooked expenses of the last 90 days ÷ 90 (recurring and installment payments excluded)'); expect(vb.days[9].balance, 4900, 'ten days of baseline spending');
+      expect(projectCashflow({ accounts: [main(0)], entries: [{ id: 'y1', date: '2026-11-05', desc: 'x', amount: 100, type: 'expense', category: 'wants', accountId: null }] }, T, 1).variableDaily, 10, 'a 10-day-old vault divides by 10, not 90');
+      const emp = projectCashflow({}, T); expect(emp.days.length, 90, 'an empty vault still yields 90 dates');
+      expect([emp.startBalance, emp.deficitDays, emp.minBalance, emp.noIncome].join('|'), '0|0|0|true', 'empty vault: no throw, zero balance, the no-income variant');
+      expect(projectCashflow(undefined, T, 3).days.length, 3, 'undefined data does not throw');
+      expect(projectCashflow({ accounts: [main(10)] }, 'garbage').days.length, 0, 'an invalid date yields no days, no throw');
+    });
+    test('cash flow: canAfford (what-if today) and computeRunway', () => {
+      const T = '2026-11-15', main = (bal = 1000) => ({ id: 'a1', name: 'Main', bank: 'Bank', balance: bal });
+      const base = { accounts: [main(1000)], entries: [], recurring: [] };
+      const yes = canAfford(base, T, 400); expect([yes.affordable, yes.remaining].join('|'), 'true|600', 'affordable: tells the balance that remains (the lowest point)');
+      const tight = { accounts: [main(1000)], entries: [], recurring: [{ id: 'r1', desc: 'Rent', amount: 800, type: 'expense', category: 'needs', freq: 'monthly', day: 28, accountId: 'a1' }], plannedIncome: { '2026-12': 2500 } };
+      const no = canAfford(tight, T, 500);
+      expect([no.affordable, no.shortfall, no.date, no.worstShortfall, no.worstDate].join('|'), 'false|300|2026-11-28|300|2026-11-28', 'not affordable: the exact shortfall and the date it first bites');
+      expect(canAfford(tight, T, 200).affordable, true, '€200 still fits (rent takes the balance to €0 at the lowest)');
+      expect(canAfford(tight, T, 200).remaining, 0, 'lowest balance exactly 0 is not a shortfall');
+      const snap = JSON.stringify(tight); canAfford(tight, T, 500); expect(JSON.stringify(tight), snap, 'canAfford does not modify its input');
+      expect(canAfford({}, T, 50).affordable, false, 'an empty vault cannot afford anything'); expect(canAfford(base, T, 'abc').invalid, true, 'a non-amount is flagged, not computed');
+      const rwData = (bal) => ({ accounts: [main(bal), { id: 'c0', name: 'Cash', bank: 'Cash', balance: 9999 }], entries: [
+        { id: 'n0', date: '2026-08-10', desc: 'old', amount: 1, type: 'expense', category: 'wants', accountId: null },
+        { id: 'n1', date: '2026-08-20', desc: 'Rent', amount: 450, type: 'expense', category: 'needs', accountId: null },
+        { id: 'n2', date: '2026-10-01', desc: 'Food', amount: 450, type: 'expense', category: 'needs', accountId: null },
+        { id: 'n3', date: '2026-10-02', desc: 'Cinema', amount: 700, type: 'expense', category: 'wants', accountId: null }] });
+      const rw = computeRunway(rwData(3000), T);
+      expect([rw.liquid, rw.dailyNeeds, rw.days, rw.months, rw.status].join('|'), '3000|10|300|9.9|ok', 'runway = liquid (Cash excluded) ÷ daily needs (wants ignored)');
+      expect(computeRunway(rwData(200), T).days, 20, 'under 30 days'); expect(computeRunway(rwData(-50), T).days, 0, 'a negative balance is 0 days');
+      expect(computeRunway({ accounts: [main(500)], entries: [] }, T).status, 'no-needs', 'no needs spending → no runway'); expect(computeRunway({}, T).days, null, 'empty vault does not throw');
+      const rs = JSON.stringify(rwData(3000)); const rd = rwData(3000); computeRunway(rd, T); expect(JSON.stringify(rd), rs, 'computeRunway does not modify its input');
+    });
+    test('debts: payoffPlan — snowball vs avalanche (hand-calculated), roll-over, never-paid, no mutation', () => {
+      // A: €100 at 12 % (1 %/month), min €60.  B: €200 at 24 % (2 %/month), min €60.  Extra €40 → budget €160 a month.
+      // Month 1 (both): A +1.00 → 101, B +4.00 → 204; mins → A 41, B 144; €40 left over.
+      //   Snowball (smallest first → A): A 41 − 40 = 1.00.  M2: A +0.01 → 1.01 paid; B +2.88 → 146.88, min 60 → 86.88, the other 98.99 clears it.  Interest: A 1.01 + B 6.88 = 7.89.
+      //   Avalanche (highest rate first → B): B 144 − 40 = 104.  M2: A +0.41 → 41.41 paid; B +2.08 → 106.08, min 60 → 46.08, the rest clears it.  Interest: A 1.41 + B 6.08 = 7.49.
+      const A = { id: 'A', name: 'A', balance: 100, rate: 12, minPayment: 60 }, B = { id: 'B', name: 'B', balance: 200, rate: 24, minPayment: 60 }, F = '2026-11-15';
+      const debts = [A, B], snap = JSON.stringify(debts);
+      const sn = payoffPlan(debts, 'snowball', 40, F), av = payoffPlan(debts, 'avalanche', 40, F);
+      expect([sn.plan[0].interestPaid, sn.plan[1].interestPaid, sn.totalInterest].join('|'), '1.01|6.88|7.89', 'snowball interest, by hand');
+      expect([av.plan[0].interestPaid, av.plan[1].interestPaid, av.totalInterest].join('|'), '1.41|6.08|7.49', 'avalanche interest, by hand');
+      expectTrue(av.totalInterest < sn.totalInterest, 'avalanche costs less interest than snowball');
+      expect([sn.totalMonths, av.totalMonths, sn.monthlyOutlayPerMonth, av.monthlyOutlayPerMonth].join('|'), '2|2|160|160', 'both clear in 2 months on a €160 budget');
+      expect(sn.plan[0].paidOffDate + '|' + sn.plan[1].paidOffDate, '2027-01-15|2027-01-15', 'paid-off dates: from + months');
+      expect(JSON.stringify(debts), snap, 'payoffPlan does not modify its input');
+      const roll = payoffPlan(debts, 'snowball', 0, F);   // €120 a month: A is gone after month 2, its €60 minimum then rolls onto B
+      expect([roll.plan[0].months, roll.plan[1].months, roll.totalMonths, roll.totalInterest].join('|'), '2|3|3|9.66', 'minimum payment rolls over: B clears in month 3 (4 without roll-over), interest 1.41 + 8.25');
+      expect(payoffPlan(debts, 'custom', 40, F).plan[0].months, payoffPlan(debts, 'snowball', 40, F).plan[0].months, 'custom = the order of the list (A first here)');
+      const stuck = payoffPlan([{ id: 'S', name: 'S', balance: 1000, rate: 24, minPayment: 10 }], 'avalanche', 0, F);
+      expect([stuck.totalMonths, stuck.plan[0].months, stuck.plan[0].paidOffDate].join('|'), '||', 'a minimum below the interest never pays off → null, no endless loop');
+      expect(payoffPlan([], 'snowball', 0, F).totalMonths, 0, 'no debts → 0 months'); expect(payoffPlan(undefined, 'avalanche', 5, F).plan.length, 0, 'undefined does not throw');
+      expect(payoffPlan([{ id: 'Z', name: 'Z', balance: 0, rate: 5, minPayment: 20 }], 'snowball', 0, F).plan[0].months, 0, 'a cleared debt is 0 months');
+      const promoD = [{ id: 'P', name: 'P', balance: 100, rate: 24, promoRate: 0, promoEndDate: '2027-01-15', minPayment: 50 }];
+      expect(payoffPlan(promoD, 'avalanche', 0, F).plan[0].interestPaid, 0, 'inside the promotion the promo rate (0 %) is charged');
+    });
+    test('debts: promoSimulation, payoffByPromoEnd, promo status and summary', () => {
+      const F = '2026-11-15';
+      const early = promoSimulation({ balance: 600, rate: 20, promoRate: 0, promoEndDate: '2027-11-15', minPayment: 100 }, 0, F);
+      expect([early.promoEndBalance, early.postPromoInterest, early.postPromoEndDate, early.retroactiveRiskIfAny, early.debtFreeDate, early.promoInterest].join('|'), '0|0|||2027-05-15|0', '0 % debt cleared before the promotion ends: no post-promo interest, no post-promo date, debt-free 15 May 2027'); expect(early.retroactiveRiskIfAny, null, 'and no retroactive risk');
+      // €100, 24 % standard, 0 % promo to 2027-01-15 (2 payments), €10 a month: promo balance 90 → 80.  Then at 2 %/month:
+      //   81.60→71.60, 73.03→63.03, 64.29→54.29, 55.38→45.38, 46.29→36.29, 37.02→27.02, 27.56→17.56, 17.91→7.91, 8.07 paid (month 11 → 2027-10-15): interest 8.07.
+      //   Retroactive (only if the contract says so): standard interest during the promo, 2.00 on 100 + 1.80 on 90 = 3.80.
+      const late = promoSimulation({ balance: 100, rate: 24, promoRate: 0, promoEndDate: '2027-01-15', minPayment: 10 }, 0, F);
+      expect(late.schedule.map(s => s.balance).join(), '90,80', 'month-by-month balance until the promotion expires');
+      expect([late.promoEndBalance, late.postPromoInterest, late.postPromoEndDate].join('|'), '80|8.07|2027-10-15', 'unpaid 0 % debt falls to the standard rate afterwards');
+      expect(late.retroactiveRiskIfAny.amount, 3.8, 'the conditional back-interest figure'); expect(late.retroactiveRiskIfAny.note, 'If your contract has that clause — check your policy', 'worded as a possibility, never assumed');
+      expect(late.postPromoInterest, 8.07, 'the retroactive figure is NOT folded into the post-promo interest');
+      expect(promoSimulation({ balance: 100, rate: 24, promoRate: 0, promoEndDate: '2027-01-15', minPayment: 10 }, 40, F).retroactiveRiskIfAny, null, 'with €40 extra it is paid off inside the promotion: no risk');
+      expect(promoSimulation({ balance: 100, rate: 0, promoEndDate: '2027-01-15', minPayment: 10 }, 0, F).retroactiveRiskIfAny, null, 'same rate before and after → nothing to claim back');
+      expect(promoSimulation({ balance: 1000, rate: 24, minPayment: 10 }, 0, F).neverPaidOff, true, 'no promotion, payment below the interest → flagged, terminates');
+      expect(promoSimulation({ balance: 0, rate: 5, minPayment: 10 }, 0, F).debtFreeDate, F, 'nothing owed');
+      const need = payoffByPromoEnd({ balance: 1200, rate: 20, promoRate: 0, promoEndDate: '2027-11-15', minPayment: 50 }, F);
+      expect([need.monthly, need.months].join('|'), '100|12', '€1,200 at 0 % over 12 payments = €100 a month');
+      expect(promoSimulation({ balance: 1200, rate: 20, promoRate: 0, promoEndDate: '2027-11-15', minPayment: 100 }, 0, F).promoEndBalance, 0, 'that payment really clears it by promo end');
+      expect(payoffByPromoEnd({ balance: 100, rate: 5, minPayment: 5 }, F), null, 'no promotion → null'); expect(payoffByPromoEnd({ balance: 100, rate: 5, promoEndDate: '2026-11-01', minPayment: 5 }, F), null, 'promotion already over → null');
+      const ps = debtPromoStatus({ rate: 20, promoRate: 0, promoEndDate: '2027-03-20' }, F);
+      expect([ps.active, ps.monthsLeft, ps.daysLeft, ps.rate].join('|'), 'true|4|125|0', 'promo countdown: 4 whole months, 125 days'); expect(debtPromoStatus({ rate: 20 }, F), null, 'no promotion → null');
+      expect(debtPromoStatus({ rate: 20, promoEndDate: '2026-10-01' }, F).active, false, 'ended'); expect(debtPromoRate({ rate: 19.9 }), 19.9, 'promoRate defaults to the standard rate'); expect(debtPromoRate({ rate: 19.9, promoRate: 0 }), 0, 'an explicit 0 % is kept');
+      const sm = debtSummary([{ balance: 1000, rate: 10, minPayment: 50 }, { balance: 3000, rate: 20, promoRate: 0, promoEndDate: '2027-03-20', minPayment: 100 }, { balance: 0, rate: 30, minPayment: 99 }], F);
+      expect([sm.total, sm.monthly, sm.weightedRate, sm.count].join('|'), '4000|150|2.5|2', 'totals over debts with a balance; weighted rate uses today\'s promo rate');
+      expect(debtSummary(undefined, F).total, 0, 'undefined does not throw');
+      expect(_dbAddMonths('2026-01-31', 1) + '|' + _dbAddMonths('2026-11-15', 14), '2026-02-28|2028-01-15', 'month arithmetic clamps and crosses years');
+    });
+    test('debts: linked payments (findDebtForEntry / syncDebtEntry / applyDebtPayment) and validateDebt', () => {
+      const mk = () => ({ entries: [], debts: [{ id: 'd1', name: 'Card', balance: 500, rate: 20, minPayment: 25, paymentLog: [] }] });
+      const data = mk(), e = applyDebtPayment(data, 'd1', '2026-11-15', 100, 'a1', 'pay1');
+      expect([e.id, e.type, e.category, e.debtId, e.amount, e.accountId, e.desc].join('|'), 'pay1|expense|needs|d1|100|a1|Debt payment — Card', 'a linked expense');
+      expect(JSON.stringify(data.debts[0].paymentLog), JSON.stringify([{ id: 'pay1', date: '2026-11-15', amount: 100 }]), 'paymentLog item has the entry id'); expect(data.debts[0].balance, 400, 'balance goes down by the payment');
+      expect(findDebtForEntry(e, data.debts).id, 'd1', 'entry → debt');
+      applyDebtPayment(data, 'd1', '2026-11-16', 900, null, 'pay2'); expect(data.debts[0].balance, 0, 'balance never goes below 0');
+      expect(findDebtForEntry(e, []), null, 'a deleted debt: the entry is simply an ordinary expense, no throw'); expect(findDebtForEntry({ type: 'expense' }, data.debts), null, 'an expense without debtId');
+      expect(findDebtForEntry(null, data.debts), null, 'null entry');
+      const lost = mk(); expect(applyDebtPayment(lost, 'nope', '2026-11-15', 50, null, 'x'), null, 'unknown debt → null'); expect(lost.entries.length, 0, 'and nothing was written');
+      expect(applyDebtPayment(mk(), 'd1', '2026-02-31', 50, null, 'x'), null, 'invalid date → null'); expect(applyDebtPayment(mk(), 'd1', '2026-11-15', 0, null, 'x'), null, 'zero amount → null');
+      const before = { name: 'Card' }, ren = { name: 'Visa' }, own = { desc: 'Debt payment — Card' }, mine = { desc: 'my own words' };
+      expect(syncDebtEntry(ren, before, own).join() + '|' + own.desc, 'name|Debt payment — Visa', 'a rename carries over to a payment still named the old way');
+      expect(syncDebtEntry(ren, before, mine).length + '|' + mine.desc, '0|my own words', 'a description you changed yourself stays yours');
+      const v = validateDebt({ name: ' Visa ', balance: '1200', rate: '19.9', minPayment: '', promoRate: '0', promoEndDate: '2027-11-15', startDate: '', note: '' });
+      expect(JSON.stringify(v.debt), JSON.stringify({ name: 'Visa', balance: 1200, rate: 19.9, minPayment: 0, promoRate: 0, promoEndDate: '2027-11-15' }), 'valid form → clean debt (blank fields left out, explicit 0 % kept)');
+      expect('promoRate' in validateDebt({ name: 'x', balance: '1', rate: '5' }).debt, false, 'blank promoRate is not stored (it defaults to rate)');
+      expect([{ name: '', balance: 1, rate: 1 }, { name: 'x', balance: -1, rate: 1 }, { name: 'x', balance: 1, rate: 101 }, { name: 'x', balance: 1, rate: 1, promoRate: 0 }, { name: 'x', balance: 1, rate: 1, promoRate: 0, promoEndDate: '2027-02-30' }, { name: 'x', balance: 'abc', rate: 1 }].map(f => validateDebt(f).ok).join(), 'false,false,false,false,false,false', 'bad names, balances, rates, a promo rate without date, an impossible date → rejected');
+    });
+    test('debts: the conflict merge keeps debts from both devices (by id, local wins) and adds no key when there are none', () => {
+      const L = { entries: [], debts: [{ id: 'd1', name: 'Local', balance: 1 }] }, R = { entries: [], debts: [{ id: 'd1', name: 'Remote', balance: 9 }, { id: 'd2', name: 'Only remote', balance: 2 }] };
+      const m = mergeVaultData(L, R);
+      expect(m.debts.map(d => d.id + ':' + d.name).sort().join(), 'd1:Local,d2:Only remote', 'union by id, the local copy wins');
+      expect('debts' in mergeVaultData({ entries: [] }, { entries: [] }), false, 'no debts anywhere → no key is created (optional, no migration)');
+      expect(JSON.stringify(L.debts), '[{"id":"d1","name":"Local","balance":1}]', 'merge does not modify its inputs');
+    });
+    test('tag budgets: progress, rollover, alerts fire once per month, edits through commit() with Undo, merge', () => {
+      const ex = (id, date, amount, tags, extra = {}) => ({ id, date, desc: id, amount, type: 'expense', category: 'wants', tags, ...extra });
+      const data = (entries, tb = { holiday: { amount: 200 } }) => ({ entries, tagBudgets: tb });
+      const s75 = tagBudgetStatus(data([ex('a', '2026-11-03', 100, ['holiday']), ex('b', '2026-11-09', 50, ['Holiday ', 'fun'])]), 'holiday', '2026-11');
+      expect([s75.spent, s75.budget, s75.pct, s75.remaining, s75.over].join('|'), '150|200|75|50|false', '€150 spent of €200 = 75 % (tags matched case-insensitively, trimmed)');
+      const ob = tagBudgetStatus(data([ex('c', '2026-11-03', 230, ['holiday'])]), 'holiday', '2026-11');
+      expect([ob.pct, ob.remaining, ob.over].join('|'), '115|-30|true', 'overspent: over by €30');
+      expect(tagBudgetStatus(data([ex('i', '2026-11-03', 500, ['holiday'], { type: 'income' }), ex('s', '2026-11-03', 500, ['holiday'], { type: 'savings' }), ex('o', '2026-10-30', 500, ['holiday']), ex('n', '2026-11-04', 9, ['other'])]), 'holiday', '2026-11').spent, 0, 'only this month\'s expenses carrying the tag count');
+      expect(tagBudgetStatus(data([]), 'nothing', '2026-11'), null, 'no budget → null'); expect(tagBudgetList({ entries: [] }, '2026-11').length, 0, 'no tagBudgets at all → empty, no throw');
+      const roll = tagBudgetStatus(data([ex('p', '2026-10-05', 120, ['holiday']), ex('q', '2026-11-05', 50, ['holiday'])], { holiday: { amount: 200, rollover: true } }), 'holiday', '2026-11');
+      expect([roll.carry, roll.budget, Math.round(roll.pct)].join('|'), '80|280|18', 'rollover: last month\'s unspent €80 is added (50 of 280 ≈ 18 %)');
+      expect(tagBudgetStatus(data([ex('q', '2026-11-05', 50, ['holiday'])], { holiday: { amount: 200, rollover: true } }), 'holiday', '2026-11').carry, 0, 'a tag unused last month hands a new budget no phantom carry');
+      const ths = [80, 100], over = data([ex('o1', '2026-11-03', 210, ['holiday'])]);
+      const due1 = tagAlertsDue(over, '2026-11', ths, {});
+      expect(due1.map(a => a.key).join(), 'tag:holiday:80:2026-11,tag:holiday:100:2026-11', 'overspend: both thresholds due, keys tag:<tag>:<threshold>:<month>');
+      const fired = {}; due1.forEach(a => { fired[a.key] = true; });
+      expect(tagAlertsDue(over, '2026-11', ths, fired).length, 0, 'once fired, never again in that month (idempotent)');
+      expect(tagAlertsDue(over, '2026-11', ths, { ...fired, 'tag:holiday:100:2026-11': undefined }).map(a => a.threshold).join(), '100', 'only the missing threshold fires');
+      expect(tagAlertsDue(data([ex('o2', '2026-12-03', 210, ['holiday'])]), '2026-12', ths, fired).length, 2, 'a new month fires again');
+      expect(tagAlertsDue(data([ex('e1', '2026-11-03', 160, ['holiday'])]), '2026-11', ths, {}).map(a => a.threshold).join(), '80', 'exactly 80 % fires the early warning, not 100');
+      expect(tagAlertsDue(data([ex('e2', '2026-11-03', 199.99, ['holiday'])]), '2026-11', ths, {}).map(a => a.threshold).join(), '80', 'just under 100 %: only the early warning');
+      expect(tagAlertsDue(data([ex('e3', '2026-11-03', 200, ['holiday'])]), '2026-11', ths, {}).map(a => a.threshold).join(), '80,100', 'exactly 100 % counts as reached');
+      expect(tagAlertsDue(data([ex('e4', '2026-11-03', 150, ['holiday'])]), '2026-11', ths, {}).length, 0, '75 %: nothing yet');
+      expect(tagAlertsDue(data([ex('e5', '2026-11-03', 170, ['holiday'])]), '2026-11', [70, 70, 100], {}).length, 1, 'duplicate thresholds are fired once');
+      const snap = JSON.stringify(over); tagAlertsDue(over, '2026-11', ths, {}); tagBudgetList(over, '2026-11'); expect(JSON.stringify(over), snap, 'nothing is modified');
+      expect(notifKeyMonth('tag:holiday:80:2026-11') + '|' + notifKeyMonth('2026-11:needs:80') + '|' + notifKeyMonth('tag:a:b:100:2026-05'), '2026-11|2026-11|2026-05', 'which month a notifFired key belongs to (pruning)');
+      expect(JSON.stringify(parseTagBudget(' Holiday ', '200.5')), JSON.stringify({ ok: true, tag: 'holiday', amount: 200.5 }), 'valid budget form');
+      expect([['', '5'], ['x', ''], ['x', '0'], ['x', '-3'], ['x', 'abc'], ['x'.repeat(31), '5'], ['x', '2000000']].map(a => parseTagBudget(...a).ok).join(), 'false,false,false,false,false,false,false', 'bad tags and amounts rejected');
+      const vault = { tagBudgets: { holiday: { amount: 200 } } }, before = JSON.stringify(vault.tagBudgets); let undo = null;
+      const io = { save: () => {}, render: () => {}, toast: (m, er, u) => { undo = u; } };
+      commitCore(() => vault, 'add', d => { setTagBudget(d, 'food', 300); }, { touch: ['tagBudgets'] }, io);
+      expect(JSON.stringify(vault.tagBudgets), JSON.stringify({ holiday: { amount: 200 }, food: { amount: 300 } }), 'added through commit()'); undo(); expect(JSON.stringify(vault.tagBudgets), before, 'Undo removes it');
+      commitCore(() => vault, 'roll', d => { setTagBudget(d, 'holiday', 200, true); }, { touch: ['tagBudgets'] }, io);
+      expect(JSON.stringify(vault.tagBudgets.holiday), '{"amount":200,"rollover":true}', 'rollover switched on'); commitCore(() => vault, 'edit', d => { setTagBudget(d, 'holiday', 250); }, { touch: ['tagBudgets'] }, io);
+      expect(JSON.stringify(vault.tagBudgets.holiday), '{"amount":250,"rollover":true}', 'editing the amount keeps rollover');
+      commitCore(() => vault, 'del', d => { removeTagBudget(d, 'holiday'); }, { touch: ['tagBudgets'] }, io); expect('holiday' in vault.tagBudgets, false, 'removed');
+      const fresh = {}; commitCore(() => fresh, 'first', d => { setTagBudget(d, 'a', 10); }, { touch: ['tagBudgets'] }, io); expect(JSON.stringify(fresh.tagBudgets), '{"a":{"amount":10}}', 'the first budget creates the optional key'); undo(); expect('tagBudgets' in fresh, false, 'Undo of the first budget removes the key again');
+      const L = { entries: [], tagBudgets: { a: { amount: 1 }, shared: { amount: 5 } } }, R = { entries: [], tagBudgets: { b: { amount: 2 }, shared: { amount: 9 } } }, m = mergeVaultData(L, R);
+      expect(Object.keys(m.tagBudgets).sort().join() + '|' + m.tagBudgets.shared.amount, 'a,b,shared|5', 'conflict merge: union by tag, local wins'); expect('tagBudgets' in mergeVaultData({ entries: [] }, { entries: [] }), false, 'no budgets anywhere → no key');
+    });
+    test('electricity: effective rate, average comparison, chart, verification row, September reminder', () => {
+      expect(energyEffectiveRate({ kwh: 300, gross: 85 }), 0.2833, '€85.00 ÷ 300 kWh = €0.2833 per kWh'); expect(energyEffectiveRate({ kwh: '1566.261', gross: '450.8' }), 0.2878, 'strings from stored data');
+      expect([energyEffectiveRate({ kwh: 0, gross: 50 }), energyEffectiveRate({ kwh: 100, gross: 0 }), energyEffectiveRate({ kwh: 100 }), energyEffectiveRate(null)].join('|'), '|||', 'no kWh / no amount / null → null');
+      const bills = [{ id: 'b2', from: '2026-07-01', to: '2026-09-30', kwh: 400, gross: 120 }, { id: 'b1', from: '2026-04-01', to: '2026-06-30', kwh: 500, gross: 125 }, { id: 'bx', from: '2026-01-01', to: '2026-03-31', kwh: 0, gross: 99 }, { id: 'bd', kwh: 100, gross: 30 }];
+      const snap = JSON.stringify(bills), h = energyRateHistory(bills);
+      expect(h.map(x => x.date + '=' + x.rate).join(), '2026-06-30=0.25,2026-09-30=0.3', 'history: oldest first, unusable bills left out'); expect(JSON.stringify(bills), snap, 'bills are not modified'); expect(energyRateHistory(undefined).length, 0, 'undefined → empty');
+      const up = energyVsAverage(0.336), dn = energyVsAverage(0.21), eq = energyVsAverage(0.28);
+      expect([up.pct, up.above, up.diffCents].join('|'), '20|true|5.6', '33.6 ct is 20 % above the 28 ct average'); expect([dn.pct, dn.above].join('|'), '-25|false', '21 ct is 25 % below'); expect(eq.pct, 0, 'equal');
+      expect(ENERGY_AT_AVG_CENTS_PER_KWH, 28, 'build constant'); expect(/^\d{4}-\d{2}-\d{2}$/.test(ENERGY_AT_AVG_VERIFIED), true, 'verified date is an ISO date');
+      expectTrue(ENERGY_AT_SOURCES.length >= 1 && ENERGY_AT_SOURCES.every(x => x.label && /^https:\/\/(www\.)?(bmwet\.gv\.at|e-control\.at)\//.test(x.url)), 'sources are {label, url} on official sites'); expect(ENERGY_COMPARE.url, 'https://www.e-control.at/tarifkalkulator', 'the E-Control tariff calculator deep link');
+      const svg = energyRateChartSvg(h), pts = (/points="([^"]+)"/.exec(svg) || [, ''])[1].trim().split(/\s+/);
+      expect(pts.length, 2, 'one point per bill on the line'); expectTrue(/stroke-dasharray/.test(svg) && /Austrian average 28 ct/.test(svg), 'the average is drawn as a dashed line and labelled'); expect(energyRateChartSvg([h[0]]), '', 'one bill: no chart'); expect(energyRateChartSvg(undefined), '', 'undefined: no chart');
+      expectTrue(!/NaN/.test(energyRateChartSvg([{ date: '2026-01-01', rate: 0.3 }, { date: '2026-02-01', rate: 0.3 }])), 'a flat history draws without NaN');
+      const d0 = { energy: { bills } }, rem = (d, t) => computeReminders(d, t).filter(r => r.id === 'energy-autumn');
+      expect([1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12].map(m => rem(d0, `2026-${String(m).padStart(2, '0')}-15`).length).join(''), '00000000000', 'no autumn reminder in any month but September');
+      expect([rem(d0, '2026-08-31').length, rem(d0, '2026-09-01').length, rem(d0, '2026-09-30').length, rem(d0, '2026-10-01').length].join(), '0,1,1,0', 'September 1–30 only');
+      const r = rem(d0, '2026-09-10')[0];
+      expect([r.level, r.link.url, r.link.label, r.date].join('|'), 'info|https://www.e-control.at/tarifkalkulator|E-Control tariff calculator|2026-09-01', 'level info, link to the tariff calculator'); expectTrue(/0\.3000/.test(r.text) && /28 ct/.test(r.text), 'mentions the last effective rate against the average');
+      expectTrue(!/0\.\d{4} per kWh/.test(rem({}, '2027-09-01')[0].text), 'without bills the text has no rate'); expect(rem({}, '2027-09-01').length, 1, 'an empty vault still gets the nudge, no throw');
+      const keep = el('verify-list') && el('verify-list').innerHTML;
+      renderVerifyCard('2026-11-16'); const html = el('verify-list').innerHTML, rows = html.split('padding:8px 0;border-bottom').slice(1);
+      const eRow = rows.find(x => /Austrian electricity average/.test(x)), kRow = rows.find(x => /KESt rate/.test(x));
+      expectTrue(!!eRow && !!kRow, 'the electricity row sits among the yearly checks'); expect(rows.length, 5, 'ECB, car & tax, tax-year, KESt and now electricity');
+      const shape = x => [(x.match(/font-weight:600">/g) || []).length, (x.match(/<a href="https:[^"]+" target="_blank" rel="noopener"/g) || []).length, (x.match(/color:var\(--(Gm|Am|Rm)\)/g) || []).length].join('/');
+      expect(shape(eRow), '1/' + ENERGY_AT_SOURCES.length + '/1', 'same shape as the KESt row: one title, a status chip, one link per source'); expectTrue(eRow.includes(ENERGY_AT_AVG_VERIFIED) && /✓ OK/.test(eRow), 'shows the checked date and ✓ OK in the same year');
+      expectTrue(ENERGY_AT_SOURCES.every(s => eRow.includes(s.url)), 'every source is linked');
+      renderVerifyCard(String(+ENERGY_AT_AVG_VERIFIED.slice(0, 4) + 1) + '-01-02'); expectTrue(/⚠ check for/.test(el('verify-list').innerHTML.split('padding:8px 0;border-bottom').find(x => /Austrian electricity average/.test(x))), 'due once the year changes (verifyDue)');
+      renderVerifyCard();
+      expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2027-01-01'), true, 'verifyDue pattern: new year'); expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2026-12-31'), false, 'same year');
+    });
+    test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
+      let n = 0; const mk = () => `gc${++n}`;
+      const base = () => ({ entries: [], savingsGoals: [{ id: 'g1', name: 'Holiday', target: 1000, saved: 100, contribution: { amount: 200, day: 5 } },
+        { id: 'g2', name: 'No plan', target: 500, saved: 0 }, { id: 'g3', name: 'Zero', target: 500, saved: 0, contribution: { amount: 0, day: 3 } }, { id: 'g4', name: 'Bad day', target: 500, saved: 0, contribution: { amount: 50, day: 40 } }] });
+      const d = base();
+      expect(applyGoalContributions === undefined, false, 'applyGoalContributions exists'); expect(applyGoalContributionsTo(d, '2026-11', mk), 1, 'one entry: only the goal with a valid contribution');
+      const e = d.entries[0];
+      expect([e.date, e.amount, e.type, e.category, e.goalId, e.accountId, e.tags.join(), e.desc].join('|'), '2026-11-05|200|savings|savings|g1||auto-contribution|Auto-contribution → Holiday', 'a tagged savings entry carrying goalId on the chosen day (no account)');
+      expect(d.savingsGoals[0].saved, 300, 'the goal grows by the contribution');
+      expect(applyGoalContributionsTo(d, '2026-11', mk), 0, 'applying twice adds nothing'); expect(d.entries.length + '|' + d.savingsGoals[0].saved, '1|300', 'no duplicate entry, no double count');
+      expect(d.savingsGoals.slice(1).every(g => g.saved === 0) && d.entries.every(x => x.goalId === 'g1'), true, 'goals without a (valid) contribution are skipped');
+      d.entries = d.entries.filter(x => x.id !== e.id);
+      expect(applyGoalContributionsTo(d, '2026-11', mk), 1, 'deleting the generated entry and applying again recreates it'); expect(d.entries.length, 1, 'exactly one again');
+      expect(applyGoalContributionsTo(d, '2026-12', mk), 1, 'the next month gets its own entry'); expect(d.entries.length, 2, 'two months, two entries');
+      d.entries.push({ id: 'manual', date: '2027-01-02', desc: 'by hand', amount: 5, type: 'savings', category: 'savings', tags: ['x'], goalId: 'g1' });
+      expect(applyGoalContributionsTo(d, '2027-01', mk), 1, 'a manual entry for the goal is not the log: the contribution is still booked');
+      const frozen = base(), snap = JSON.stringify(frozen);
+      expect(goalContributionsDue(frozen, '2026-11').length, 1, 'goalContributionsDue lists what is missing'); expect(JSON.stringify(frozen), snap, 'and does not modify anything');
+      const vault = base(), sv = JSON.stringify(vault.savingsGoals), calls = []; let undo = null;
+      commitCore(() => vault, 'Applied', x => applyGoalContributionsTo(x, '2026-11', mk), { touch: ['savingsGoals', 'entries'] }, { save: () => calls.push('save'), render: () => calls.push('render'), toast: (m, er, u) => { undo = u; } });
+      expect(vault.entries.length + '|' + vault.savingsGoals[0].saved, '1|300', 'booked through commit()'); undo();
+      expect(vault.entries.length + '|' + JSON.stringify(vault.savingsGoals), '0|' + sv, 'Undo takes the entry and the saved amount back');
+      expect(goalContributionDate('2027-02', 31) + '|' + goalContributionDate('2028-02', 30) + '|' + goalContributionDate('2026-11', 5), '2027-02-28|2028-02-29|2026-11-05', 'a day past the month end is clamped');
+      expect([goalContributionDate('2026-13', 5), goalContributionDate('2026-11', 0), goalContributionDate('2026-11', 2.5), goalContributionDate('', 5)].join('|'), '|||', 'bad month or day → null');
+      expect(applyGoalContributionsTo({ entries: [] }, '2026-11', mk) + '|' + applyGoalContributionsTo({ entries: [], savingsGoals: base().savingsGoals }, 'garbage', mk), '0|0', 'no goals / a bad month: nothing, no throw');
+      expect(JSON.stringify(parseGoalContribution('200', '5')), JSON.stringify({ ok: true, contribution: { amount: 200, day: 5 } }), 'valid values');
+      expect(parseGoalContribution('', '').contribution + '|' + parseGoalContribution('0', '7').contribution, 'null|null', 'blank or 0 removes it'); expect(parseGoalContribution('50', '').contribution.day, 1, 'a blank day is the 1st');
+      expect(['50|32', '-5|3', 'abc|3', '50|2.5', '50|0'].map(s => parseGoalContribution(...s.split('|')).ok).join(), 'false,false,false,false,false', 'bad amount or day → rejected');
+      expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(ordinalDay).join(), '1st,2nd,3rd,4th,11th,12th,13th,21st,22nd,23rd,31st', 'ordinals');
+    });
 
     // ── True cost per km ──
     const _cf = (i, date, odo, total = 60, x) => ({ id: 'f' + i, date, odo, liters: 40, total, type: 'petrol', ...(x || {}) });
@@ -18669,6 +19687,31 @@ function runSmokeTest() {
       expect(cheaper.find(i => i.id.startsWith('price-')).level, 'good', 'a drop is good news');
       const twice = computeInsights(_mkIns([...nf, _e('n4', '2026-10-20', 15.99, 'wants', { desc: 'Netflix' })], _inc), '2026-10', '2026-10-25');
       expectTrue(!twice.some(i => i.id.startsWith('price-')), 'two charges in one month → ambiguous → silent');
+    });
+    test('insights: subscription price-change alerts — >5% month on month, detector-consistent, one per charge', () => {
+      const nf = (id, d, a) => _e(id, d, a, 'wants', { desc: 'Netflix' });
+      const up = [nf('n1', '2026-09-05', 15.99), nf('n2', '2026-10-05', 17.99)];
+      const snap = JSON.stringify(up);
+      const det = detectSubscriptionPriceChanges(_mkIns(up, _inc), '2026-10', '2026-10-20');
+      expect(det.length, 1, '€15.99 → €17.99 is one change');
+      expect([det[0].name, det[0].before, det[0].after, det[0].month, det[0].delta, det[0].deltaYearly].join('|'), 'Netflix|15.99|17.99|2026-10|2|24', 'detector fields (delta +€2.00 a month, +€24.00 a year)');
+      const r = computeInsights(_mkIns(up, _inc), '2026-10', '2026-10-20');
+      expect(r.length, 1, 'exactly one insight');
+      expect([r[0].id, r[0].level, r[0].icon].join('|'), 'price-netflix|warn|🏷️', 'a rise is a warning, price-<desc> shape');
+      expect(JSON.stringify(r[0].facts), JSON.stringify({ name: 'Netflix', before: 15.99, after: 17.99, month: '2026-10' }), 'facts carry name, before, after, month');
+      expectTrue(/\+/.test(r[0].text) && /year/.test(r[0].text), 'text states the monthly delta and the annual impact');
+      expect(JSON.stringify(up), snap, 'input is not modified');
+      const down = computeInsights(_mkIns([nf('d1', '2026-09-05', 20), nf('d2', '2026-10-05', 18)], _inc), '2026-10', '2026-10-20')[0];
+      expect([down.level, down.icon].join('|'), 'good|💚', 'a drop is good news');
+      const spar = [_e('p1', '2026-09-07', 40, 'needs', { desc: 'Spar' }), _e('p2', '2026-10-07', 80, 'needs', { desc: 'Spar' })];
+      expect(detectSubscriptionPriceChanges(_mkIns(spar, _inc), '2026-10', '2026-10-20').length, 0, 'a variable shop (max/min 2.0 > 1.4) is not a subscription');
+      expectTrue(!computeInsights(_mkIns(spar, _inc), '2026-10', '2026-10-20').some(i => i.id.startsWith('price-')), 'no price insight for the variable shop');
+      const at = (a, b) => detectSubscriptionPriceChanges(_mkIns([nf('b1', '2026-09-05', a), nf('b2', '2026-10-05', b)], _inc), '2026-10', '2026-10-20').length;
+      expect(at(100, 105), 0, 'exactly +5% does not fire'); expect(at(100, 106), 1, '+6% fires');
+      expect(detectSubscriptionPriceChanges(_mkIns([nf('f1', '2026-09-05', 15.99), nf('f2', '2026-10-25', 17.99)], _inc), '2026-10', '2026-10-20').length, 0, 'a charge dated after today has not happened yet');
+      const three = computeInsights(_mkIns([nf('t1', '2026-08-05', 13.99), nf('t2', '2026-09-05', 13.99), nf('t3', '2026-10-05', 15.99)], _inc), '2026-10', '2026-10-20');
+      expect(three.filter(i => i.id.startsWith('price-')).length, 1, 'steady-steady-different is reported once, not twice');
+      expect(detectSubscriptionPriceChanges({}, '2026-10', '2026-10-20').length, 0, 'empty data does not throw');
     });
     test('insights: savings-rate trend of a finished month', () => {
       const r = computeInsights(_mkIns([..._history().filter(e => e.date < '2026-09'), _e('x1', '2026-09-02', 2400), _e('o1', '2026-06-02', 1500), _e('o2', '2026-05-02', 1500)], { ..._inc, '2026-06': { amount: 3000 }, '2026-05': { amount: 3000 } }), '2026-09', '2026-10-20');
@@ -19275,6 +20318,14 @@ function runSmokeTest() {
       expect(document.getElementById('app-ver').textContent, APP_VERSION, 'header badge');
       expect(document.getElementById('app-ver-sub').textContent, APP_VERSION, 'header sub-line');
     });
+    test('dashCacheKey changes when an entry amount or date is edited (stale dashboard cache)', () => {
+      const mk = (amount, date) => ({ entries: [{ id: 'k1', date, amount, type: 'expense' }], accounts: [{ id: 'a1', balance: 100 }], stocks: [], fxAccounts: [] });
+      const base = dashCacheKey(mk(50, '2026-10-05'));
+      expect(dashCacheKey(mk(50, '2026-10-05')), base, 'identical data → identical key');
+      expectTrue(dashCacheKey(mk(55, '2026-10-05')) !== base, 'amount edit must change the key');
+      expectTrue(dashCacheKey(mk(50, '2026-10-06')) !== base, 'date edit must change the key');
+      expectTrue(dashCacheKey({}) === dashCacheKey({}), 'empty data does not throw');
+    });
   } finally {
     DATA = _realData; // always restore, even if a test threw somewhere unexpected above
   }
@@ -19341,6 +20392,10 @@ function mergeVaultData(local, remote) {
     auditLog:     [...new Map([...(remote.auditLog||[]), ...(local.auditLog||[])].map(a=>[a.ts, a])).values()]
                     .sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 100),
   };
+  // Debts (optional): unioned by id like the other lists, so a debt added on another device is not lost; the local copy of a debt wins.
+  if (local.debts || remote.debts) merged.debts = mergeById(local.debts, remote.debts);
+  // Tag budgets (optional): unioned by tag, the local copy of a tag wins (a budget removed here can come back from a device that still has it).
+  if (local.tagBudgets || remote.tagBudgets) merged.tagBudgets = { ...(remote.tagBudgets || {}), ...(local.tagBudgets || {}) };
   // Electricity (optional): bills are unioned by id like the other lists; the rates and the recurring link stay as on this device.
   if (local.energy || remote.energy) merged.energy = { ...(remote.energy||{}), ...(local.energy||{}), bills: mergeById((local.energy||{}).bills, (remote.energy||{}).bills) };
   // Several cars: the car-aware merge replaces the plain top-level fuel / tyres / service / insurance merge above, so one car's refuels can never land in another's list.
@@ -19525,7 +20580,6 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
   if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
   if (localStorage.getItem(LS_NOTIF_PREF) !== '1') return;
-  if (totalInc <= 0) return;
 
   const { splits } = DATA;
   const fired = getNotifFired();
@@ -19533,6 +20587,9 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
   // always fires too, regardless of what the early-warning threshold is set to.
   const customThreshold = splits.alertThreshold || 80;
   const thresholds = [...new Set([customThreshold, 100])].sort((a,b) => a-b);
+
+  sendTagBudgetAlerts(month, thresholds);   // tag budgets: same thresholds, keys tag:<tag>:<threshold>:<month>; they do not need an income
+  if (totalInc <= 0) return;
 
   ['needs','wants'].forEach(key => {
     // categoryTarget() — same rollover-aware target the dashboard shows, so a
@@ -19555,6 +20612,114 @@ function maybeSendBudgetAlerts(month, act, totalInc) {
     });
   });
 }
+
+// ══════════════════════════════════════════
+// TAG BUDGETS — optional DATA.tagBudgets = { [tag]: { amount, rollover? } } (optional key, no migration): a monthly limit for everything tagged with one tag.
+// The tag is matched lower-case and trimmed. Spent = this month's EXPENSE entries carrying the tag (savings, income and transfers never count), whatever their
+// category — so the budget is not affected by the category filter of the Overview's tag card. rollover: the unspent part of LAST month's amount is added to this
+// month's budget (one month back, not chained) — and only if the tag was used last month, because a budget has no start date and an unused month would
+// otherwise hand a brand-new budget a phantom carry. ALERTS reuse the splits' early-warning threshold plus 100 %, once per threshold and month, with
+// notifFired keys 'tag:<tag>:<threshold>:<month>' (written through commit(), like everything else).
+// ══════════════════════════════════════════
+const normTagKey = s => String(s === undefined || s === null ? '' : s).trim().toLowerCase();
+const _tbR2 = n => Math.round(n * 100) / 100;
+function _tagSpentIn(entries, key, month) {
+  return _tbR2(entries.filter(e => e.type === 'expense' && (e.date || '').slice(0, 7) === month && (e.tags || []).some(t => normTagKey(t) === key)).reduce((s, e) => s + e.amount, 0));
+}
+// → null (no budget for that tag) or { tag, amount, rollover, carry, budget, spent, pct (spent ÷ budget in cents, unrounded; null without a budget), remaining, over }
+function tagBudgetStatus(data, tag, month) {
+  const key = normTagKey(tag), b = ((data && data.tagBudgets) || {})[key];
+  if (!b || !(+b.amount > 0)) return null;
+  const entries = (data && data.entries) || [], spent = _tagSpentIn(entries, key, month), prev = b.rollover ? _tagSpentIn(entries, key, prevMonStr(month)) : 0;
+  const carry = b.rollover && prev > 0 ? Math.max(0, _tbR2(+b.amount - prev)) : 0, budget = _tbR2(+b.amount + carry);
+  return { tag: key, amount: +b.amount, rollover: !!b.rollover, carry, budget, spent, pct: budget > 0 ? Math.round(spent * 100) * 100 / Math.round(budget * 100) : null, remaining: _tbR2(budget - spent), over: spent > budget };
+}
+function tagBudgetList(data, month) {
+  return Object.keys((data && data.tagBudgets) || {}).map(t => tagBudgetStatus(data, t, month)).filter(Boolean).sort((a, b) => b.pct - a.pct || a.tag.localeCompare(b.tag));
+}
+// PURE: the alerts that are due and not yet fired → [{ tag, threshold, key, pct, spent, budget }]. At-or-over is compared in cents, so exactly 80 % counts.
+function tagAlertsDue(data, month, thresholds, fired) {
+  const out = [];
+  tagBudgetList(data, month).forEach(s => {
+    [...new Set(thresholds)].sort((a, b) => a - b).forEach(t => {
+      const key = `tag:${s.tag}:${t}:${month}`;
+      if (Math.round(s.spent * 100) * 100 >= t * Math.round(s.budget * 100) && !(fired || {})[key]) out.push({ tag: s.tag, threshold: t, key, pct: s.pct, spent: s.spent, budget: s.budget });
+    });
+  });
+  return out;
+}
+// the month a notifFired key belongs to ('YYYY-MM:needs:80' and 'tag:<tag>:80:YYYY-MM') — what pruning old keys goes by
+const notifKeyMonth = k => (String(k).startsWith('tag:') ? String(k).slice(-7) : String(k).slice(0, 7));
+// Form values → { ok:true, tag, amount } | { ok:false, error }
+function parseTagBudget(tagRaw, amountRaw) {
+  const tag = normTagKey(tagRaw), a = String(amountRaw === undefined || amountRaw === null ? '' : amountRaw).trim(), n = Number(a);
+  if (!tag || tag.length > 30) return { ok: false, error: 'Enter a tag (up to 30 characters).' };
+  if (a === '' || !isFinite(n) || n <= 0 || n > 1000000) return { ok: false, error: 'The budget must be a positive amount.' };
+  return { ok: true, tag, amount: _tbR2(n) };
+}
+// Writes INTO `d` (call inside commit()). setTagBudget keeps the existing rollover unless `rollover` is given.
+function setTagBudget(d, tag, amount, rollover) {
+  d.tagBudgets = d.tagBudgets && typeof d.tagBudgets === 'object' ? d.tagBudgets : {};
+  const old = d.tagBudgets[tag] || {}, r = rollover === undefined ? !!old.rollover : !!rollover;
+  d.tagBudgets[tag] = r ? { amount, rollover: true } : { amount };
+}
+function removeTagBudget(d, tag) { if (d.tagBudgets) delete d.tagBudgets[tag]; }
+
+// The notification side of the alerts (called from maybeSendBudgetAlerts): mark first, then notify — a failed save never spams.
+function sendTagBudgetAlerts(month, thresholds) {
+  const due = tagAlertsDue(DATA, month, thresholds, getNotifFired());
+  if (!due.length) return;
+  const cutoff = offsetMonStr(-3);
+  const r = commit('Tag budget alerts', d => {
+    d.notifFired = d.notifFired || {};
+    due.forEach(a => { d.notifFired[a.key] = true; });
+    Object.keys(d.notifFired).forEach(k => { if (notifKeyMonth(k) < cutoff) delete d.notifFired[k]; });   // keep the vault lean, as markNotifFired does
+  }, { touch: ['notifFired'], toast: null, render: false });
+  if (!r.changed) return;
+  due.forEach(a => {
+    const over = a.spent > a.budget ? ` (over by ${fmt(a.spent - a.budget)})` : '';
+    new Notification(`${APP_NAME} ${APP_VERSION} — ${a.tag} at ${a.threshold}%`, { body: `The ${a.tag} budget is ${Math.round(a.pct)}% used this month.${over} ${fmt(a.spent)} of ${fmt(a.budget)}.`, tag: a.key });
+  });
+}
+
+// ── Settings: add, edit and remove tag budgets ──
+function renderTagBudgetsUI() {
+  const box = el('tagbud-list'); if (!box) return;
+  const bs = DATA.tagBudgets || {}, keys = Object.keys(bs).sort();
+  const dl = el('tb-tags'); if (dl) dl.innerHTML = [...new Set(DATA.entries.flatMap(e => e.tags || []).map(normTagKey).filter(Boolean))].sort().map(t => `<option value="${esc(t)}">`).join('');
+  box.innerHTML = keys.length ? keys.map(t => `<div class="goal-row" style="margin-bottom:6px"><span style="min-width:90px;font-weight:600">${esc(t)}</span><span style="color:var(--ink3);font-size:12px">€</span>
+      <input type="number" min="0.01" step="1" value="${+bs[t].amount}" style="width:100px;font-family:var(--mono)" data-action-change="tagbud-edit" data-tag="${esc(t)}" aria-label="Monthly budget for ${esc(t)}">
+      <label style="font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:4px;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" ${bs[t].rollover ? 'checked' : ''} data-action-change="tagbud-roll" data-tag="${esc(t)}"> carry unspent</label>
+      <button class="btn xs danger" data-action="tagbud-del" data-tag="${esc(t)}">✕</button></div>`).join('')
+    : '<div style="font-size:12px;color:var(--ink3);margin-bottom:6px">No tag budgets yet.</div>';
+}
+function _tagBudgetAfter() { renderTagBudgetsUI(); if (VIEW === 'dash') renderDash(); }
+function addTagBudget() {
+  const p = parseTagBudget(el('tb-tag').value, el('tb-amount').value);
+  if (!p.ok) return toast(p.error, 1);
+  const existed = !!(DATA.tagBudgets || {})[p.tag];
+  commit(existed ? `Tag budget “${p.tag}” updated` : `Tag budget “${p.tag}” added`, d => { setTagBudget(d, p.tag, p.amount); }, { touch: ['tagBudgets'], render: _tagBudgetAfter });
+  el('tb-tag').value = ''; el('tb-amount').value = '';
+}
+function editTagBudget(tag, raw) {
+  const p = parseTagBudget(tag, raw);
+  if (!p.ok) { toast(p.error, 1); renderTagBudgetsUI(); return; }
+  const r = commit(`Tag budget “${tag}” updated`, d => { setTagBudget(d, p.tag, p.amount); }, { touch: ['tagBudgets'], render: _tagBudgetAfter });
+  if (!r.changed) renderTagBudgetsUI();
+}
+function toggleTagBudgetRollover(tag, on) {
+  const b = (DATA.tagBudgets || {})[tag]; if (!b) return;
+  commit(`Tag budget “${tag}”: carry ${on ? 'on' : 'off'}`, d => { setTagBudget(d, tag, +d.tagBudgets[tag].amount, on); }, { touch: ['tagBudgets'], render: _tagBudgetAfter });
+}
+function deleteTagBudget(tag) {
+  commit(`Tag budget “${tag}” removed`, d => { removeTagBudget(d, tag); }, { touch: ['tagBudgets'], render: _tagBudgetAfter });
+}
+defineActions({
+  'tagbud-add':  () => addTagBudget(),
+  'tagbud-edit': t => editTagBudget(t.dataset.tag, t.value),
+  'tagbud-roll': t => toggleTagBudgetRollover(t.dataset.tag, t.checked),
+  'tagbud-del':  t => deleteTagBudget(t.dataset.tag),
+});
 
 // ══════════════════════════════════════════
 // STEPS GUIDE
