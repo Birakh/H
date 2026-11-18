@@ -1338,20 +1338,30 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         </div>
         <button class="btn sm primary" data-action="energy-log">Log this bill</button>
         <div id="d-energy-bills" style="margin-top:10px"></div>
-        <details id="en-hist-details" style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Monthly tariff history (the prices in force each month)</summary>
-          <div style="margin-top:6px;font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:6px">One record per month. A period is estimated with the prices of its start month, else the latest earlier month, so older months keep their own prices when the tariff changes. A recorded month takes precedence over the single price fields above.</div>
-          <input type="hidden" id="en-h-id">
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:6px">
-            <div class="fg" style="margin:0"><label>Month</label><input type="month" id="en-h-month" style="width:100%" data-action-change="energy-tariff-month"></div>
-            <div class="fg" style="margin:0"><label>Prices as <span id="en-h-unit" style="font-weight:400"></span></label><div style="font-size:11px;color:var(--ink3);padding-top:6px">Net / incl. VAT follows the selector above</div></div>
+        <details id="en-month-details" style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Monthly tariff history — consumption, rates and costs per month</summary>
+          <div style="margin-top:6px;font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:8px">Separate from the bill history above. Each month keeps exactly the kWh, rates and costs you enter for it — changing your tariff settings or another month never changes it. Costs are the energy price × kWh only (no base fee, grid charges or levies).</div>
+          <input type="hidden" id="en-m-id">
+          <div class="g2" style="margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Month</label><input type="month" id="en-m-month" style="width:100%" data-action-input="energy-month-calc" data-action-change="energy-month-calc"></div>
+            <div class="fg" style="margin:0"><label>Rates are</label><select id="en-m-mode" style="width:100%" data-action-change="energy-month-calc"><option value="net">net</option><option value="gross">incl. VAT</option></select></div>
+            <div class="fg" style="margin:0"><label>VAT (%)</label><input type="text" inputmode="decimal" id="en-m-vat" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 4px">Consumption (kWh)</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
-            <div class="fg" style="margin:0"><label>Low</label><input type="text" inputmode="decimal" id="en-h-off" style="width:100%;font-family:var(--mono)"></div>
-            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-h-shoulder" style="width:100%;font-family:var(--mono)"></div>
-            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-h-peak" style="width:100%;font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Off-peak</label><input type="text" inputmode="decimal" id="en-m-kwh-off" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
+            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-m-kwh-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
+            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-m-kwh-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
-          <div style="display:flex;gap:8px;margin-bottom:8px"><button class="btn sm primary" id="en-h-save" data-action="energy-tariff-save">Save month</button><button class="btn sm ghost" data-action="energy-tariff-cancel">Clear</button></div>
-          <div id="d-energy-tariffs"></div></details>
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 4px">Rates (ct/kWh)</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+            <div class="fg" style="margin:0"><label>Off-peak</label><input type="text" inputmode="decimal" id="en-m-rate-off" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
+            <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-m-rate-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
+            <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-m-rate-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
+          </div>
+          <div id="d-energy-month-preview" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn sm primary" id="en-m-save" data-action="energy-month-save">Save month</button><button class="btn sm ghost" data-action="energy-month-clear">Clear</button></div>
+          <div id="d-energy-months"></div>
+          <div id="d-energy-cmp"></div></details>
         <details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--ink3)">Rates (net, from the bill — change when your tariff changes)</summary>
           <div id="d-energy-rates" style="margin-top:6px"></div></details>
       </div>
@@ -11718,9 +11728,9 @@ function energyCalc() {
   const box = el('d-energy-est'); if (!box) return;
   const inp = energyRead(), note = t => { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">${esc(t)}</div>`; };
   if (inp.error) return note(inp.error);
-  const r = energyEstimate(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), inp); if (r.error) return note(r.error);
+  const r = energyEstimate(energyTariff(DATA.energy), inp); if (r.error) return note(r.error);
   const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${fmt(v)}</span></div>`;
-  const tf = energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), unit = _enMode(DATA.energy) === 'gross' ? 'incl. VAT' : 'net';
+  const tf = energyTariff(DATA.energy), unit = _enMode(DATA.energy) === 'gross' ? 'incl. VAT' : 'net';
   let h = `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${_enKwh(r.kwh)} kWh · ${r.days} day${r.days === 1 ? '' : 's'}<br>Prices used: low ${_enPriceShown(tf.bands.off, DATA.energy)} · shoulder ${_enPriceShown(tf.bands.shoulder, DATA.energy)} · peak ${_enPriceShown(tf.bands.peak, DATA.energy)} ct/kWh ${unit}</div>`
     + row('Energy (net)', r.energy.sum) + row('Grid charges (net)', r.grid.sum) + row('Taxes and levies (net)', r.taxes.sum) + row('Net', r.net) + row(`VAT ${energyTariff(DATA.energy).vat} %`, r.vat)
     + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row('Estimated bill', r.gross, true)}</div>`;
@@ -11755,7 +11765,7 @@ function renderEnergy() {
     : `<div style="font-size:12px;color:var(--ink3)">No bills logged yet.</div>`;
   energyCalc();
   renderEnergyRate();
-  renderEnergyTariffs();
+  renderEnergyMonths();
 }
 
 function energySetRate(path, raw) {
@@ -11786,7 +11796,7 @@ function energySetLink(id) {
 }
 function energyLog() {
   const inp = energyRead(); if (inp.error) return toast(inp.error, 1);
-  const est = energyEstimate(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)), inp); if (est.error) return toast(est.error, 1);
+  const est = energyEstimate(energyTariff(DATA.energy), inp); if (est.error) return toast(est.error, 1);
   const typed = _enNum(el('en-amount') ? el('en-amount').value : ''), gross = typed == null ? est.gross : typed;
   if (!(gross > 0)) return toast('Enter the bill amount (more than 0).', 1);
   const total = _enR2(gross);
@@ -11802,7 +11812,7 @@ function energyLog() {
     d.entries.unshift({ id: entryId, loggedAt: new Date().toISOString(), date, desc: link ? link.desc : 'Electricity', amount: total, formula: null, type: 'expense', category: 'needs',
       tags: ['energy'], accountId: link ? (link.accountId || null) : null, ...(link ? { recurId: link.id, oneOff: true } : {}) });
     if (!d.energy) d.energy = {};
-    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number, prices: Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round(energyTariffForMonth(DATA.energy, inp.from.slice(0, 7)).bands[b] * 1e4) / 1e4])),
+    (d.energy.bills = d.energy.bills || []).unshift({ id: uid(), from: inp.from, to: inp.to, kwh: inp.kwh, bandKwh: inp.bandKwh || null, gross: total, estimate: est.gross, number, prices: Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round(energyTariff(DATA.energy).bands[b] * 1e4) / 1e4])),
       entryId, month, readingOld: inp.readingOld, readingNew: inp.readingNew });
     if (inp.readingNew != null) d.energy.lastReading = inp.readingNew;
   }, { touch: ['entries', 'energy'], render: () => { render(); renderEnergy(); } });
@@ -11811,102 +11821,208 @@ function energyBillDel(id) {
   if (!((DATA.energy && DATA.energy.bills) || []).some(b => b.id === id)) return;
   commit('Bill record removed', d => { d.energy.bills = d.energy.bills.filter(b => b.id !== id); }, { touch: ['energy'], render: () => renderEnergy() });
 }
-// ── Monthly tariff history ──
-// DATA.energy.tariffHistory (optional) = [{ id, month:'YYYY-MM', bands:{ off, shoulder, peak } }] — the three smartTIMES prices IN FORCE for each month, in ct/kWh NET (typed net or incl. VAT
-// like the price fields above, stored net). One record per month. A period's prices come from the record of its start month, else the latest EARLIER record (a tariff stays until it changes),
-// else the single price fields / bill defaults — so a past month keeps ITS prices when a later month changes. Only the band prices are history; every other rate stays as in "Rates".
-const _enMonthOk = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ''));
-const _enHist = en => ((en && Array.isArray(en.tariffHistory)) ? en.tariffHistory : []).filter(r => r && _enMonthOk(r.month) && r.bands && ENERGY_BANDS.every(b => _enIsNum(r.bands[b]) && r.bands[b] >= 0))
-  .slice().sort((a, b) => a.month.localeCompare(b.month));
-// raw = { month, off, shoulder, peak } as typed; mode 'net' | 'gross'; vatPct → { error } | { ok, record:{ month, bands } } (bands NET)
-function energyValidateMonthTariff(raw, mode, vatPct) {
-  const month = raw && raw.month; if (!_enMonthOk(month)) return { error: 'Pick the month the prices apply to.' };
-  const bands = {};
+// ══════════════════════════════════════════
+// MONTHLY TARIFF HISTORY — separate from the bills above. Optional DATA.energy.tariffHistory =
+//   [{ id, year, month (1–12), kwh:{off,shoulder,peak}, rate:{off,shoulder,peak}, cost:{off,shoulder,peak}, totalKwh, totalCost, priceMode:'net'|'gross', vat (%), currency:'EUR' }]
+// One record per month and year. Each record keeps what was ENTERED for that month: the kWh, the rates (€/kWh, in the price mode the supplier showed — net or incl. VAT) and the costs
+// computed from them (cost = kWh × rate, rounded to the cent; totals = sum of the rounded band costs). Nothing here ever reads the current tariff settings, the bills or the other
+// months, so changing the settings or editing one month cannot change another. These are ENERGY-PRICE costs only (kWh × rate): no base fee, grid charges or levies — the bill
+// history above has those. Comparisons convert every record to incl. VAT with ITS OWN stored VAT % so net and gross months can be compared; they use stored values only.
+// Records of any other shape (e.g. from an earlier draft) are ignored by the readers but never deleted, merged away or rewritten.
+// ══════════════════════════════════════════
+const ENERGY_BAND_LABEL = { off: 'Off-peak', shoulder: 'Shoulder', peak: 'Peak' };
+const _enRound4 = x => Math.round((x + Number.EPSILON) * 1e4) / 1e4, _enRound6 = x => Math.round((x + Number.EPSILON) * 1e6) / 1e6;
+const _enYM = r => r.year * 12 + (r.month - 1), _enMLabel = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
+const _enMonthRecOk = r => !!r && typeof r.id === 'string' && Number.isInteger(r.year) && Number.isInteger(r.month) && r.month >= 1 && r.month <= 12
+  && ['kwh', 'rate', 'cost'].every(k => r[k] && typeof r[k] === 'object' && ENERGY_BANDS.every(b => _enIsNum(r[k][b]) && r[k][b] >= 0)) && _enIsNum(r.totalKwh) && _enIsNum(r.totalCost);
+const _enRecs = en => (Array.isArray(en && en.tariffHistory) ? en.tariffHistory : []).filter(_enMonthRecOk).slice().sort((a, b) => _enYM(a) - _enYM(b));
+const _enSortKey = r => _enMonthRecOk(r) ? _enYM(r) : 1e9;
+
+// kWh and rate (€/kWh) per band → the band costs and the totals. Pure.
+function energyMonthCosts(kwh, rate) {
+  const cost = {}; ENERGY_BANDS.forEach(b => { cost[b] = _enR2(kwh[b] * rate[b]); });
+  return { cost, totalKwh: _enR3(ENERGY_BANDS.reduce((s, b) => s + kwh[b], 0)), totalCost: _enR2(ENERGY_BANDS.reduce((s, b) => s + cost[b], 0)) };
+}
+// raw = { month:'YYYY-MM', kwh:{off,shoulder,peak}, rate:{…} (ct/kWh as typed), priceMode, vat } → { error } | { ok, record } (without id). Never accepts blanks or junk silently.
+function energyBuildMonthRecord(raw) {
+  raw = raw || {}; const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(String(raw.month || '')); if (!m) return { error: 'Pick the month and year.' };
+  const year = +m[1], month = +m[2]; if (year < 2000 || year > 2100) return { error: 'The year must be between 2000 and 2100.' };
+  const kwh = {}, rate = {};
   for (const b of ENERGY_BANDS) {
-    const n = _enNum(raw[b]);
-    if (n === null) return { error: 'Enter all three prices (low, shoulder, peak) in ct/kWh.' };
-    if (Number.isNaN(n) || n < 0 || n > 1000) return { error: 'Prices must be numbers in ct/kWh, between 0 and 1000.' };
-    bands[b] = Math.round((mode === 'gross' ? n / (1 + (+vatPct || 0) / 100) : n) * 1e6) / 1e6;
+    const k = _enNum(raw.kwh && raw.kwh[b]); if (k === null) return { error: 'Enter the consumption for all three bands (0 if none).' };
+    if (Number.isNaN(k) || k < 0 || k > 1e6) return { error: 'Consumption must be a number in kWh, 0 or more.' };
+    kwh[b] = _enR3(k);
   }
-  return { ok: true, record: { month, bands } };
+  for (const b of ENERGY_BANDS) {
+    const r = _enNum(raw.rate && raw.rate[b]); if (r === null) return { error: 'Enter the rate for all three bands in ct/kWh.' };
+    if (Number.isNaN(r) || r < 0 || r > 1000) return { error: 'Rates must be numbers in ct/kWh, between 0 and 1000.' };
+    rate[b] = _enRound6(r / 100);
+  }
+  const priceMode = raw.priceMode === 'gross' || raw.priceMode === 'net' ? raw.priceMode : null; if (!priceMode) return { error: 'Say whether the rates are net or incl. VAT.' };
+  const vat = _enNum(raw.vat); if (vat === null || Number.isNaN(vat) || vat < 0 || vat > 100) return { error: 'VAT must be a percentage between 0 and 100.' };
+  const c = energyMonthCosts(kwh, rate);
+  return { ok: true, record: { year, month, kwh, rate, cost: c.cost, totalKwh: c.totalKwh, totalCost: c.totalCost, priceMode, vat, currency: 'EUR' } };
 }
-// Adds the month, or — one record per month — replaces that month's prices (keeping its id). With `id`, edits that record (its month may change, but not onto another record's month).
-function energySetMonthTariff(d, raw, mode, vatPct, id, newId) {
-  const v = energyValidateMonthTariff(raw, mode, vatPct); if (v.error) return v;
-  const list = Array.isArray(d.energy && d.energy.tariffHistory) ? d.energy.tariffHistory : [], atMonth = list.find(r => r && r.month === v.record.month);
+// Add (no id) or edit (id) one month. A month that already has a record is refused, never overwritten. Only the edited record is replaced; every other object stays the same one.
+function energySetMonthRecord(d, raw, id, newId) {
+  const v = energyBuildMonthRecord(raw); if (v.error) return v;
+  const list = Array.isArray(d.energy && d.energy.tariffHistory) ? d.energy.tariffHistory : [], R = v.record;
+  const clash = list.find(r => _enMonthRecOk(r) && r.year === R.year && r.month === R.month);
   if (id && !list.some(r => r && r.id === id)) return { error: 'That month no longer exists.' };
-  if (id && atMonth && atMonth.id !== id) return { error: `${v.record.month} already has prices — edit that one.` };
-  const keepId = id || (atMonth ? atMonth.id : (newId || uid()));
+  if (clash && clash.id !== id) return { error: `${_enMLabel(R.year, R.month)} is already recorded — edit that record instead.` };
+  const rec = { id: id || newId || uid(), ...R };
   d.energy = d.energy || {};
-  d.energy.tariffHistory = list.filter(r => r && r.id !== keepId && r.month !== v.record.month).concat({ id: keepId, month: v.record.month, bands: v.record.bands }).sort((a, b) => a.month.localeCompare(b.month));
-  return { ok: true, id: keepId, replaced: !id && !!atMonth };
+  d.energy.tariffHistory = (id ? list.map(r => r && r.id === id ? rec : r) : [...list, rec]).sort((a, b) => _enSortKey(a) - _enSortKey(b));
+  return { ok: true, id: rec.id, record: rec };
 }
-function energyDeleteMonthTariff(d, id) {
-  const list = (d.energy && d.energy.tariffHistory) || []; if (!list.some(r => r && r.id === id)) return { error: 'That month no longer exists.' };
-  d.energy.tariffHistory = list.filter(r => r && r.id !== id); return { ok: true };
+function energyDeleteMonthRecord(d, id) {
+  const list = (d.energy && Array.isArray(d.energy.tariffHistory)) ? d.energy.tariffHistory : []; if (!list.some(r => r && r.id === id)) return { error: 'That month no longer exists.' };
+  d.energy.tariffHistory = list.filter(r => !(r && r.id === id)); return { ok: true };
 }
-// → { bands, month, exact } for the period's start month, or null when no record is at or before it.
-function energyPricesForMonth(en, month) {
-  if (!_enMonthOk(month)) return null;
-  const r = _enHist(en).filter(x => x.month <= month).pop(); return r ? { bands: { ...r.bands }, month: r.month, exact: r.month === month } : null;
+
+// ── Comparisons: stored values only, converted to incl. VAT with each record's own VAT % ──
+const _enFactor = r => r.priceMode === 'gross' ? 1 : 1 + (+r.vat || 0) / 100;
+// Records → { kwh:{off,shoulder,peak,total}, cost:{…,total} (incl. VAT), effective (€/kWh incl. VAT, null without kWh) }. Pure.
+function energySumRecords(recs) {
+  const kwh = {}, cost = {};
+  ENERGY_BANDS.forEach(b => { kwh[b] = _enR3(recs.reduce((s, r) => s + r.kwh[b], 0)); cost[b] = _enR2(recs.reduce((s, r) => s + _enR2(r.cost[b] * _enFactor(r)), 0)); });
+  kwh.total = _enR3(ENERGY_BANDS.reduce((s, b) => s + kwh[b], 0)); cost.total = _enR2(ENERGY_BANDS.reduce((s, b) => s + cost[b], 0));
+  return { kwh, cost, effective: kwh.total > 0 ? _enRound4(cost.total / kwh.total) : null };
 }
-// The rates in force for a month: energyTariff() with that month's recorded band prices on top (no record → exactly energyTariff()).
-function energyTariffForMonth(en, month) {
-  const t = energyTariff(en), p = energyPricesForMonth(en, month); if (p) t.bands = { ...p.bands }; return t;
+const _enChg = (a, b, r) => ({ a, b, delta: r(b - a), pct: a > 0 ? Math.round((b - a) / a * 1000) / 10 : null });   // change FROM a TO b
+function _enCmpRows(sa, sb) {
+  return { rows: [...ENERGY_BANDS, 'total'].map(k => ({ band: k, kwh: _enChg(sa.kwh[k], sb.kwh[k], _enR3), cost: _enChg(sa.cost[k], sb.cost[k], _enR2) })),
+    effective: sa.effective == null || sb.effective == null ? null : _enChg(sa.effective, sb.effective, _enRound4) };
 }
-// Records oldest → newest, each with delta = change in ct/kWh against the record before it (null for the first).
-function energyTariffChanges(en) {
-  const h = _enHist(en); return h.map((r, i) => ({ ...r, delta: i ? Object.fromEntries(ENERGY_BANDS.map(b => [b, Math.round((r.bands[b] - h[i - 1].bands[b]) * 1e4) / 1e4])) : null }));
+// Month a → month b (two records). Every band, the total and the effective price.
+const energyCompareMonths = (a, b) => _enCmpRows(energySumRecords([a]), energySumRecords([b]));
+// Per year: { year, months, monthList, kwh, cost, effective }, oldest first.
+function energyAnnualTotals(en) {
+  const by = {}; _enRecs(en).forEach(r => { (by[r.year] = by[r.year] || []).push(r); });
+  return Object.keys(by).map(Number).sort((a, b) => a - b).map(y => ({ year: y, months: by[y].length, monthList: by[y].map(r => r.month), ...energySumRecords(by[y]) }));
 }
-// Conflict merge (pure): union by id and by month, this device wins; oldest → newest.
-function mergeEnergyTariffHistory(local, remote) {
-  const ids = new Set(), months = new Set(), out = [];
+// Year y1 → y2. Totals of the whole years, and the change over the months recorded in BOTH (so a part year is not compared with a full one).
+function energyCompareYears(en, y1, y2) {
+  const recs = _enRecs(en), A = recs.filter(r => r.year === y1), B = recs.filter(r => r.year === y2); if (!A.length || !B.length) return null;
+  const common = A.map(r => r.month).filter(m => B.some(r => r.month === m));
+  return { y1, y2, months1: A.length, months2: B.length, commonMonths: common, partial: A.length !== B.length || common.length !== A.length,
+    totals1: energySumRecords(A), totals2: energySumRecords(B), ...(common.length ? _enCmpRows(energySumRecords(A.filter(r => common.includes(r.month))), energySumRecords(B.filter(r => common.includes(r.month)))) : { rows: [], effective: null }) };
+}
+// The same calendar month in every year that has it, oldest first, with the change against the year before it.
+function energySameMonth(en, month) {
+  const rs = _enRecs(en).filter(r => r.month === month), out = rs.map(r => ({ year: r.year, record: r, ...energySumRecords([r]) }));
+  return out.map((o, i) => ({ ...o, vsPrev: i && out[i - 1].year === o.year - 1 ? _enCmpRows(out[i - 1], o) : null }));
+}
+// Chronological points for the trend charts.
+const energyTrend = en => _enRecs(en).map(r => { const s = energySumRecords([r]); return { label: _enMLabel(r.year, r.month), kwh: s.kwh.total, cost: s.cost.total, effective: s.effective }; });
+// Conflict merge (pure): union by id and by year+month (this device wins), oldest first; records of another shape are carried along untouched.
+function mergeEnergyMonthRecords(local, remote) {
+  const ids = new Set(), ym = new Set(), out = [];
   [...(Array.isArray(local) ? local : []), ...(Array.isArray(remote) ? remote : [])].forEach(r => {
-    if (!r || typeof r.id !== 'string' || !_enMonthOk(r.month) || ids.has(r.id) || months.has(r.month)) return; ids.add(r.id); months.add(r.month); out.push(r);
+    if (!r || typeof r.id !== 'string' || ids.has(r.id)) return;
+    if (_enMonthRecOk(r)) { const k = r.year + '-' + r.month; if (ym.has(k)) return; ym.add(k); }
+    ids.add(r.id); out.push(r);
   });
-  return out.sort((a, b) => a.month.localeCompare(b.month));
+  return out.sort((a, b) => _enSortKey(a) - _enSortKey(b));
 }
-function renderEnergyTariffs() {
-  const box = el('d-energy-tariffs'); if (!box) return;
-  const en = DATA.energy || {}, mode = _enMode(en), unit = mode === 'gross' ? 'incl. VAT' : 'net', mi = el('en-h-month');
+
+// ── UI ──
+const _enCmp = { a: null, b: null, y1: null, y2: null, m: null, user: {} };    // comparison choices: screen state only, never saved; until you pick, the defaults follow the newest data
+const _enEur = n => fmt(n), _enEff = n => n == null ? '–' : '€' + n.toFixed(4).replace('.', ',') + '/kWh';
+const _enSigned = (n, f) => (n > 0 ? '+' : n < 0 ? '−' : '±') + f(Math.abs(n));
+function _enReadMonthForm() {
+  const v = id => (el('en-m-' + id) ? el('en-m-' + id).value : '');
+  return { month: v('month'), priceMode: v('mode'), vat: v('vat'), kwh: { off: v('kwh-off'), shoulder: v('kwh-shoulder'), peak: v('kwh-peak') }, rate: { off: v('rate-off'), shoulder: v('rate-shoulder'), peak: v('rate-peak') } };
+}
+function renderEnergyMonthPreview() {
+  const box = el('d-energy-month-preview'); if (!box) return;
+  const r = energyBuildMonthRecord(_enReadMonthForm()), note = t => { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">${esc(t)}</div>`; };
+  if (r.error) return note(r.error);
+  const R = r.record, row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${v}</span></div>`;
+  box.innerHTML = ENERGY_BANDS.map(b => row(`${ENERGY_BAND_LABEL[b]}: ${_enKwh(R.kwh[b])} kWh × ${(R.rate[b] * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })} ct`, _enEur(R.cost[b]))).join('')
+    + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row(`Total: ${_enKwh(R.totalKwh)} kWh`, _enEur(R.totalCost), true)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Costs are ${R.priceMode === 'gross' ? 'incl. VAT' : 'net'}, energy price × kWh only.</div>`;
+}
+function _enCmpTable(c, la, lb) {
+  const cell = (o, f, good) => `<td>${f(o.a)}</td><td>${f(o.b)}</td><td style="color:${o.delta === 0 ? 'var(--ink2)' : o.delta > 0 ? 'var(--Rm)' : 'var(--Gm)'}">${_enSigned(o.delta, f)}${o.pct == null ? '' : ` (${o.pct > 0 ? '+' : o.pct < 0 ? '−' : ''}${Math.abs(o.pct).toLocaleString('de-AT')} %)`}</td>`;
+  const row = r => `<tr><td>${r.band === 'total' ? '<b>Total</b>' : ENERGY_BAND_LABEL[r.band]}</td>${cell(r.kwh, _enKwh)}${cell(r.cost, _enEur)}</tr>`;
+  const eff = c.effective ? `<tr><td colspan="4">Average price incl. VAT</td><td>${_enEff(c.effective.a)}</td><td>${_enEff(c.effective.b)}</td><td>${_enSigned(c.effective.delta, _enEff)}</td></tr>` : '';
+  return `<div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th></th><th>kWh ${esc(la)}</th><th>kWh ${esc(lb)}</th><th>Change</th><th>Cost ${esc(la)}</th><th>Cost ${esc(lb)}</th><th>Change</th></tr></thead><tbody>${c.rows.map(row).join('')}${eff}</tbody></table></div>`;
+}
+function _enTrendSvg(points, key, label, f) {
+  const W = 300, H = 90, P = 8, vals = points.map(p => p[key]), lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const x = i => points.length === 1 ? W / 2 : P + i * (W - 2 * P) / (points.length - 1), y = v => H - P - (v - lo) / span * (H - 2 * P);
+  return `<div style="font-size:11px;color:var(--ink3);margin:8px 0 2px">${esc(label)}</div><svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${esc(label)}" style="display:block;background:var(--s1);border-radius:var(--rs)">`
+    + `<polyline fill="none" stroke="var(--Bm)" stroke-width="1.5" points="${points.map((p, i) => `${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')}"/>`
+    + points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p[key]).toFixed(1)}" r="3" fill="var(--Bm)"><title>${esc(p.label)}: ${esc(f(p[key]))}</title></circle>`).join('') + `</svg>`;
+}
+function renderEnergyMonths() {
+  const box = el('d-energy-months'); if (!box) return;
+  const en = DATA.energy || {}, mi = el('en-m-month'), recs = _enRecs(en), newest = recs.slice().reverse();
   if (mi && !mi.value) mi.value = ymd().slice(0, 7);
-  const eff = energyTariffForMonth(en, (mi && mi.value) || ymd().slice(0, 7));
-  ENERGY_BANDS.forEach(b => { const i = el('en-h-' + b); if (i) i.placeholder = _enPriceShown(eff.bands[b], en); });
-  const ul = el('en-h-unit'); if (ul) ul.textContent = `ct/kWh, ${unit}`;
-  const rows = energyTariffChanges(en).reverse(), sh = (r, b) => _enPriceShown(r.bands[b], en);
-  const dl = (r, b) => !r.delta || !r.delta[b] ? '' : ` <span style="font-size:10px;color:${r.delta[b] > 0 ? 'var(--Rm)' : 'var(--Gm)'}">${r.delta[b] > 0 ? '▲' : '▼'}${Math.abs(r.delta[b]).toLocaleString('de-AT', { maximumFractionDigits: 3 })}</span>`;
-  box.innerHTML = rows.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Month</th><th>Low</th><th>Shoulder</th><th>Peak</th><th></th></tr></thead><tbody>${rows.map(r =>
-    `<tr><td>${esc(r.month)}</td><td>${sh(r, 'off')}${dl(r, 'off')}</td><td>${sh(r, 'shoulder')}${dl(r, 'shoulder')}</td><td>${sh(r, 'peak')}${dl(r, 'peak')}</td><td style="white-space:nowrap"><button class="btn xs ghost" data-action="energy-tariff-edit" data-id="${esc(r.id)}">Edit</button> <button class="btn xs danger" data-action="energy-tariff-del" data-id="${esc(r.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
-    : '<div style="font-size:12px;color:var(--ink3)">No months recorded yet. Until you add one, the price fields above (or the October 2026 bill prices) are used for every period.</div>';
+  const mode = el('en-m-mode'); if (mode && !mode.value) mode.value = _enMode(en); const vi = el('en-m-vat'); if (vi && !vi.value) vi.value = String(energyTariff(en).vat).replace('.', ',');
+  const tf = energyTariff(en); ENERGY_BANDS.forEach(b => { const i = el('en-m-rate-' + b); if (i) i.placeholder = _enPriceShown(tf.bands[b], en); });   // a hint only — nothing is ever filled in from the settings
+  renderEnergyMonthPreview();
+  box.innerHTML = newest.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Month</th><th>Off-peak kWh</th><th>Shoulder kWh</th><th>Peak kWh</th><th>Total kWh</th><th>Rates ct/kWh</th><th>Off-peak €</th><th>Shoulder €</th><th>Peak €</th><th>Total €</th><th></th></tr></thead><tbody>${newest.map(r =>
+    `<tr><td>${_enMLabel(r.year, r.month)}</td><td>${_enKwh(r.kwh.off)}</td><td>${_enKwh(r.kwh.shoulder)}</td><td>${_enKwh(r.kwh.peak)}</td><td>${_enKwh(r.totalKwh)}</td>`
+    + `<td title="${r.priceMode === 'gross' ? 'incl. VAT' : 'net'}, VAT ${esc(String(r.vat))} %">${ENERGY_BANDS.map(b => (r.rate[b] * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })).join(' / ')} <span style="color:var(--ink3)">${r.priceMode === 'gross' ? 'incl.' : 'net'}</span></td>`
+    + `<td>${_enEur(r.cost.off)}</td><td>${_enEur(r.cost.shoulder)}</td><td>${_enEur(r.cost.peak)}</td><td><b>${_enEur(r.totalCost)}</b></td>`
+    + `<td style="white-space:nowrap"><button class="btn xs ghost" data-action="energy-month-edit" data-id="${esc(r.id)}">Edit</button> <button class="btn xs danger" data-action="energy-month-del" data-id="${esc(r.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
+    : '<div style="font-size:12px;color:var(--ink3)">No months recorded yet.</div>';
+  const cmp = el('d-energy-cmp'); if (!cmp) return;
+  if (!recs.length) { cmp.innerHTML = ''; return; }
+  const labels = recs.map(r => _enMLabel(r.year, r.month)), years = [...new Set(recs.map(r => r.year))], last = recs[recs.length - 1];
+  if (!_enCmp.user.ab || !labels.includes(_enCmp.a) || !labels.includes(_enCmp.b)) { const prev = recs.find(r => r.month === last.month && r.year === last.year - 1) || recs[recs.length - 2] || last; _enCmp.a = _enMLabel(prev.year, prev.month); _enCmp.b = _enMLabel(last.year, last.month); }
+  if (!_enCmp.user.yy || !years.includes(_enCmp.y1) || !years.includes(_enCmp.y2)) { _enCmp.y2 = years[years.length - 1]; _enCmp.y1 = years[years.length - 2] || _enCmp.y2; }
+  if (!_enCmp.user.m || !(_enCmp.m >= 1 && _enCmp.m <= 12)) _enCmp.m = last.month;
+  const sel = (k, opts, cur) => `<select data-action-change="energy-cmp" data-k="${k}" style="width:auto;font-size:12px">${opts.map(([v, l]) => `<option value="${esc(String(v))}"${String(v) === String(cur) ? ' selected' : ''}>${esc(String(l))}</option>`).join('')}</select>`;
+  const find = l => recs.find(r => _enMLabel(r.year, r.month) === l), H = t => `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">${t}</div>`;
+  let h = H('Totals per year (incl. VAT)') + `<div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th>Year</th><th>Months</th><th>Off-peak kWh</th><th>Shoulder kWh</th><th>Peak kWh</th><th>Total kWh</th><th>Total cost</th><th>Avg price</th></tr></thead><tbody>${energyAnnualTotals(en).map(t =>
+    `<tr><td>${t.year}</td><td>${t.months}</td><td>${_enKwh(t.kwh.off)}</td><td>${_enKwh(t.kwh.shoulder)}</td><td>${_enKwh(t.kwh.peak)}</td><td>${_enKwh(t.kwh.total)}</td><td><b>${_enEur(t.cost.total)}</b></td><td>${_enEff(t.effective)}</td></tr>`).join('')}</tbody></table></div>`;
+  if (recs.length >= 2) {
+    h += H('Month against month (incl. VAT)') + `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">${sel('a', labels.map(l => [l, l]), _enCmp.a)} → ${sel('b', labels.map(l => [l, l]), _enCmp.b)}</div>` + _enCmpTable(energyCompareMonths(find(_enCmp.a), find(_enCmp.b)), _enCmp.a, _enCmp.b);
+    if (years.length >= 2) {
+      const yc = energyCompareYears(en, _enCmp.y1, _enCmp.y2);
+      h += H('Year against year (incl. VAT)') + `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">${sel('y1', years.map(y => [y, y]), _enCmp.y1)} → ${sel('y2', years.map(y => [y, y]), _enCmp.y2)}</div>`
+        + (yc && yc.commonMonths.length ? `<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${yc.partial ? `Compared over the ${yc.commonMonths.length} month${yc.commonMonths.length === 1 ? '' : 's'} recorded in both years (${yc.months1} vs ${yc.months2} recorded).` : 'All recorded months match.'}</div>` + _enCmpTable(yc, String(yc.y1), String(yc.y2)) : '<div style="font-size:12px;color:var(--ink3)">These two years have no month in common.</div>');
+    }
+    const sm = energySameMonth(en, _enCmp.m), mn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    h += H('Same month across years (incl. VAT)') + `<div style="margin-bottom:6px">${sel('m', mn.map((n, i) => [i + 1, n]), _enCmp.m)}</div>`
+      + (sm.length ? `<div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th>Year</th><th>Total kWh</th><th>Total cost</th><th>Avg price</th><th>Cost vs previous year</th></tr></thead><tbody>${sm.map(o =>
+        `<tr><td>${o.year}</td><td>${_enKwh(o.kwh.total)}</td><td>${_enEur(o.cost.total)}</td><td>${_enEff(o.effective)}</td><td>${o.vsPrev ? _enSigned(o.vsPrev.rows[3].cost.delta, _enEur) + (o.vsPrev.rows[3].cost.pct == null ? '' : ` (${o.vsPrev.rows[3].cost.pct > 0 ? '+' : o.vsPrev.rows[3].cost.pct < 0 ? '−' : ''}${Math.abs(o.vsPrev.rows[3].cost.pct).toLocaleString('de-AT')} %)`) : '–'}</td></tr>`).join('')}</tbody></table></div>` : '<div style="font-size:12px;color:var(--ink3)">No record for that month yet.</div>');
+    const tr = energyTrend(en); h += H('Trends') + _enTrendSvg(tr, 'kwh', 'Total consumption per month (kWh)', n => _enKwh(n) + ' kWh') + _enTrendSvg(tr, 'cost', 'Total cost per month (incl. VAT)', _enEur);
+  }
+  cmp.innerHTML = h;
 }
-function energyTariffSave() {
-  const v = n => (el('en-h-' + n) ? el('en-h-' + n).value : ''), id = v('id'), raw = { month: v('month'), off: v('off'), shoulder: v('shoulder'), peak: v('peak') };
-  const chk = energyValidateMonthTariff(raw, _enMode(DATA.energy), energyTariff(DATA.energy).vat); if (chk.error) return toast(chk.error, 1);
-  const r = commit('Tariff month saved', d => energySetMonthTariff(d, raw, _enMode(d.energy), energyTariff(d.energy).vat, id || null),
-    { touch: ['energy'], render: () => renderEnergy(), toast: res => res.ok ? (res.replaced ? `Prices for ${raw.month} replaced` : `Prices for ${raw.month} saved`) : null });
+function energyMonthSave() {
+  const raw = _enReadMonthForm(), id = el('en-m-id').value, chk = energyBuildMonthRecord(raw); if (chk.error) return toast(chk.error, 1);
+  const r = commit(id ? 'Month updated' : 'Month added', d => energySetMonthRecord(d, raw, id || null), { touch: ['energy'], render: () => renderEnergy(), toast: res => res.ok ? `${raw.month} ${id ? 'updated' : 'saved'}` : null });
   if (r.result && r.result.error) return toast(r.result.error, 1);
-  energyTariffCancel();
+  energyMonthClear();
 }
-function energyTariffEdit(id) {
-  const r = _enHist(DATA.energy).find(x => x.id === id); if (!r) return;
-  const set = (n, val) => { el('en-h-' + n).value = val; };
-  set('id', r.id); set('month', r.month); ENERGY_BANDS.forEach(b => set(b, _enPriceShown(r.bands[b], DATA.energy))); el('en-h-save').textContent = 'Update month'; el('en-hist-details').open = true;
+function energyMonthEdit(id) {
+  const r = _enRecs(DATA.energy).find(x => x.id === id); if (!r) return;
+  const set = (n, v) => { el('en-m-' + n).value = v; }, num = x => String(x).replace('.', ',');
+  set('id', r.id); set('month', _enMLabel(r.year, r.month)); set('mode', r.priceMode); set('vat', num(r.vat));
+  ENERGY_BANDS.forEach(b => { set('kwh-' + b, num(r.kwh[b])); set('rate-' + b, num(_enRound4(r.rate[b] * 100))); });
+  el('en-m-save').textContent = 'Update month'; el('en-month-details').open = true; renderEnergyMonthPreview();
 }
-function energyTariffCancel() {
-  ['id', ...ENERGY_BANDS].forEach(n => { el('en-h-' + n).value = ''; }); el('en-h-month').value = ymd().slice(0, 7); el('en-h-save').textContent = 'Save month'; renderEnergyTariffs();
+function energyMonthClear() {
+  ['id', 'kwh-off', 'kwh-shoulder', 'kwh-peak', 'rate-off', 'rate-shoulder', 'rate-peak'].forEach(n => { el('en-m-' + n).value = ''; });
+  el('en-m-month').value = ''; el('en-m-mode').value = ''; el('en-m-vat').value = ''; el('en-m-save').textContent = 'Save month'; renderEnergyMonths();
 }
-function energyTariffDel(id) {
-  const r = _enHist(DATA.energy).find(x => x.id === id); if (!r) return;
-  showConfirm(`Delete the prices recorded for ${r.month}?`, 'Periods in that month then use the latest earlier record. Bills already logged keep the prices they were estimated with.', () => {
-    commit('Tariff month deleted', d => energyDeleteMonthTariff(d, id), { touch: ['energy'], render: () => renderEnergy() });
+function energyMonthDel(id) {
+  const r = _enRecs(DATA.energy).find(x => x.id === id); if (!r) return;
+  showConfirm(`Delete ${_enMLabel(r.year, r.month)} from the tariff history?`, 'Only this month is removed. Other months and your bills are not affected.', () => {
+    commit('Tariff month deleted', d => energyDeleteMonthRecord(d, id), { touch: ['energy'], render: () => renderEnergy() });
   });
 }
 defineActions({
-  'energy-tariff-save':   () => energyTariffSave(),
-  'energy-tariff-edit':   t => energyTariffEdit(t.dataset.id),
-  'energy-tariff-del':    t => energyTariffDel(t.dataset.id),
-  'energy-tariff-cancel': () => energyTariffCancel(),
-  'energy-tariff-month':  () => renderEnergyTariffs(),
+  'energy-month-save': () => energyMonthSave(),
+  'energy-month-edit': t => energyMonthEdit(t.dataset.id),
+  'energy-month-del':  t => energyMonthDel(t.dataset.id),
+  'energy-month-clear': () => energyMonthClear(),
+  'energy-month-calc': () => renderEnergyMonthPreview(),
+  'energy-cmp':        t => { const k = t.dataset.k; _enCmp[k] = (k === 'a' || k === 'b') ? t.value : +t.value; _enCmp.user[k === 'a' || k === 'b' ? 'ab' : k === 'm' ? 'm' : 'yy'] = true; renderEnergyMonths(); },
 });
 
 defineActions({
@@ -19908,63 +20024,100 @@ function runSmokeTest() {
       renderVerifyCard();
       expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2027-01-01'), true, 'verifyDue pattern: new year'); expect(verifyDue(ENERGY_AT_AVG_VERIFIED, '2026-12-31'), false, 'same year');
     });
-    // ── Monthly electricity tariff history ──
-    const enP = (month, off, sh, pk) => ({ month, off: String(off), shoulder: String(sh), peak: String(pk) });
-    test('tariff history: validation — month and all three prices required, numbers 0–1000, gross → stored net', () => {
-      const ok = energyValidateMonthTariff(enP('2026-11', '18,46', '21,23', '25,85'), 'net', 20);
-      expect(ok.ok + '|' + ok.record.month + '|' + [ok.record.bands.off, ok.record.bands.shoulder, ok.record.bands.peak].join(), 'true|2026-11|18.46,21.23,25.85', 'comma decimals accepted, net kept');
-      const g = energyValidateMonthTariff(enP('2026-11', '22.152', '25.476', '31.02'), 'gross', 20); expectClose(g.record.bands.peak, 25.85, 0.0001, 'incl. VAT 31.02 → net 25.85'); expectClose(g.record.bands.off, 18.46, 0.0001, 'off-peak gross → net');
-      const bad = [enP('', 1, 2, 3), enP('2026-13', 1, 2, 3), enP('2026-11', '', 2, 3), enP('2026-11', 1, 'x', 3), enP('2026-11', 1, 2, -3), enP('2026-11', 1, 2, 1001), enP('2026-11', 1, 2, '1,2,3')].map(r => !!energyValidateMonthTariff(r, 'net', 20).error);
-      expect(bad.join(), 'true,true,true,true,true,true,true', 'bad month, missing / non-numeric / negative / absurd prices are refused'); expectTrue(!energyValidateMonthTariff(enP('2026-11', 0, 0, 0), 'net', 20).error, 'a price of 0 is allowed');
+    // ── Monthly electricity tariff history (separate from DATA.energy.bills) ──
+    // mkM(month, [off, shoulder, peak] kWh, [off, shoulder, peak] ct/kWh, mode, vat) → the raw form values
+    const mkM = (month, k, r, mode, vat) => ({ month, priceMode: mode || 'net', vat: vat === undefined ? '20' : String(vat), kwh: { off: String(k[0]), shoulder: String(k[1]), peak: String(k[2]) }, rate: { off: String(r[0]), shoulder: String(r[1]), peak: String(r[2]) } });
+    const addM = (d, raw, id) => { const r = energySetMonthRecord(d, raw, null, id); expect(r.ok, true, 'add ' + id + ': ' + r.error); return r; };
+    test('tariff months: off-peak, shoulder and peak cost = kWh × rate, and the combined consumption and cost', () => {
+      const r = energyBuildMonthRecord(mkM('2026-11', [100, 40, 20], ['18,46', '21,23', '25,85'])).record;
+      expect(r.cost.off, 18.46, 'off-peak: 100 kWh × €0.1846'); expect(r.cost.shoulder, 8.49, 'shoulder: 40 kWh × €0.2123 = 8.492 → 8.49'); expect(r.cost.peak, 5.17, 'peak: 20 kWh × €0.2585');
+      expect(r.totalKwh, 160, 'combined consumption'); expect(r.totalCost, 32.12, 'combined cost = the three costs added'); expect(r.rate.off + '|' + r.rate.shoulder + '|' + r.rate.peak, '0.1846|0.2123|0.2585', 'rates stored in €/kWh as entered');
+      expect(r.year + '|' + r.month + '|' + r.priceMode + '|' + r.vat + '|' + r.currency, '2026|11|net|20|EUR', 'year, month and the price metadata are stored');
+      expect(energyMonthCosts({ off: 0, shoulder: 0, peak: 0 }, { off: 0.2, shoulder: 0.2, peak: 0.2 }).totalCost, 0, 'no consumption → no cost');
     });
-    test('tariff history: one record per month (no duplicates), kept sorted, edit and delete, failures change nothing', () => {
-      const d = { energy: { bills: [] } };
-      expect(energySetMonthTariff(d, enP('2026-12', 20, 22, 26), 'net', 20, null, 'b').ok, true, 'add Dec'); expect(energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a').ok, true, 'add Nov');
-      expect(d.energy.tariffHistory.map(r => r.month + ':' + r.id).join(), '2026-11:a,2026-12:b', 'oldest first'); expect(d.energy.bills.length, 0, 'other energy data untouched');
-      const again = energySetMonthTariff(d, enP('2026-11', 19, 21.5, 25.5), 'net', 20, null, 'zzz'); expect(again.ok + '|' + again.replaced + '|' + again.id, 'true|true|a', 'same month → replaced in place, id kept');
-      expect(d.energy.tariffHistory.length + '|' + d.energy.tariffHistory[0].bands.off, '2|19', 'still one record per month');
-      expect(energySetMonthTariff(d, enP('2026-12', 1, 1, 1), 'net', 20, 'a').error !== undefined, true, 'editing Nov onto Dec is refused'); expect(d.energy.tariffHistory[0].month, '2026-11', 'unchanged');
-      expect(energySetMonthTariff(d, enP('2027-01', 20, 22, 26), 'net', 20, 'a').ok, true, 'editing may move a record to a free month'); expect(d.energy.tariffHistory.map(r => r.month).join(), '2026-12,2027-01', 'moved and re-sorted');
-      expect(energySetMonthTariff(d, enP('2027-02', 1, 1, 1), 'net', 20, 'ghost').error !== undefined, true, 'unknown id'); expect(energyDeleteMonthTariff(d, 'a').ok, true, 'delete'); expect(energyDeleteMonthTariff(d, 'a').error !== undefined, true, 'delete twice');
-      const e = {}; expect(energySetMonthTariff(e, enP('bad', 1, 2, 3), 'net', 20).error !== undefined && !('energy' in e), true, 'a rejected record does not even create DATA.energy');
+    test('tariff months: invalid input is refused, never silently accepted', () => {
+      const ok = () => mkM('2026-11', [1, 1, 1], [10, 10, 10]), bad = f => { const r = ok(); f(r); return !!energyBuildMonthRecord(r).error; };
+      expect([bad(r => { r.month = ''; }), bad(r => { r.month = '2026-13'; }), bad(r => { r.month = '1999-05'; }), bad(r => { r.kwh.off = ''; }), bad(r => { r.kwh.peak = 'abc'; }), bad(r => { r.kwh.shoulder = '-1'; }),
+        bad(r => { r.rate.off = ''; }), bad(r => { r.rate.peak = '-3'; }), bad(r => { r.rate.shoulder = '1001'; }), bad(r => { r.vat = ''; }), bad(r => { r.vat = '101'; }), bad(r => { r.priceMode = 'x'; })].join(),
+        'true,true,true,true,true,true,true,true,true,true,true,true', 'bad months, kWh, rates, VAT and price mode are all refused');
+      expect(!energyBuildMonthRecord(mkM('2026-11', [0, 0, 0], [0, 0, 0])).error, true, 'zero kWh and zero rates are valid');
+      const d = {}; expect(energySetMonthRecord(d, mkM('x', [1, 1, 1], [1, 1, 1])).error !== undefined && !('energy' in d), true, 'a refused record does not even create DATA.energy');
     });
-    test('tariff history: a month uses its own prices, then the latest earlier ones, then the defaults — later changes never rewrite earlier months', () => {
-      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); energySetMonthTariff(d, enP('2027-03', 30, 33, 40), 'net', 20, null, 'b');
-      const bp = m => { const t = energyTariffForMonth(d.energy, m).bands; return [t.off, t.shoulder, t.peak].join('/'); };
-      expect([bp('2026-11'), bp('2027-01'), bp('2027-03'), bp('2027-08')].join(' '), '18/21/25 18/21/25 30/33/40 30/33/40', 'exact, then carried forward');
-      expect(bp('2026-10'), [ENERGY_DEFAULTS.bands.off, ENERGY_DEFAULTS.bands.shoulder, ENERGY_DEFAULTS.bands.peak].join('/'), 'before the first record → the defaults');
-      energySetMonthTariff(d, enP('2027-06', 50, 55, 60), 'net', 20, null, 'c'); expect(bp('2027-03') + ' ' + bp('2026-11'), '30/33/40 18/21/25', 'adding a later month leaves the earlier ones');
-      const o = { energy: { tariff: { 'bands.peak': 99, vat: 13 } } }; expect(energyTariffForMonth(o.energy, '2026-11').bands.peak, 99, 'no history → the single price fields still apply');
-      energySetMonthTariff(o, enP('2026-11', 1, 2, 3), 'net', 20, null, 'x'); const t = energyTariffForMonth(o.energy, '2026-11'); expect(t.bands.peak + '|' + t.vat + '|' + t.baseFee, '3|13|2.49', 'a record replaces the band prices only; VAT override and other rates stay');
-      expect(JSON.stringify(energyTariffForMonth({}, '2026-11')), JSON.stringify(energyTariff({})), 'empty energy → exactly energyTariff()'); expect(energyPricesForMonth(d.energy, 'nope'), null, 'bad month → null');
+    test('tariff months: November 2026 and November 2027 are separate records; the same month twice is refused', () => {
+      const d = { energy: { bills: [] } }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'n26'); addM(d, mkM('2027-11', [150, 50, 50], [30, 30, 30], 'gross'), 'n27');
+      expect(d.energy.tariffHistory.map(r => r.id + ':' + r.year + '-' + r.month).join(), 'n26:2026-11,n27:2027-11', 'two records, sorted, own ids');
+      const dup = energySetMonthRecord(d, mkM('2026-11', [1, 1, 1], [1, 1, 1]), null, 'x'); expect(dup.error !== undefined, true, 'a second November 2026 is refused'); expect(d.energy.tariffHistory.length, 2, 'nothing was added'); expect(d.energy.tariffHistory[0].kwh.off, 100, 'and the first is not overwritten');
+      expect(energySetMonthRecord(d, mkM('2027-11', [1, 1, 1], [1, 1, 1]), 'n26').error !== undefined, true, 'editing 2026-11 onto 2027-11 is refused');
     });
-    test('tariff history: the estimate for a period follows that month\'s prices, so an old month is not re-priced', () => {
-      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); energySetMonthTariff(d, enP('2026-12', 36, 42, 50), 'net', 20, null, 'b');
-      const inp = { kwh: 150, days: 30, months: 1 }, nov = energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp), dec = energyEstimate(energyTariffForMonth(d.energy, '2026-12'), inp);
-      expectTrue(dec.energy.sum > nov.energy.sum && dec.gross > nov.gross, 'December prices are higher → a higher estimate'); expect(energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp).gross, nov.gross, 'November still estimates the same');
-      expect(energyEstimate(energyTariffForMonth(d.energy, '2026-11'), inp).grid.sum, dec.grid.sum, 'grid charges and levies are not part of the history');
+    test('tariff months: historical rates and costs do not change when the current tariff settings change', () => {
+      const d = { energy: { bills: [], tariff: {}, priceMode: 'net' } }; addM(d, mkM('2026-11', [100, 40, 20], [18.46, 21.23, 25.85]), 'a'); const before = JSON.stringify(d.energy.tariffHistory);
+      d.energy.tariff = { 'bands.off': 99, 'bands.shoulder': 98, 'bands.peak': 97, vat: 13, baseFee: 50 }; d.energy.priceMode = 'gross';
+      expect(JSON.stringify(d.energy.tariffHistory), before, 'the record is untouched by new settings'); expect(energyTariff(d.energy).bands.off, 99, 'the settings did change');
+      expect(energyAnnualTotals(d.energy)[0].cost.total, _enR2(32.12 * 1.2), 'comparisons still use the stored rate and the stored 20 % VAT, not the new 13 %'); expect(energyBuildMonthRecord(mkM('2026-11', [100, 40, 20], [18.46, 21.23, 25.85])).record.totalCost, 32.12, 'recomputing from the stored inputs gives the same cost');
     });
-    test('tariff history: changes against the previous month, oldest first', () => {
-      const d = { energy: {} }; energySetMonthTariff(d, enP('2026-12', 20, 22, 24), 'net', 20, null, 'b'); energySetMonthTariff(d, enP('2026-11', 18.5, 22, 25), 'net', 20, null, 'a');
-      const c = energyTariffChanges(d.energy); expect(c.map(r => r.month).join(), '2026-11,2026-12', 'ordered'); expect(c[0].delta, null, 'first month has no change');
-      expect([c[1].delta.off, c[1].delta.shoulder, c[1].delta.peak].join(), '1.5,0,-1', 'Δ ct/kWh per band'); expect(energyTariffChanges({}).length + '|' + energyTariffChanges(undefined).length, '0|0', 'no history → none');
+    test('tariff months: annual totals, month against month, year against year and the same month across years', () => {
+      const d = { energy: {} }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'a'); addM(d, mkM('2026-12', [200, 100, 100], [20, 20, 20], 'gross'), 'b'); addM(d, mkM('2027-11', [150, 50, 50], [20, 20, 20], 'gross'), 'c');
+      const T = energyAnnualTotals(d.energy); expect(T.map(t => [t.year, t.months, t.kwh.total, t.cost.total, t.effective].join('|')).join(' '), '2026|2|600|120|0.2 2027|1|250|50|0.2', 'annual consumption, cost and average price');
+      expect([T[0].kwh.off, T[0].kwh.shoulder, T[0].kwh.peak, T[0].cost.off, T[0].cost.shoulder, T[0].cost.peak].join(), '300,150,150,60,30,30', 'per-band annual totals');
+      const m = energyCompareMonths(d.energy.tariffHistory[0], d.energy.tariffHistory[2]); expect([m.rows[0].kwh.delta, m.rows[0].cost.delta, m.rows[0].kwh.pct, m.rows[3].kwh.delta, m.rows[3].cost.delta, m.rows[3].cost.pct].join(), '50,10,50,50,10,25', 'Nov 2026 → Nov 2027: off-peak +50 kWh / +€10, total +25 %');
+      expect(m.effective.delta, 0, 'the average price did not change');
+      const y = energyCompareYears(d.energy, 2026, 2027); expect(y.partial + '|' + y.commonMonths.join() + '|' + y.rows[3].cost.a + '|' + y.rows[3].cost.b + '|' + y.totals1.cost.total + '|' + y.totals2.cost.total, 'true|11|40|50|120|50', 'years are compared over the months both have; the full-year totals are shown too');
+      expect(energyCompareYears(d.energy, 2026, 2030), null, 'a year with no records → null');
+      const s = energySameMonth(d.energy, 11); expect(s.map(o => o.year + ':' + o.cost.total).join(), '2026:40,2027:50', 'same month across years'); expect(s[0].vsPrev + '|' + s[1].vsPrev.rows[3].cost.delta, 'null|10', 'change against the year before'); expect(energySameMonth(d.energy, 7).length, 0, 'a month with no record');
+      expect(energyTrend(d.energy).map(p => p.label + ':' + p.kwh + ':' + p.cost).join(), '2026-11:200:40,2026-12:400:80,2027-11:250:50', 'trend points in order');
     });
-    test('tariff history: old vaults, junk records, commit()/Undo and an export/import round-trip', () => {
-      const old = { energy: { bills: [{ id: 'b1' }], tariff: {} } }; expect(energyPricesForMonth(old.energy, '2026-11'), null, 'energy without the key → null'); expect(energyTariffChanges(old.energy).length, 0, 'and no rows');
-      const junk = { tariffHistory: [null, { id: 'x' }, { id: 'y', month: '2026-11', bands: { off: 'a', shoulder: 1, peak: 1 } }, { id: 'z', month: '2026-11', bands: { off: 1, shoulder: 2, peak: 3 } }] };
-      expect(energyTariffChanges(junk).length, 1, 'malformed records are ignored, never thrown on'); expect(energyTariffForMonth(junk, '2026-12').bands.peak, 3, 'the valid one applies');
+    test('tariff months: net and incl.-VAT months compare on the same basis, each with its own stored VAT', () => {
+      const d = { energy: {} }; addM(d, mkM('2026-11', [100, 0, 0], [10, 10, 10], 'net', 20), 'n'); addM(d, mkM('2027-11', [100, 0, 0], [12, 12, 12], 'gross', 20), 'g'); addM(d, mkM('2028-11', [100, 0, 0], [10, 10, 10], 'net', 10), 'h');
+      const [a, b, c] = d.energy.tariffHistory, s = r => energySumRecords([r]);
+      expect(s(a).cost.total + '|' + s(a).effective, '12|0.12', '€10 net at 20 % = €12 incl. VAT'); expect(energyCompareMonths(a, b).rows[3].cost.delta, 0, 'a net month and an equal incl.-VAT month compare as equal'); expect(s(c).cost.total, 11, 'a month recorded with 10 % VAT uses 10 %, not today\'s');
+      expect(a.cost.off + '|' + b.cost.off, '10|12', 'the stored costs stay as entered');
+    });
+    test('tariff months: editing one record never changes another; each can be edited and deleted on its own', () => {
+      const d = { energy: { bills: [] } }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20]), 'a'); addM(d, mkM('2026-12', [90, 40, 40], [21, 21, 21]), 'b'); addM(d, mkM('2027-01', [80, 30, 30], [22, 22, 22]), 'c');
+      const snapB = JSON.stringify(d.energy.tariffHistory[1]), snapC = JSON.stringify(d.energy.tariffHistory[2]), objB = d.energy.tariffHistory[1];
+      const e = energySetMonthRecord(d, mkM('2026-11', [300, 50, 50], [25, 25, 25], 'gross', 13), 'a'); expect(e.ok, true, 'edit a');
+      const A = d.energy.tariffHistory[0]; expect(A.id + '|' + A.kwh.off + '|' + A.cost.off + '|' + A.priceMode + '|' + A.vat, 'a|300|75|gross|13', 'a changed, id kept');
+      expect(JSON.stringify(d.energy.tariffHistory[1]) + JSON.stringify(d.energy.tariffHistory[2]), snapB + snapC, 'b and c are untouched'); expect(d.energy.tariffHistory[1] === objB, true, 'b is even the same object');
+      expect(energyDeleteMonthRecord(d, 'b').ok, true, 'delete b'); expect(d.energy.tariffHistory.map(r => r.id).join() + '|' + JSON.stringify(d.energy.tariffHistory[1]), 'a,c|' + snapC, 'only b is gone'); expect(energyDeleteMonthRecord(d, 'b').error !== undefined, true, 'deleting twice reports it');
+      expect(energySetMonthRecord(d, mkM('2027-05', [1, 1, 1], [1, 1, 1]), 'ghost').error !== undefined, true, 'editing an unknown month');
+    });
+    test('tariff months: existing bills and tariff settings stay intact; old vaults without the key load and take new data', () => {
+      const d = { energy: { bills: [{ id: 'b1', from: '2026-10-01', to: '2026-10-31', kwh: 150, gross: 71.48 }], tariff: { 'bands.peak': 30 }, priceMode: 'gross', recurId: 'r1', lastReading: 1718.194 } };
+      const keep = JSON.stringify({ b: d.energy.bills, t: d.energy.tariff, p: d.energy.priceMode, r: d.energy.recurId, l: d.energy.lastReading });
+      addM(d, mkM('2026-11', [1, 2, 3], [4, 5, 6]), 'a'); energySetMonthRecord(d, mkM('2026-11', [9, 9, 9], [9, 9, 9]), 'a'); energyDeleteMonthRecord(d, 'a');
+      expect(JSON.stringify({ b: d.energy.bills, t: d.energy.tariff, p: d.energy.priceMode, r: d.energy.recurId, l: d.energy.lastReading }), keep, 'bills, settings, link and last reading are untouched');
+      const old = FRESH(); old.v = 22; old.energy = { bills: [{ id: 'b1', gross: 5 }] }; const loaded = migrate(JSON.parse(JSON.stringify(old)));
+      expect('tariffHistory' in loaded.energy, false, 'loading creates no key'); expect(_enRecs(loaded.energy).length + '|' + energyAnnualTotals(loaded.energy).length + '|' + energyTrend(loaded.energy).length, '0|0|0', 'every reader copes');
+      expect(energyAnnualTotals(undefined).length + '|' + _enRecs(null).length + '|' + energyCompareYears({}, 2026, 2027), '0|0|null', 'and with no energy object at all');
+      addM(loaded, mkM('2026-11', [1, 2, 3], [4, 5, 6]), 'x'); const back = JSON.parse(JSON.stringify(loaded)); expect(_enRecs(back.energy).length + '|' + back.energy.bills.length, '1|1', 'new data added to an older vault survives export → import');
+    });
+    test('tariff months: calculations never mutate unrelated data or their own inputs', () => {
+      const d = { entries: [{ id: 'e1', amount: 5 }], debts: [{ id: 'd1', balance: 9 }], mortgage: { startBalance: 1, payments: [] }, energy: { bills: [{ id: 'b1' }], tariff: { vat: 13 } } };
+      const other = () => JSON.stringify({ e: d.entries, d: d.debts, m: d.mortgage, b: d.energy.bills, t: d.energy.tariff }), before = other(), raw = mkM('2026-11', [1, 2, 3], [4, 5, 6]), rs = JSON.stringify(raw);
+      addM(d, raw, 'a'); addM(d, mkM('2027-11', [2, 2, 3], [4, 5, 6]), 'b'); const recs = JSON.stringify(d.energy.tariffHistory);
+      energyBuildMonthRecord(raw); energyAnnualTotals(d.energy); energyCompareMonths(d.energy.tariffHistory[0], d.energy.tariffHistory[1]); energyCompareYears(d.energy, 2026, 2027); energySameMonth(d.energy, 11); energyTrend(d.energy); mergeEnergyMonthRecords(d.energy.tariffHistory, d.energy.tariffHistory);
+      expect(other(), before, 'entries, debts, mortgage, bills and settings untouched'); expect(JSON.stringify(raw), rs, 'the raw form values are not modified'); expect(JSON.stringify(d.energy.tariffHistory), recs, 'the records are not modified by the read-only functions');
+    });
+    test('tariff months: commit()/Undo, and the conflict merge by id and by month (local wins, nothing lost, no duplicates)', () => {
       const vault = { energy: { bills: [{ id: 'b1' }] } }; let undo = null; const io = { save: () => {}, render: () => {}, toast: (m, er, u) => { undo = u; } };
-      commitCore(() => vault, 'tariff', d => energySetMonthTariff(d, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'), { touch: ['energy'] }, io);
-      expect(vault.energy.tariffHistory.length + '|' + vault.energy.bills.length, '1|1', 'saved through commit(), bills intact'); undo(); expect((vault.energy.tariffHistory || []).length + '|' + vault.energy.bills.length, '0|1', 'Undo removes only the month');
-      energySetMonthTariff(vault, enP('2026-11', 18, 21, 25), 'net', 20, null, 'a'); const back = JSON.parse(JSON.stringify(vault)); expect(JSON.stringify(energyTariffChanges(back.energy)), JSON.stringify(energyTariffChanges(vault.energy)), 'export → import identical');
-    });
-    test('tariff history: the conflict merge unions by id and month (local wins), keeps old vaults\' data, adds no key when there is none', () => {
-      const L = { entries: [], energy: { bills: [], tariffHistory: [{ id: 'a', month: '2026-11', bands: { off: 1, shoulder: 2, peak: 3 } }] } };
-      const R = { entries: [], energy: { bills: [], tariffHistory: [{ id: 'a2', month: '2026-11', bands: { off: 9, shoulder: 9, peak: 9 } }, { id: 'c', month: '2026-10', bands: { off: 5, shoulder: 5, peak: 5 } }] } };
+      commitCore(() => vault, 'month', d => energySetMonthRecord(d, mkM('2026-11', [1, 2, 3], [4, 5, 6]), null, 'a'), { touch: ['energy'] }, io); expect(vault.energy.tariffHistory.length + '|' + vault.energy.bills.length, '1|1', 'saved through commit(), bills intact');
+      undo(); expect((vault.energy.tariffHistory || []).length + '|' + vault.energy.bills.length, '0|1', 'Undo removes only the month'); expect(commitCore(() => vault, 'bad', d => energySetMonthRecord(d, mkM('', [1, 1, 1], [1, 1, 1])), { touch: ['energy'] }, io).changed, false, 'a refused month changes nothing');
+      const L = { entries: [], energy: { bills: [], tariffHistory: [energyBuildMonthRecordWithId('a', '2026-11', 1)] } }, R = { entries: [], energy: { bills: [], tariffHistory: [energyBuildMonthRecordWithId('a2', '2026-11', 9), energyBuildMonthRecordWithId('c', '2026-10', 5), { id: 'old1', month: '2026-11', bands: { off: 1, shoulder: 1, peak: 1 } }] } };
       const Ls = JSON.stringify(L), Rs = JSON.stringify(R), m = mergeVaultData(L, R).energy.tariffHistory;
-      expect(m.map(r => r.month + ':' + r.id + ':' + r.bands.off).join(), '2026-10:c:5,2026-11:a:1', 'one record per month, local wins, sorted'); expect(JSON.stringify(L) + JSON.stringify(R), Ls + Rs, 'inputs not modified');
-      expect(mergeVaultData({ entries: [], energy: { bills: [] } }, R).energy.tariffHistory.length, 2, 'an older local vault keeps the newer vault\'s history'); expect(mergeVaultData(L, { entries: [] }).energy.tariffHistory.length, 1, 'an older remote vault does not remove it');
-      expect('tariffHistory' in mergeVaultData({ entries: [], energy: { bills: [] } }, { entries: [], energy: { bills: [] } }).energy, false, 'no history anywhere → no key'); expect(mergeEnergyTariffHistory(undefined, undefined).length, 0, 'pure merge tolerates nothing');
+      expect(m.filter(_enMonthRecOk).map(r => r.id + ':' + r.kwh.off).join(), 'c:5,a:1', 'one record per month and year, local wins, oldest first'); expect(m.some(r => r.id === 'old1'), true, 'a record of another shape is carried along, not dropped'); expect(JSON.stringify(L) + JSON.stringify(R), Ls + Rs, 'inputs not modified');
+      const twice = mergeVaultData(mergeVaultData(L, R), R).energy.tariffHistory; expect(twice.length, m.length, 'merging again adds no duplicates');
+      expect(mergeVaultData({ entries: [], energy: { bills: [] } }, R).energy.tariffHistory.length, 3, 'an older local vault keeps the newer vault\'s months'); expect(mergeVaultData(L, { entries: [], energy: { bills: [] } }).energy.tariffHistory.length, 1, 'an older remote vault does not remove them');
+      expect('tariffHistory' in mergeVaultData({ entries: [], energy: { bills: [] } }, { entries: [], energy: { bills: [] } }).energy, false, 'none anywhere → no key');
+      function energyBuildMonthRecordWithId(id, month, off) { return { id, ...energyBuildMonthRecord(mkM(month, [off, 1, 1], [10, 10, 10])).record }; }
+    });
+    test('mortgage: calculations and edits do not mutate unrelated data or their own inputs', () => {
+      const d = { entries: [{ id: 'e1', amount: 5 }], debts: [{ id: 'd1', balance: 9 }], energy: { bills: [{ id: 'b1' }], tariffHistory: [] }, mortgage: { startDate: '2026-11-01', startBalance: 100000, rate: 12, payments: [] } };
+      const other = () => JSON.stringify({ e: d.entries, d: d.debts, n: d.energy }), before = other();
+      mgAdd(d, '2026-11-15', 2000, 12, 'p1'); mgAdd(d, '2026-12-15', 2000, 12, 'p2'); mortgageEditPayment(d, 'p1', { date: '2026-11-15', paymentAmount: '2500', annualRate: '12' }); mortgageDeletePayment(d, 'p1'); mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '90000', rate: '4' });
+      expect(other(), before, 'entries, debts and electricity untouched by every mortgage operation');
+      const input = d.mortgage.payments, snap = JSON.stringify(input), raw = { date: '2026-12-20', paymentAmount: '10', annualRate: '3' }, rs = JSON.stringify(raw), ms = JSON.stringify(d.mortgage);
+      mortgageRecompute(90000, input); mortgageSummary(d.mortgage); mergeMortgage(d.mortgage, d.mortgage); validateMortgagePayment(raw, d.mortgage); mortgageApplyPayment(1000, 50, 3);
+      expect(JSON.stringify(input) + JSON.stringify(raw) + JSON.stringify(d.mortgage), snap + rs + ms, 'the pure functions leave their inputs alone');
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
@@ -20882,9 +21035,8 @@ function mergeVaultData(local, remote) {
   if (local.mortgage || remote.mortgage) merged.mortgage = mergeMortgage(local.mortgage, remote.mortgage);
   // Electricity (optional): bills are unioned by id like the other lists; the rates and the recurring link stay as on this device.
   if (local.energy || remote.energy) merged.energy = { ...(remote.energy||{}), ...(local.energy||{}), bills: mergeById((local.energy||{}).bills, (remote.energy||{}).bills) };
-  // Monthly tariff history (optional): unioned by id and by month, this device wins.
-  if ((local.energy || {}).tariffHistory || (remote.energy || {}).tariffHistory) merged.energy.tariffHistory = mergeEnergyTariffHistory((local.energy || {}).tariffHistory, (remote.energy || {}).tariffHistory);
-  else if (merged.energy) delete merged.energy.tariffHistory;
+  // Monthly tariff history (optional): unioned by id and by year+month, this device wins; other-shaped records are carried along.
+  if ((local.energy || {}).tariffHistory || (remote.energy || {}).tariffHistory) merged.energy.tariffHistory = mergeEnergyMonthRecords((local.energy || {}).tariffHistory, (remote.energy || {}).tariffHistory);
   // Several cars: the car-aware merge replaces the plain top-level fuel / tyres / service / insurance merge above, so one car's refuels can never land in another's list.
   if (local.cars || remote.cars) {
     const c = mergeCarsData(local, remote, mergeById);
