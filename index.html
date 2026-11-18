@@ -1302,6 +1302,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="card" id="ov-energy">
         <div class="card-title" data-action="ov-title-fold" data-id="ov-energy">Electricity bill</div>
         <div id="d-energy-rate" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px"></div>
+        <div id="d-energy-year"></div>
         <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:8px">Estimate the bill from the meter before it arrives, then log the real one. The rates are those of one real bill and change over time: check them below.</div>
         <div class="g2" style="margin-bottom:8px">
           <div class="fg" style="margin:0"><label>Period from</label><input type="date" id="en-from" style="width:100%" data-action-input="energy-calc" data-action-change="energy-calc"></div>
@@ -1326,6 +1327,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-p-shoulder" data-band="shoulder" data-action-change="energy-price" style="width:100%;font-family:var(--mono)"></div>
             <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-p-peak" data-band="peak" data-action-change="energy-price" style="width:100%;font-family:var(--mono)"></div>
           </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><label style="font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400">Fixed price — one price for every kWh (ct/kWh)</label><input type="text" inputmode="decimal" id="en-p-fixed" data-action-change="energy-price-fixed" style="width:96px;font-family:var(--mono)"></div>
+          <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:2px">If your tariff has one fixed price, type it here and all three prices above are set to it, so the peak/shoulder split no longer matters. Empty it to go back.</div>
           <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:4px">Type the three prices your supplier's app shows for the month, and say whether they include VAT. Empty = the October 2026 bill's prices (grey).</div>
         </div>
         <div id="d-energy-est" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px"></div>
@@ -1346,19 +1349,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="fg" style="margin:0"><label>Rates are</label><select id="en-m-mode" style="width:100%" data-action-change="energy-month-calc"><option value="net">net</option><option value="gross">incl. VAT</option></select></div>
             <div class="fg" style="margin:0"><label>VAT (%)</label><input type="text" inputmode="decimal" id="en-m-vat" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400;margin:4px 0 8px"><input type="checkbox" id="en-m-fixed" data-action-change="energy-month-calc"> Fixed price — one rate for every kWh</label>
+          <div id="en-m-fixedbox" style="display:none"><div class="g2" style="margin-bottom:8px"><div class="fg" style="margin:0"><label>Total consumption (kWh)</label><input type="text" inputmode="decimal" id="en-m-total" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div><div class="fg" style="margin:0"><label>Fixed price (ct/kWh)</label><input type="text" inputmode="decimal" id="en-m-frate" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div></div></div>
+          <div id="en-m-bands">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 4px">Consumption (kWh)</div>
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 4px">Consumption (kWh)</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
             <div class="fg" style="margin:0"><label>Off-peak</label><input type="text" inputmode="decimal" id="en-m-kwh-off" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
             <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-m-kwh-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
             <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-m-kwh-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:-2px 0 6px"><button class="btn xs ghost" style="text-transform:none;letter-spacing:0" data-action="energy-month-fill-bills">Fill from this month's bills</button><span style="font-size:11px;color:var(--ink3)">or meter</span>
+            <input type="text" inputmode="decimal" id="en-m-r0" placeholder="old reading" style="width:96px;font-family:var(--mono)"> → <input type="text" inputmode="decimal" id="en-m-r1" placeholder="new reading" style="width:96px;font-family:var(--mono)"><button class="btn xs ghost" style="text-transform:none;letter-spacing:0" data-action="energy-month-fill-readings">Fill</button></div>
+          <div id="d-energy-fill-note" style="font-size:11px;color:var(--ink3);margin-bottom:8px"></div>
           <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 4px">Rates (ct/kWh)</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
             <div class="fg" style="margin:0"><label>Off-peak</label><input type="text" inputmode="decimal" id="en-m-rate-off" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
             <div class="fg" style="margin:0"><label>Shoulder</label><input type="text" inputmode="decimal" id="en-m-rate-shoulder" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
             <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-m-rate-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
-          <div id="d-energy-month-preview" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px"></div>
+          </div>
+          <div id="d-energy-month-preview"          <div id="d-energy-month-preview" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn sm primary" id="en-m-save" data-action="energy-month-save">Save month</button><button class="btn sm ghost" data-action="energy-month-clear">Clear</button></div>
           <div id="d-energy-months"></div>
           <div id="d-energy-cmp"></div></details>
@@ -2877,6 +2888,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <div class="fg" style="margin:0"><label>Balance as of</label><input type="date" id="mg-s-date"></div>
             <div class="fg" style="margin:0"><label>Outstanding balance (€)</label><input type="number" id="mg-s-balance" min="0" step="0.01" style="font-family:var(--mono)"></div>
             <div class="fg" style="margin:0"><label>Current rate (% a year)</label><input type="number" id="mg-s-rate" min="0" max="100" step="0.001" style="font-family:var(--mono)"></div>
+            <div class="fg" style="margin:0"><label>Rate fixed until (optional)</label><input type="date" id="mg-s-fixed"></div>
           </div>
           <div style="display:flex;gap:8px"><button class="btn sm primary" data-action="mg-setup-save">Save</button><button class="btn sm ghost" data-action="mg-setup-cancel">Cancel</button></div>
           <div style="font-size:11px;color:var(--ink3);margin-top:6px">Tracking starts from this balance — nothing is estimated for earlier months. The rate is only the default for new payments; payments already recorded keep their own rate.</div>
@@ -2893,6 +2905,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div style="font-size:11px;color:var(--ink3);margin-top:6px">If your rate changed, enter the new rate here — earlier payments are not touched. Interest = opening balance × rate ÷ 12.</div>
         </div>
         <div id="d-mortgage"></div>
+        <div id="mortgage-outlook" style="display:none;margin-top:14px;border-top:.5px solid var(--bdr);padding-top:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Outlook (estimates)</div>
+          <div id="d-mortgage-proj"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin:10px 0 4px"><label style="font-size:12px;color:var(--ink2)">What if I pay extra each month (€)</label><input type="number" id="mg-extra" min="0" step="10" style="width:110px;font-family:var(--mono)" data-action-input="mg-extra"></div>
+          <div id="d-mortgage-whatif"></div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">Assumes the same payment and rate every month from the current balance; nothing is added to your payment history.</div>
+          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">Check against your lender</div>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fg" style="margin:0"><label>Statement date</label><input type="date" id="mg-l-date"></div><div class="fg" style="margin:0"><label>Lender's balance (€)</label><input type="number" id="mg-l-balance" min="0" step="0.01" style="font-family:var(--mono);width:140px"></div>
+            <button class="btn sm primary" data-action="mg-lender-save">Compare</button><button class="btn sm ghost" data-action="mg-lender-clear">Clear</button></div>
+          <div id="d-mortgage-lender" style="margin-top:6px"></div>
+        </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:10px">Monthly interest is an estimate: your lender may calculate interest daily or add fees, and payment dates or other loan terms can change the actual split.</div>
       </div>
 
@@ -4471,21 +4494,29 @@ let _pitSelected = null;     // {sha, message, date} of the commit being preview
 let _pitPreviewData = null;  // decrypted + migrated DATA of that commit
 
 const _PIT_LISTS = [['entries', 'entries'], ['fuel', 'refuels'], ['accounts', 'accounts'], ['recurring', 'recurring items'], ['installments', 'installments'],
-                    ['savingsGoals', 'savings goals'], ['stocks', 'stocks'], ['tires', 'tyre sets'], ['fxAccounts', 'FX accounts'], ['grocery', 'grocery items'], ['cashLog', 'cash-log items']];
+                    ['savingsGoals', 'savings goals'], ['stocks', 'stocks'], ['tires', 'tyre sets'], ['fxAccounts', 'FX accounts'], ['grocery', 'grocery items'], ['cashLog', 'cash-log items'],
+                    ['debts', 'debts'], ['energy.bills', 'electricity bills'], ['energy.tariffHistory', 'tariff months'], ['mortgage.payments', 'mortgage payments']];   // a dotted name is a path to a list inside the vault
+// Maps compared by key: tag budgets (one per tag) and the mortgage setup (everything in DATA.mortgage except its payments, as one item, since a different start balance re-prices every payment).
+const _PIT_MAPS = [['tagBudgets', 'tag budgets', v => v && v.tagBudgets && typeof v.tagBudgets === 'object' && !Array.isArray(v.tagBudgets) ? v.tagBudgets : {}, k => '#' + k],
+                   ['mortgageSetup', 'mortgage setup', v => v && v.mortgage && typeof v.mortgage === 'object' ? { setup: (({ payments, ...rest }) => rest)(v.mortgage) } : {}, () => 'mortgage start balance, rate and dates']];
+const _pitList = (v, path) => { const x = path.split('.').reduce((o, k) => o && typeof o === 'object' ? o[k] : undefined, v); return Array.isArray(x) ? x.filter(r => r && typeof r === 'object') : []; };
+const _pitDate = r => r.date || (r.year != null && r.month != null ? `${r.year}-${String(r.month).padStart(2, '0')}` : '') || r.from || '';
 const _pitStable = v => JSON.stringify(Array.isArray(v) ? v.map(_pitStableObj) : _pitStableObj(v));
 function _pitStableObj(v) { return Array.isArray(v) ? v.map(_pitStableObj) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, _pitStableObj(v[k])])) : v; }
 // a short human description of a record, for the "would be removed / would come back" lists
 function pitDescribe(r) {
-  const label = r.desc || r.name || r.station || r.ticker || r.id, amt = r.amount != null ? r.amount : r.total != null ? r.total : r.balance;
-  return `${r.date ? r.date + ' · ' : ''}${label}${amt != null && isFinite(amt) ? ' · ' + fmt(amt) : ''}`;
+  const pay = r.paymentAmount != null && r.openingBalance != null, mon = r.totalKwh != null && r.year != null && r.month != null, bill = !pay && !mon && r.from && r.to && r.gross != null;
+  const label = pay ? 'mortgage payment' : mon ? 'tariff month' : bill ? 'electricity bill' : r.desc || r.name || r.station || r.ticker || r.id;
+  const amt = pay ? r.paymentAmount : mon ? r.totalCost : bill ? r.gross : r.amount != null ? r.amount : r.total != null ? r.total : r.balance, when = _pitDate(r);
+  return `${when ? when + ' · ' : ''}${label}${amt != null && isFinite(amt) ? ' · ' + fmt(amt) : ''}`;
 }
 // What would change if `snapshot` replaced `current`:  lost = exists now, not in the snapshot · regained = in the snapshot, not now ·
 // changed = in both, different. Records are matched by id; income months by month.
 function diffVaults(current, snapshot) {
   const lists = _PIT_LISTS.map(([name, label]) => {
-    const cur = (current && current[name]) || [], snap = (snapshot && snapshot[name]) || [];
+    const cur = _pitList(current, name), snap = _pitList(snapshot, name);
     const curMap = new Map(cur.map(r => [r.id, r])), snapMap = new Map(snap.map(r => [r.id, r]));
-    const byDate = (a, b) => String(b.date || '').localeCompare(String(a.date || ''));
+    const byDate = (a, b) => String(_pitDate(b)).localeCompare(String(_pitDate(a)));
     return { name, label,
       lost:     cur.filter(r => !snapMap.has(r.id)).sort(byDate),
       regained: snap.filter(r => !curMap.has(r.id)).sort(byDate),
@@ -4493,16 +4524,18 @@ function diffVaults(current, snapshot) {
   });
   const ci = (current && current.incomes) || {}, si = (snapshot && snapshot.incomes) || {};
   const incomes = { lost: Object.keys(ci).filter(m => !(m in si)), regained: Object.keys(si).filter(m => !(m in ci)), changed: Object.keys(ci).filter(m => m in si && _pitStable(ci[m]) !== _pitStable(si[m])) };
-  const sum = k => lists.reduce((a, l) => a + l[k].length, 0) + incomes[k].length;
-  const d = { lists, incomes, lostTotal: sum('lost'), regainedTotal: sum('regained'), changedTotal: sum('changed') };
+  const maps = _PIT_MAPS.map(([name, label, get]) => { const c = get(current), s = get(snapshot); return { name, label, lost: Object.keys(c).filter(k => !(k in s)), regained: Object.keys(s).filter(k => !(k in c)), changed: Object.keys(c).filter(k => k in s && _pitStable(c[k]) !== _pitStable(s[k])) }; });
+  const sum = k => lists.reduce((a, l) => a + l[k].length, 0) + incomes[k].length + maps.reduce((a, m) => a + m[k].length, 0);
+  const d = { lists, incomes, maps, lostTotal: sum('lost'), regainedTotal: sum('regained'), changedTotal: sum('changed') };
   d.identical = !d.lostTotal && !d.regainedTotal && !d.changedTotal;
   return d;
 }
 // The preview shown before restoring. Everything that comes from the vault is escaped.
 function pitPreviewHtml(d) {
   if (d.identical) return '<div>This snapshot is identical to your current vault in everything the app can compare. Restoring it would change nothing.</div>';
-  const counts = side => [...d.lists.filter(l => l[side].length).map(l => `${l[side].length} ${l.label}`), ...(d.incomes[side].length ? [`${d.incomes[side].length} income month${d.incomes[side].length > 1 ? 's' : ''}`] : [])].join(', ');
-  const sample = side => d.lists.flatMap(l => l[side]).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 4).map(r => `<div style="color:var(--ink3);padding-left:14px">${esc(pitDescribe(r))}</div>`).join('');
+  const counts = side => [...d.lists.filter(l => l[side].length).map(l => `${l[side].length} ${l.label}`), ...(d.incomes[side].length ? [`${d.incomes[side].length} income month${d.incomes[side].length > 1 ? 's' : ''}`] : []), ...d.maps.filter(m => m[side].length).map(m => `${m[side].length} ${m.label}`)].join(', ');
+  const sample = side => d.lists.flatMap(l => l[side]).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 4).map(r => `<div style="color:var(--ink3);padding-left:14px">${esc(pitDescribe(r))}</div>`).join('')
+    + d.maps.flatMap(m => m[side].slice(0, 4).map(k => `<div style="color:var(--ink3);padding-left:14px">${esc(_PIT_MAPS.find(x => x[0] === m.name)[3](k))}</div>`)).join('');
   const block = (icon, n, txt, side) => n ? `<div style="margin-bottom:8px"><div>${icon} <b>${n}</b> ${txt}: ${esc(counts(side))}</div>${sample(side)}${n > 4 && d.lists.flatMap(l => l[side]).length > 4 ? '<div style="color:var(--ink3);padding-left:14px">…and more</div>' : ''}</div>` : '';
   return block('🗑', d.lostTotal, 'item(s) you have NOW would be removed', 'lost')
        + block('↩', d.regainedTotal, 'item(s) that were deleted since would come back', 'regained')
@@ -10595,7 +10628,12 @@ function validateMortgageSetup(raw) {
   if (!_dbRealDate(startDate)) return { ok: false, error: 'Pick a valid date for the starting balance.' };
   if (!_mgOkAmount(startBalance)) return { ok: false, error: 'Enter the outstanding mortgage balance (more than 0).' };
   if (!(rate >= 0 && rate <= 100)) return { ok: false, error: 'Enter the annual interest rate as a percentage between 0 and 100.' };
-  return { ok: true, setup: { startDate, startBalance: _mgR2(startBalance), rate } };
+  const setup = { startDate, startBalance: _mgR2(startBalance), rate };
+  if (raw && 'fixedUntil' in raw) {            // optional end of the fixed-rate period; '' clears it, a missing key leaves it alone
+    const f = raw.fixedUntil;
+    if (f === '' || f === null || f === undefined) setup.fixedUntil = ''; else if (_dbRealDate(f)) setup.fixedUntil = f; else return { ok: false, error: 'Pick a valid date for the end of the fixed rate, or leave it empty.' };
+  }
+  return { ok: true, setup };
 }
 // → { ok, error } | { ok, payment:{ date, amount, annualRate } } — `amount` is what was entered
 function validateMortgagePayment(raw, m) {
@@ -10613,6 +10651,7 @@ function mortgageSetStart(d, raw) {
   const ps = (d.mortgage && Array.isArray(d.mortgage.payments)) ? d.mortgage.payments : [];
   if (ps.some(p => p.date < v.setup.startDate)) return { ok: false, error: 'A payment is dated before that start date — edit or delete it first.' };
   d.mortgage = { ...(d.mortgage || {}), ...v.setup, payments: mortgageRecompute(v.setup.startBalance, ps) };
+  if (d.mortgage.fixedUntil === '') delete d.mortgage.fixedUntil;
   return { ok: true };
 }
 const _mgDup = (ps, date, amount, exceptId) => ps.some(p => p.id !== exceptId && p.date === date && _mgReq(p) === amount);
@@ -10658,7 +10697,7 @@ function renderMortgage() {
   const box = el('d-mortgage'); if (!box) return;
   const m = DATA.mortgage, S = mortgageSummary(m), addBtn = el('mg-add-btn');
   if (addBtn) addBtn.style.display = S ? '' : 'none';
-  if (!S) { box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not set up yet. Enter your outstanding balance for the month you want to start tracking (e.g. November 2026) and the current annual rate — payments before that date are not estimated.</div>'; return; }
+  if (!S) { renderMortgageOutlook(); box.innerHTML = '<div style="font-size:13px;color:var(--ink3)">Not set up yet. Enter your outstanding balance for the month you want to start tracking (e.g. November 2026) and the current annual rate — payments before that date are not estimated.</div>'; return; }
   const stat = (l, v, c) => `<div class="stat"><div class="stat-lbl">${l}</div><div class="stat-val${c ? ' ' + c : ''}">${v}</div></div>`;
   const stats = `<div class="stat-grid" style="margin-bottom:10px">${stat('Starting balance (' + esc(S.startDate || '') + ')', fmt(S.startBalance))}${stat('Outstanding now', fmt(S.balance))}${stat('Principal repaid', fmt(S.principalRepaid))}${stat('Interest paid', fmt(S.interestPaid), 'cr')}${stat('Current rate', _mgRate(S.rate))}</div>`;
   const ps = (m.payments || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -10670,16 +10709,17 @@ function renderMortgage() {
   const table = ps.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Date</th><th>Payment</th><th>Rate</th><th>Interest</th><th>Principal</th><th>Opening</th><th>Closing</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
     : '<div style="font-size:13px;color:var(--ink3)">No payments yet — use “+ Add payment”.</div>';
   box.innerHTML = stats + (S.paidOff ? '<div class="banner info" style="margin-bottom:10px">Mortgage fully repaid.</div>' : '') + table;
+  renderMortgageOutlook();
 }
 function _mgForm(id, on) { const f = el(id); if (f) f.style.display = on ? '' : 'none'; }
 function mortgageSetupOpen() {
   const m = DATA.mortgage || {}, set = (k, v) => { el('mg-s-' + k).value = v === undefined || v === null ? '' : v; };
-  set('date', m.startDate || '2026-11-01'); set('balance', m.startBalance); set('rate', m.rate);
+  set('date', m.startDate || '2026-11-01'); set('balance', m.startBalance); set('rate', m.rate); set('fixed', m.fixedUntil);
   el('mg-s-title').textContent = m.startBalance !== undefined ? 'Change starting balance' : 'Start tracking your mortgage';
   _mgForm('mortgage-pay-form', false); _mgForm('mortgage-setup-form', true); el('mg-s-balance').focus();
 }
 function mortgageSetupSave() {
-  const raw = { startDate: el('mg-s-date').value, startBalance: el('mg-s-balance').value, rate: el('mg-s-rate').value };
+  const raw = { startDate: el('mg-s-date').value, startBalance: el('mg-s-balance').value, rate: el('mg-s-rate').value, fixedUntil: el('mg-s-fixed').value };
   const v = validateMortgageSetup(raw); if (!v.ok) return toast(v.error, 1);
   _mgForm('mortgage-setup-form', false);
   const r = commit('Mortgage start saved', d => mortgageSetStart(d, raw), { touch: ['mortgage'], render: renderMortgage, toast: res => res.ok ? 'Mortgage start saved' : null });
@@ -10720,6 +10760,91 @@ defineActions({
   'mg-pay-save':     () => mortgagePaySave(),
   'mg-pay-cancel':   () => _mgForm('mortgage-pay-form', false),
   'mg-pay-del':      t => mortgagePayDelete(t.dataset.id),
+});
+
+// ── Mortgage outlook: read-only estimates (nothing here creates or changes a payment) ──
+// Projection = the same payment and the same rate every month from the balance after the last recorded payment. A what-if adds a fixed extra amount to every payment.
+// Optional DATA.mortgage.fixedUntil ('YYYY-MM-DD', end of the fixed-rate period → a reminder) and DATA.mortgage.lenderCheck ({ date, balance }: the balance your lender states, kept to
+// compare with this app's estimate). Both are saved with the rest of DATA.mortgage and follow the same local-wins merge.
+const _mgIdx = s => +String(s).slice(0, 4) * 12 + (+String(s).slice(5, 7) - 1), _mgIdxLabel = i => `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`;
+const _mgSorted = m => (Array.isArray(m && m.payments) ? m.payments : []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+// opts = { payment?, extra?, rate? } → null (no mortgage / no payment known) | { paidOff } | { neverPaysOff, … } | { months, payoffMonth, totalInterest, totalPaid, lastPayment, payment, rate, balance }
+function mortgageProjection(m, opts) {
+  opts = opts || {}; const S = mortgageSummary(m); if (!S) return null;
+  const last = _mgSorted(m).pop(), base = opts.payment !== undefined ? _mgNum(opts.payment) : (last ? _mgReq(last) : NaN);
+  if (S.balance <= 0) return { paidOff: true, months: 0, totalInterest: 0, totalPaid: 0, balance: 0 };
+  if (!(base > 0)) return null;
+  const extra = Math.max(0, _mgR2(_mgNum(opts.extra) || 0)), rate = opts.rate !== undefined ? +opts.rate : S.rate, payment = _mgR2(base + extra);
+  let bal = S.balance, n = 0, interest = 0, paid = 0, lastPay = 0;
+  while (bal > 0 && n < 1200) {
+    const r = mortgageApplyPayment(bal, payment, rate);
+    if (r.principal <= 0) return { neverPaysOff: true, payment, rate, balance: S.balance, interestDue: r.interestDue };
+    interest += r.interest; paid += r.paymentAmount; lastPay = r.paymentAmount; bal = r.closingBalance; n++;
+  }
+  if (bal > 0) return { neverPaysOff: true, payment, rate, balance: S.balance, interestDue: mortgageInterest(S.balance, rate) };
+  const first = last ? _mgIdx(last.date) + 1 : _mgIdx(m.startDate);
+  return { months: n, payoffMonth: _mgIdxLabel(first + n - 1), totalInterest: _mgR2(interest), totalPaid: _mgR2(paid), lastPayment: lastPay, payment, rate, balance: S.balance };
+}
+// Base projection against the same with `extra` added every month → { base, withExtra, monthsSaved, interestSaved } (savings null when either side never pays off).
+function mortgageWhatIf(m, extra, payment) {
+  const o = payment === undefined ? {} : { payment }, base = mortgageProjection(m, o), withExtra = mortgageProjection(m, { ...o, extra }); if (!base || !withExtra) return null;
+  const ok = x => x && !x.neverPaysOff && !x.paidOff;
+  return { base, withExtra, monthsSaved: ok(base) && ok(withExtra) ? base.months - withExtra.months : null, interestSaved: ok(base) && ok(withExtra) ? _mgR2(base.totalInterest - withExtra.totalInterest) : null };
+}
+const mortgageBalanceOn = (m, date) => { const ps = _mgSorted(m).filter(p => p.date <= date), l = ps.pop(); return l ? _mgR2(+l.closingBalance || 0) : _mgR2(+m.startBalance); };
+// → { ok, check:{ date, balance } } | { error }
+function validateMortgageLenderCheck(raw, m) {
+  if (!m || !Number.isFinite(+m.startBalance)) return { error: 'Set the starting balance first.' };
+  const date = raw && raw.date, balance = _mgNum(raw && raw.balance);
+  if (!_dbRealDate(date)) return { error: 'Pick the date of the lender\'s statement.' };
+  if (m.startDate && date < m.startDate) return { error: `Tracking starts on ${m.startDate} — pick a statement from that day on.` };
+  if (!(Number.isFinite(balance) && balance >= 0 && balance <= 1e9)) return { error: 'Enter the balance your lender states (0 or more).' };
+  return { ok: true, check: { date, balance: _mgR2(balance) } };
+}
+function mortgageSetLenderCheck(d, raw) { const v = validateMortgageLenderCheck(raw, d.mortgage); if (!v.ok) return v; d.mortgage.lenderCheck = v.check; return { ok: true }; }
+function mortgageClearLenderCheck(d) { if (!d.mortgage || !d.mortgage.lenderCheck) return { error: 'There is no check to clear.' }; delete d.mortgage.lenderCheck; return { ok: true }; }
+// → null | { date, lender, app, diff (lender − app), match }
+function mortgageLenderDiff(m) {
+  const c = m && m.lenderCheck; if (!c || !_dbRealDate(c.date) || !Number.isFinite(+c.balance) || !mortgageSummary(m) || c.date < m.startDate) return null;
+  const app = mortgageBalanceOn(m, c.date), diff = _mgR2(+c.balance - app); return { date: c.date, lender: _mgR2(+c.balance), app, diff, match: Math.abs(diff) < 0.005 };
+}
+// "Coming up": the end of the fixed-rate period, from 90 days before to 30 days after it.
+function _mortgageReminders(data, today) {
+  const m = data && data.mortgage; if (!m || !_dbRealDate(m.fixedUntil)) return [];
+  const left = _remDiff(today, m.fixedUntil); if (left > 90 || left < -30) return [];
+  const S = mortgageSummary(m), tail = S ? ` Your current rate is ${_mgRate(S.rate)}; ask your lender for the follow-on rate and compare it with other offers before the date.` : '';
+  return [{ id: 'mortgage-fixed-end', level: left <= 30 ? 'warn' : 'soon', icon: '🏠', date: m.fixedUntil, link: null,
+    title: left < 0 ? 'Your fixed mortgage rate has ended' : left === 0 ? 'Your fixed mortgage rate ends today' : `Fixed mortgage rate ends ${m.fixedUntil}`,
+    text: (left < 0 ? `The fixed-rate period ended on ${m.fixedUntil}.` : `The fixed-rate period ends on ${m.fixedUntil}${left === 0 ? '' : `, in ${left} day${left === 1 ? '' : 's'}`}.`) + tail }];
+}
+const _mgSpan = n => `${n >= 12 ? Math.floor(n / 12) + ' y ' : ''}${n % 12 ? (n % 12) + ' m' : ''}`.trim() || '0 m';
+function renderMortgageOutlook() {
+  const wrap = el('mortgage-outlook'), m = DATA.mortgage, S = mortgageSummary(m); if (wrap) wrap.style.display = S ? '' : 'none'; if (!wrap || !S) return;
+  const line = (t, c) => `<div style="font-size:12px;line-height:1.5;${c ? 'color:' + c : ''}">${t}</div>`, P = mortgageProjection(m), proj = el('d-mortgage-proj');
+  const fixed = m.fixedUntil && _dbRealDate(m.fixedUntil) ? line(`Rate fixed until <b>${esc(m.fixedUntil)}</b> (${(d => d < 0 ? 'ended' : d === 0 ? 'ends today' : 'in ' + d + ' days')(_remDiff(ymd(), m.fixedUntil))}).`, 'var(--ink2)') : '';
+  proj.innerHTML = (!P ? line('Add a payment to project the payoff date.', 'var(--ink3)') : P.paidOff ? line('The mortgage is fully repaid.')
+    : P.neverPaysOff ? line(`At ${fmt(P.payment)} a month and ${_mgRate(P.rate)} the interest alone is ${fmt(P.interestDue)} a month, so the balance would never fall.`, 'var(--Rm)')
+    : line(`At <b>${fmt(P.payment)}</b> a month and ${_mgRate(P.rate)}, the mortgage would be paid off in <b>${esc(P.payoffMonth)}</b> (${_mgSpan(P.months)}, ${P.months} payments), with about ${fmt(P.totalInterest)} interest still to pay.`)) + fixed;
+  const xin = el('mg-extra'), extra = xin ? _mgNum(xin.value) : NaN, wi = el('d-mortgage-whatif');
+  if (!(extra > 0)) wi.innerHTML = line('Enter an extra monthly amount to see what it would save.', 'var(--ink3)');
+  else { const W = mortgageWhatIf(m, extra);
+    wi.innerHTML = !W ? line('Add a payment first.', 'var(--ink3)') : W.monthsSaved === null ? (W.withExtra.neverPaysOff ? line('Even with that extra the payment would not cover the interest.', 'var(--Rm)') : line(`With ${fmt(extra)} extra a month it would be paid off in <b>${esc(W.withExtra.payoffMonth)}</b>.`))
+      : line(`With <b>${fmt(extra)}</b> extra a month: paid off in <b>${esc(W.withExtra.payoffMonth)}</b> instead of ${esc(W.base.payoffMonth)} — <b>${_mgSpan(W.monthsSaved)} sooner</b> and about <b>${fmt(W.interestSaved)} less interest</b>.`, 'var(--Gm)'); }
+  const ld = el('mg-l-date'); if (ld && !ld.value) ld.value = ymd();
+  const D = mortgageLenderDiff(m), lr = el('d-mortgage-lender');
+  lr.innerHTML = !m.lenderCheck ? '' : !D ? line('The saved lender check cannot be compared (its date is before the start or the data is incomplete).', 'var(--Am)')
+    : D.match ? line(`On ${esc(D.date)} your lender's balance (${fmt(D.lender)}) matches this app's estimate.`, 'var(--Gm)')
+    : line(`On ${esc(D.date)} your lender shows ${fmt(D.lender)}; this app estimates ${fmt(D.app)} — the lender is <b>${fmt(Math.abs(D.diff))} ${D.diff > 0 ? 'higher' : 'lower'}</b>. Daily interest, fees or different payment dates can explain a difference like this.`, 'var(--ink2)');
+}
+function mortgageLenderSave() {
+  const raw = { date: el('mg-l-date').value, balance: el('mg-l-balance').value }, v = validateMortgageLenderCheck(raw, DATA.mortgage); if (!v.ok) return toast(v.error, 1);
+  const r = commit('Lender check saved', d => mortgageSetLenderCheck(d, raw), { touch: ['mortgage'], render: renderMortgage, toast: res => res.ok ? 'Lender balance saved' : null });
+  if (r.result && r.result.error) toast(r.result.error, 1);
+}
+defineActions({
+  'mg-extra':        () => renderMortgageOutlook(),
+  'mg-lender-save':  () => mortgageLenderSave(),
+  'mg-lender-clear': () => { el('mg-l-balance').value = ''; const r = commit('Lender check cleared', d => mortgageClearLenderCheck(d), { touch: ['mortgage'], render: renderMortgage }); if (r.result && r.result.error) toast(r.result.error, 1); },
 });
 
 
@@ -11751,6 +11876,7 @@ function renderEnergy() {
   { const tf0 = energyTariff({}), ov = en.tariff || {};
     ENERGY_BANDS.forEach(b => { const inp = el('en-p-' + b); if (!inp) return; const has = Object.prototype.hasOwnProperty.call(ov, 'bands.' + b) && _enIsNum(ov['bands.' + b]);
       inp.placeholder = _enPriceShown(tf0.bands[b], en); inp.value = has ? _enPriceShown(energyTariff(en).bands[b], en) : ''; }); }
+  { const fx = el('en-p-fixed'); if (fx) { const f = energyFixedPrice(en); fx.value = f === null ? '' : _enPriceShown(f, en); } }
   const t = en.tariff || {}, rates = el('d-energy-rates');
   if (rates) { const def = energyTariff({});
     rates.innerHTML = ENERGY_RATES.map(({ path, label, unit }) => { const [a, b] = path.split('.'), d = b ? def[a][b] : def[a], has = Object.prototype.hasOwnProperty.call(t, path) && _enIsNum(t[path]);
@@ -11766,6 +11892,7 @@ function renderEnergy() {
   energyCalc();
   renderEnergyRate();
   renderEnergyMonths();
+  renderEnergyYear();
 }
 
 function energySetRate(path, raw) {
@@ -11847,21 +11974,30 @@ function energyMonthCosts(kwh, rate) {
 function energyBuildMonthRecord(raw) {
   raw = raw || {}; const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(String(raw.month || '')); if (!m) return { error: 'Pick the month and year.' };
   const year = +m[1], month = +m[2]; if (year < 2000 || year > 2100) return { error: 'The year must be between 2000 and 2100.' };
-  const kwh = {}, rate = {};
-  for (const b of ENERGY_BANDS) {
-    const k = _enNum(raw.kwh && raw.kwh[b]); if (k === null) return { error: 'Enter the consumption for all three bands (0 if none).' };
+  const kwh = {}, rate = {}, fixed = raw.fixedPrice === true;
+  if (fixed) {                                                                  // one total and one rate; the bands get the usual split, only for display
+    const k = _enNum(raw.totalKwh), r = _enNum(raw.fixedRate);
+    if (k === null) return { error: 'Enter the total consumption in kWh.' };
     if (Number.isNaN(k) || k < 0 || k > 1e6) return { error: 'Consumption must be a number in kWh, 0 or more.' };
-    kwh[b] = _enR3(k);
-  }
-  for (const b of ENERGY_BANDS) {
-    const r = _enNum(raw.rate && raw.rate[b]); if (r === null) return { error: 'Enter the rate for all three bands in ct/kWh.' };
-    if (Number.isNaN(r) || r < 0 || r > 1000) return { error: 'Rates must be numbers in ct/kWh, between 0 and 1000.' };
-    rate[b] = _enRound6(r / 100);
+    if (r === null) return { error: 'Enter the fixed price in ct/kWh.' };
+    if (Number.isNaN(r) || r < 0 || r > 1000) return { error: 'The price must be a number in ct/kWh, between 0 and 1000.' };
+    Object.assign(kwh, _enSplitKwh(_enR3(k))); ENERGY_BANDS.forEach(b => { rate[b] = _enRound6(r / 100); });
+  } else {
+    for (const b of ENERGY_BANDS) {
+      const k = _enNum(raw.kwh && raw.kwh[b]); if (k === null) return { error: 'Enter the consumption for all three bands (0 if none).' };
+      if (Number.isNaN(k) || k < 0 || k > 1e6) return { error: 'Consumption must be a number in kWh, 0 or more.' };
+      kwh[b] = _enR3(k);
+    }
+    for (const b of ENERGY_BANDS) {
+      const r = _enNum(raw.rate && raw.rate[b]); if (r === null) return { error: 'Enter the rate for all three bands in ct/kWh.' };
+      if (Number.isNaN(r) || r < 0 || r > 1000) return { error: 'Rates must be numbers in ct/kWh, between 0 and 1000.' };
+      rate[b] = _enRound6(r / 100);
+    }
   }
   const priceMode = raw.priceMode === 'gross' || raw.priceMode === 'net' ? raw.priceMode : null; if (!priceMode) return { error: 'Say whether the rates are net or incl. VAT.' };
   const vat = _enNum(raw.vat); if (vat === null || Number.isNaN(vat) || vat < 0 || vat > 100) return { error: 'VAT must be a percentage between 0 and 100.' };
-  const c = energyMonthCosts(kwh, rate);
-  return { ok: true, record: { year, month, kwh, rate, cost: c.cost, totalKwh: c.totalKwh, totalCost: c.totalCost, priceMode, vat, currency: 'EUR' } };
+  const c = fixed ? energyFixedCosts(kwh, rate.off) : energyMonthCosts(kwh, rate);
+  return { ok: true, record: { year, month, kwh, rate, cost: c.cost, totalKwh: c.totalKwh, totalCost: c.totalCost, priceMode, vat, currency: 'EUR', ...(fixed ? { fixedPrice: true } : {}) } };
 }
 // Add (no id) or edit (id) one month. A month that already has a record is refused, never overwritten. Only the edited record is replaced; every other object stays the same one.
 function energySetMonthRecord(d, raw, id, newId) {
@@ -11932,13 +12068,15 @@ const _enEur = n => fmt(n), _enEff = n => n == null ? '–' : '€' + n.toFixed(
 const _enSigned = (n, f) => (n > 0 ? '+' : n < 0 ? '−' : '±') + f(Math.abs(n));
 function _enReadMonthForm() {
   const v = id => (el('en-m-' + id) ? el('en-m-' + id).value : '');
-  return { month: v('month'), priceMode: v('mode'), vat: v('vat'), kwh: { off: v('kwh-off'), shoulder: v('kwh-shoulder'), peak: v('kwh-peak') }, rate: { off: v('rate-off'), shoulder: v('rate-shoulder'), peak: v('rate-peak') } };
+  return { month: v('month'), priceMode: v('mode'), vat: v('vat'), fixedPrice: !!(el('en-m-fixed') && el('en-m-fixed').checked), totalKwh: v('total'), fixedRate: v('frate'), kwh: { off: v('kwh-off'), shoulder: v('kwh-shoulder'), peak: v('kwh-peak') }, rate: { off: v('rate-off'), shoulder: v('rate-shoulder'), peak: v('rate-peak') } };
 }
 function renderEnergyMonthPreview() {
   const box = el('d-energy-month-preview'); if (!box) return;
+  const fb = el('en-m-fixedbox'), bb = el('en-m-bands'), fxOn = !!(el('en-m-fixed') && el('en-m-fixed').checked); if (fb) fb.style.display = fxOn ? '' : 'none'; if (bb) bb.style.display = fxOn ? 'none' : '';
   const r = energyBuildMonthRecord(_enReadMonthForm()), note = t => { box.innerHTML = `<div style="font-size:12px;color:var(--ink3)">${esc(t)}</div>`; };
   if (r.error) return note(r.error);
   const R = r.record, row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:1px 0;${bold ? 'font-weight:600' : ''}"><span>${l}</span><span style="font-family:var(--mono)">${v}</span></div>`;
+  if (R.fixedPrice) { box.innerHTML = row(`Fixed price: ${_enKwh(R.totalKwh)} kWh × ${(R.rate.off * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })} ct`, _enEur(R.totalCost), true) + `<div style="font-size:11px;color:var(--ink3);margin-top:2px">Costs are ${R.priceMode === 'gross' ? 'incl. VAT' : 'net'}, energy price × kWh only.</div>`; return; }
   box.innerHTML = ENERGY_BANDS.map(b => row(`${ENERGY_BAND_LABEL[b]}: ${_enKwh(R.kwh[b])} kWh × ${(R.rate[b] * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })} ct`, _enEur(R.cost[b]))).join('')
     + `<div style="border-top:.5px solid var(--bdr);margin-top:4px;padding-top:4px">${row(`Total: ${_enKwh(R.totalKwh)} kWh`, _enEur(R.totalCost), true)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Costs are ${R.priceMode === 'gross' ? 'incl. VAT' : 'net'}, energy price × kWh only.</div>`;
 }
@@ -11961,13 +12099,16 @@ function renderEnergyMonths() {
   if (mi && !mi.value) mi.value = ymd().slice(0, 7);
   const mode = el('en-m-mode'); if (mode && !mode.value) mode.value = _enMode(en); const vi = el('en-m-vat'); if (vi && !vi.value) vi.value = String(energyTariff(en).vat).replace('.', ',');
   const tf = energyTariff(en); ENERGY_BANDS.forEach(b => { const i = el('en-m-rate-' + b); if (i) i.placeholder = _enPriceShown(tf.bands[b], en); });   // a hint only — nothing is ever filled in from the settings
+  const r0 = el('en-m-r0'); if (r0 && en.lastReading != null) r0.placeholder = String(en.lastReading).replace('.', ',');   // a hint only
   renderEnergyMonthPreview();
   box.innerHTML = newest.length ? `<div class="amort-table-wrap"><table class="amort-tbl"><thead><tr><th>Month</th><th>Off-peak kWh</th><th>Shoulder kWh</th><th>Peak kWh</th><th>Total kWh</th><th>Rates ct/kWh</th><th>Off-peak €</th><th>Shoulder €</th><th>Peak €</th><th>Total €</th><th></th></tr></thead><tbody>${newest.map(r =>
-    `<tr><td>${_enMLabel(r.year, r.month)}</td><td>${_enKwh(r.kwh.off)}</td><td>${_enKwh(r.kwh.shoulder)}</td><td>${_enKwh(r.kwh.peak)}</td><td>${_enKwh(r.totalKwh)}</td>`
-    + `<td title="${r.priceMode === 'gross' ? 'incl. VAT' : 'net'}, VAT ${esc(String(r.vat))} %">${ENERGY_BANDS.map(b => (r.rate[b] * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })).join(' / ')} <span style="color:var(--ink3)">${r.priceMode === 'gross' ? 'incl.' : 'net'}</span></td>`
-    + `<td>${_enEur(r.cost.off)}</td><td>${_enEur(r.cost.shoulder)}</td><td>${_enEur(r.cost.peak)}</td><td><b>${_enEur(r.totalCost)}</b></td>`
+    `<tr><td>${_enMLabel(r.year, r.month)}</td>${r.fixedPrice ? '<td colspan="3" style="color:var(--ink3);text-align:center">fixed price — no band split</td>' : `<td>${_enKwh(r.kwh.off)}</td><td>${_enKwh(r.kwh.shoulder)}</td><td>${_enKwh(r.kwh.peak)}</td>`}<td>${_enKwh(r.totalKwh)}</td>`
+    + `<td title="${r.priceMode === 'gross' ? 'incl. VAT' : 'net'}, VAT ${esc(String(r.vat))} %">${(r.fixedPrice ? ['off'] : ENERGY_BANDS).map(b => (r.rate[b] * 100).toLocaleString('de-AT', { maximumFractionDigits: 4 })).join(' / ')}${r.fixedPrice ? ' fixed' : ''} <span style="color:var(--ink3)">${r.priceMode === 'gross' ? 'incl.' : 'net'}</span></td>`
+    + `${r.fixedPrice ? '<td colspan="3" style="color:var(--ink3);text-align:center">–</td>' : `<td>${_enEur(r.cost.off)}</td><td>${_enEur(r.cost.shoulder)}</td><td>${_enEur(r.cost.peak)}</td>`}<td><b>${_enEur(r.totalCost)}</b></td>`
     + `<td style="white-space:nowrap"><button class="btn xs ghost" data-action="energy-month-edit" data-id="${esc(r.id)}">Edit</button> <button class="btn xs danger" data-action="energy-month-del" data-id="${esc(r.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
     : '<div style="font-size:12px;color:var(--ink3)">No months recorded yet.</div>';
+
+  box.innerHTML += energyFullCostHtml(en, newest);
   const cmp = el('d-energy-cmp'); if (!cmp) return;
   if (!recs.length) { cmp.innerHTML = ''; return; }
   const labels = recs.map(r => _enMLabel(r.year, r.month)), years = [...new Set(recs.map(r => r.year))], last = recs[recs.length - 1];
@@ -11976,7 +12117,7 @@ function renderEnergyMonths() {
   if (!_enCmp.user.m || !(_enCmp.m >= 1 && _enCmp.m <= 12)) _enCmp.m = last.month;
   const sel = (k, opts, cur) => `<select data-action-change="energy-cmp" data-k="${k}" style="width:auto;font-size:12px">${opts.map(([v, l]) => `<option value="${esc(String(v))}"${String(v) === String(cur) ? ' selected' : ''}>${esc(String(l))}</option>`).join('')}</select>`;
   const find = l => recs.find(r => _enMLabel(r.year, r.month) === l), H = t => `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">${t}</div>`;
-  let h = H('Totals per year (incl. VAT)') + `<div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th>Year</th><th>Months</th><th>Off-peak kWh</th><th>Shoulder kWh</th><th>Peak kWh</th><th>Total kWh</th><th>Total cost</th><th>Avg price</th></tr></thead><tbody>${energyAnnualTotals(en).map(t =>
+  let h = (recs.some(r => r.fixedPrice) ? '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Fixed-price months have no real band split: their off-peak / shoulder / peak rows in the comparisons use the usual shares.</div>' : '') + H('Totals per year (incl. VAT)') + `<div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th>Year</th><th>Months</th><th>Off-peak kWh</th><th>Shoulder kWh</th><th>Peak kWh</th><th>Total kWh</th><th>Total cost</th><th>Avg price</th></tr></thead><tbody>${energyAnnualTotals(en).map(t =>
     `<tr><td>${t.year}</td><td>${t.months}</td><td>${_enKwh(t.kwh.off)}</td><td>${_enKwh(t.kwh.shoulder)}</td><td>${_enKwh(t.kwh.peak)}</td><td>${_enKwh(t.kwh.total)}</td><td><b>${_enEur(t.cost.total)}</b></td><td>${_enEff(t.effective)}</td></tr>`).join('')}</tbody></table></div>`;
   if (recs.length >= 2) {
     h += H('Month against month (incl. VAT)') + `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">${sel('a', labels.map(l => [l, l]), _enCmp.a)} → ${sel('b', labels.map(l => [l, l]), _enCmp.b)}</div>` + _enCmpTable(energyCompareMonths(find(_enCmp.a), find(_enCmp.b)), _enCmp.a, _enCmp.b);
@@ -12004,10 +12145,11 @@ function energyMonthEdit(id) {
   const set = (n, v) => { el('en-m-' + n).value = v; }, num = x => String(x).replace('.', ',');
   set('id', r.id); set('month', _enMLabel(r.year, r.month)); set('mode', r.priceMode); set('vat', num(r.vat));
   ENERGY_BANDS.forEach(b => { set('kwh-' + b, num(r.kwh[b])); set('rate-' + b, num(_enRound4(r.rate[b] * 100))); });
+  el('en-m-fixed').checked = r.fixedPrice === true; set('total', r.fixedPrice ? num(r.totalKwh) : ''); set('frate', r.fixedPrice ? num(_enRound4(r.rate.off * 100)) : '');
   el('en-m-save').textContent = 'Update month'; el('en-month-details').open = true; renderEnergyMonthPreview();
 }
 function energyMonthClear() {
-  ['id', 'kwh-off', 'kwh-shoulder', 'kwh-peak', 'rate-off', 'rate-shoulder', 'rate-peak'].forEach(n => { el('en-m-' + n).value = ''; });
+  ['id', 'kwh-off', 'kwh-shoulder', 'kwh-peak', 'rate-off', 'rate-shoulder', 'rate-peak', 'total', 'frate'].forEach(n => { el('en-m-' + n).value = ''; }); el('en-m-fixed').checked = false;
   el('en-m-month').value = ''; el('en-m-mode').value = ''; el('en-m-vat').value = ''; el('en-m-save').textContent = 'Save month'; renderEnergyMonths();
 }
 function energyMonthDel(id) {
@@ -12016,6 +12158,121 @@ function energyMonthDel(id) {
     commit('Tariff month deleted', d => energyDeleteMonthRecord(d, id), { touch: ['energy'], render: () => renderEnergy() });
   });
 }
+// ══════════════════════════════════════════
+// ELECTRICITY EXTRAS — read-only views over the bills and the monthly tariff history. Nothing here is stored: a bill is only ever PRORATED BY DAYS into the month or year asked about
+// (a bill from 16 Oct to 15 Nov counts 16/31 in October and 15/31 in November), and the helpers that fill the month form only return numbers — a month is saved only by "Save month".
+// ══════════════════════════════════════════
+const _enDays = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5) + 1;
+const _enMonthRange = (y, m) => [`${y}-${String(m).padStart(2, '0')}-01`, `${y}-${String(m).padStart(2, '0')}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`];
+// The part of a bill inside [rs, re] → null | { share (of the bill, for prorating its kWh and amount), days (inside the range) }
+function _enOverlap(b, rs, re) {
+  if (!b || !_dbRealDate(b.from) || !_dbRealDate(b.to) || b.from > b.to) return null;
+  const lo = b.from > rs ? b.from : rs, hi = b.to < re ? b.to : re; if (lo > hi) return null;
+  return { share: _enDays(lo, hi) / _enDays(b.from, b.to), days: _enDays(lo, hi) };
+}
+const _enBillsIn = (en, rs, re) => (Array.isArray(en && en.bills) ? en.bills : []).map(b => ({ bill: b, ..._enOverlap(b, rs, re) })).filter(x => x.share > 0 && Number.isFinite(+x.bill.kwh) && +x.bill.kwh >= 0);
+// The bill's own band kWh if it has them, else the app's usual split (the same rule the estimate uses).
+function _enBandsOf(b) {
+  const bk = b && b.bandKwh; if (bk && ENERGY_BANDS.every(k => _enIsNum(bk[k]) && bk[k] >= 0)) return { bands: { off: bk.off, shoulder: bk.shoulder, peak: bk.peak }, byDefault: false };
+  return { bands: _enSplitKwh(+b.kwh), byDefault: true };
+}
+function _enSplitKwh(kwh) { const off = _enR3(kwh * ENERGY_SHARE.off), sh = _enR3(kwh * ENERGY_SHARE.shoulder); return { off, shoulder: sh, peak: _enR3(kwh - off - sh) }; }
+
+// ① The bills that cover a month, set against that month's energy price → what is left is grid charges, levies and fees (DERIVED: bill total − energy price × the part of the month the bills cover).
+// → null (no bill covers it) | { billed, coverage (0–1+ of the month), overlap, partial, energy, other, otherPct }   — energy = the month's energy price incl. VAT × coverage
+function energyFullCost(en, rec) {
+  if (!_enMonthRecOk(rec)) return null;
+  const [rs, re] = _enMonthRange(rec.year, rec.month), rows = _enBillsIn(en, rs, re).filter(x => Number.isFinite(+x.bill.gross) && +x.bill.gross >= 0); if (!rows.length) return null;
+  const billed = _enR2(rows.reduce((s, x) => s + x.bill.gross * x.share, 0)), coverage = rows.reduce((s, x) => s + x.days, 0) / _enDays(rs, re);
+  const energy = _enR2(energySumRecords([rec]).cost.total * Math.min(coverage, 1)), other = _enR2(billed - energy);
+  return { billed, coverage: Math.round(coverage * 1000) / 1000, overlap: coverage > 1.001, partial: coverage < 0.98, energy, other, otherPct: billed > 0 ? Math.round(other / billed * 1000) / 10 : null };
+}
+// ② Fill the month form: from the bills covering the month (prorated), or from two meter readings. → { error } | { ok, kwh:{off,shoulder,peak}, … }
+function energyFillFromBills(en, year, month) {
+  if (!(Number.isInteger(year) && Number.isInteger(month) && month >= 1 && month <= 12)) return { error: 'Pick the month first.' };
+  const [rs, re] = _enMonthRange(year, month), rows = _enBillsIn(en, rs, re); if (!rows.length) return { error: `No bill covers ${_enMLabel(year, month)}. Log a bill first, or enter the kWh by hand.` };
+  const k = { off: 0, shoulder: 0, peak: 0 }; let byDefault = false;
+  rows.forEach(x => { const o = _enBandsOf(x.bill); byDefault = byDefault || o.byDefault; ENERGY_BANDS.forEach(b => { k[b] += o.bands[b] * x.share; }); });
+  const coverage = rows.reduce((s, x) => s + x.days, 0) / _enDays(rs, re);
+  return { ok: true, kwh: Object.fromEntries(ENERGY_BANDS.map(b => [b, _enR3(k[b])])), bills: rows.length, coverage: Math.round(coverage * 1000) / 1000, partial: coverage < 0.98, byDefault };
+}
+function energyFillFromReadings(oldReading, newReading) {
+  const a = _enNum(oldReading), b = _enNum(newReading); if (a === null || b === null) return { error: 'Enter both meter readings.' };
+  if (Number.isNaN(a) || Number.isNaN(b) || a < 0 || b < 0) return { error: 'Meter readings must be numbers (0 or more).' }; if (b < a) return { error: 'The new reading is lower than the old one.' };
+  const total = _enR3(b - a); return { ok: true, total, kwh: _enSplitKwh(total), byDefault: true };
+}
+// ③ A calendar year from the bills (prorated by days): kWh, what you paid all in, the all-in price against the Austrian average, how much of the year the bills cover — and the energy-price-only
+// totals of the monthly history for the same year. → null when there is neither.
+function energyYearSummary(en, year) {
+  if (!Number.isInteger(year)) return null;
+  const rs = `${year}-01-01`, re = `${year}-12-31`, rows = _enBillsIn(en, rs, re).filter(x => Number.isFinite(+x.bill.gross) && +x.bill.gross >= 0), tariff = energyAnnualTotals(en).find(t => t.year === year) || null;
+  if (!rows.length && !tariff) return null;
+  const kwh = rows.reduce((s, x) => s + x.bill.kwh * x.share, 0), gross = rows.reduce((s, x) => s + x.bill.gross * x.share, 0), days = rows.reduce((s, x) => s + x.days, 0), rate = kwh > 0 && gross > 0 ? Math.round(gross / kwh * 1e4) / 1e4 : null;
+  return { year, bills: rows.length, kwh: _enR3(kwh), gross: _enR2(gross), allInRate: rate, vs: rate === null ? null : energyVsAverage(rate), coverage: Math.round(Math.min(1, days / _enDays(rs, re)) * 1000) / 1000, tariff };
+}
+const energyYears = en => [...new Set([...(Array.isArray(en && en.bills) ? en.bills : []).flatMap(b => b && _dbRealDate(b.from) && _dbRealDate(b.to) ? [+b.from.slice(0, 4), +b.to.slice(0, 4)] : []), ..._enRecs(en).map(r => r.year)])].sort((a, b) => a - b);
+
+// ── UI ──
+let _enYear = null, _enYearUser = false;                                    // screen state only
+function energyFullCostHtml(en, newest) {
+  const rows = newest.map(r => ({ r, f: energyFullCost(en, r) })).filter(x => x.f); if (!rows.length) return '';
+  return `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">Full cost per month — your bills against the energy price</div><div class="amort-table-wrap" style="max-height:none"><table class="amort-tbl"><thead><tr><th>Month</th><th>Energy price (incl. VAT)</th><th>Grid, levies &amp; fees (derived)</th><th>Bill total</th><th>Bills cover</th></tr></thead><tbody>${rows.map(({ r, f }) =>
+    `<tr><td>${_enMLabel(r.year, r.month)}</td><td>${_enEur(f.energy)}</td><td>${_enEur(f.other)}${f.otherPct === null ? '' : ` <span style="color:var(--ink3)">(${f.otherPct.toLocaleString('de-AT')} %)</span>`}</td><td><b>${_enEur(f.billed)}</b></td><td${f.partial || f.overlap ? ' style="color:var(--Am)"' : ''}>${Math.round(f.coverage * 100)} %${f.overlap ? ' · overlapping bills' : ''}</td></tr>`).join('')}</tbody></table></div>`
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:4px">Derived from the bill total minus the month\'s energy price × the part of the month the bills cover; a bill that spans two months is split by days.</div>';
+}
+function renderEnergyYear() {
+  const box = el('d-energy-year'); if (!box) return;
+  const en = DATA.energy || {}, years = energyYears(en); if (!years.length) { box.innerHTML = ''; return; }
+  if (!_enYearUser || !years.includes(_enYear)) _enYear = years[years.length - 1];
+  const S = energySummaryOrEmpty(en, _enYear), sel = years.length > 1 ? `<select data-action-change="energy-year" style="width:auto;font-size:12px;margin-left:6px">${years.map(y => `<option value="${y}"${y === _enYear ? ' selected' : ''}>${y}</option>`).join('')}</select>` : ` ${_enYear}`;
+  const big = S.allInRate === null ? '<span style="font-size:12px;color:var(--ink3)">No bill with consumption and amount for this year yet.</span>'
+    : `<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-family:var(--mono);font-size:20px;font-weight:600">€${S.allInRate.toFixed(4)}</span><span style="font-size:12px;color:var(--ink3)">per kWh, all in</span></div>
+       <div style="font-size:12px;margin-top:2px;color:${S.vs.pct === 0 ? 'var(--ink2)' : S.vs.above ? 'var(--Rm)' : 'var(--Gm)'}">${S.vs.pct === 0 ? 'About the same as' : Math.abs(S.vs.pct) + ' % ' + (S.vs.above ? 'above' : 'below')} the Austrian average of ${S.vs.avgCents} ct</div>
+       <div style="font-size:12px;color:var(--ink2);margin-top:4px">${_enKwh(S.kwh)} kWh · ${_enEur(S.gross)} paid · bills cover ${Math.round(S.coverage * 100)} % of the year${S.coverage < 0.98 ? ' (the totals are for the covered part only)' : ''}</div>`;
+  const t = S.tariff ? `<div style="font-size:12px;color:var(--ink2);margin-top:4px">Monthly tariff history (energy price only, ${S.tariff.months} month${S.tariff.months === 1 ? '' : 's'}): ${_enKwh(S.tariff.kwh.total)} kWh · ${_enEur(S.tariff.cost.total)} incl. VAT · ${_enEff(S.tariff.effective)}</div>` : '';
+  box.innerHTML = `<div style="border-top:.5px solid var(--bdr);margin-top:12px;padding-top:10px"><div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Year at a glance${sel}</div>${big}${t}</div>`;
+}
+const energySummaryOrEmpty = (en, y) => energyYearSummary(en, y) || { year: y, bills: 0, kwh: 0, gross: 0, allInRate: null, vs: null, coverage: 0, tariff: null };
+function _enFillMonth() { const m = /^(\d{4})-(\d{2})$/.exec((el('en-m-month') || {}).value || ''); return m ? [+m[1], +m[2]] : [NaN, NaN]; }
+function _enApplyFill(r, note) {
+  const out = el('d-energy-fill-note'); if (r.error) { out.innerHTML = `<span style="color:var(--Rm)">${esc(r.error)}</span>`; return; }
+  ENERGY_BANDS.forEach(b => { el('en-m-kwh-' + b).value = String(r.kwh[b]).replace('.', ','); }); el('en-m-total').value = String(_enR3(ENERGY_BANDS.reduce((s, b) => s + r.kwh[b], 0))).replace('.', ','); renderEnergyMonthPreview();
+  out.innerHTML = esc(note(r)) + ' Check the numbers, add the rates and press Save month — nothing is saved yet.';
+}
+defineActions({
+  'energy-month-fill-bills':    () => { const [y, m] = _enFillMonth(); _enApplyFill(energyFillFromBills(DATA.energy, y, m), r => `Filled from ${r.bills} bill${r.bills === 1 ? '' : 's'} covering ${Math.round(r.coverage * 100)} % of ${_enMLabel(y, m)}${r.partial ? ' (a part of the month only)' : ''}${r.byDefault ? '; split across the bands by your usual shares where a bill had no band kWh' : ''}.`); },
+  'energy-month-fill-readings': () => _enApplyFill(energyFillFromReadings(el('en-m-r0').value, el('en-m-r1').value), r => `Filled ${_enKwh(r.total)} kWh from the two meter readings, split across the bands by your usual shares.`),
+  'energy-year':                t => { _enYear = +t.value; _enYearUser = true; renderEnergyYear(); },
+});
+
+// ── Fixed price: one price for every kWh ──
+// Settings: typing one price sets all three band prices to it (they are ordinary overrides, so the estimate needs no special case and the band split stops mattering); nothing extra is
+// stored — "fixed" is simply "all three effective band prices are equal". Clearing it only removes the three prices when they ARE equal, so distinct band prices are never wiped.
+// Monthly history: a record can be marked fixedPrice:true — you enter the total kWh and the one rate; the three bands then carry a NOMINAL split (the usual shares) with the same rate, and the
+// totals are exact (total kWh × rate). Records without the flag are unchanged.
+const energyFixedPrice = en => { const b = energyTariff(en).bands; return Math.abs(b.off - b.shoulder) < 1e-9 && Math.abs(b.off - b.peak) < 1e-9 ? b.off : null; };   // net ct/kWh, or null
+// raw as typed (ct/kWh in `mode`) → { clear:true } | { error } | { net }
+function energyParseFixedPrice(raw, mode, vatPct) {
+  const n = _enNum(raw); if (n === null) return { clear: true };
+  if (Number.isNaN(n) || n < 0 || n > 1000) return { error: 'Enter the fixed price in cents per kWh, between 0 and 1000.' };
+  return { net: Math.round((mode === 'gross' ? n / (1 + (+vatPct || 0) / 100) : n) * 1e6) / 1e6 };
+}
+function energyApplyFixedPrice(d, net) {
+  if (net === null) { if (!d.energy || !d.energy.tariff) return; ENERGY_BANDS.forEach(b => { delete d.energy.tariff['bands.' + b]; }); return; }
+  d.energy = d.energy || {}; d.energy.tariff = d.energy.tariff || {}; ENERGY_BANDS.forEach(b => { d.energy.tariff['bands.' + b] = net; });
+}
+function energyFixedPriceSave(raw) {
+  const p = energyParseFixedPrice(raw, _enMode(DATA.energy), energyTariff(DATA.energy).vat); if (p.error) return toast(p.error, 1);
+  if (p.clear && energyFixedPrice(DATA.energy) === null) return;                       // nothing fixed to clear — leave separate band prices alone
+  commit('Fixed price', d => energyApplyFixedPrice(d, p.clear ? null : p.net), { touch: ['energy'], toast: null, render: () => renderEnergy() });
+}
+// Totals of a fixed-price month: exact kWh × rate; the peak band takes the cent remainder so the three costs add up to it.
+function energyFixedCosts(kwh, rate) {
+  const totalKwh = _enR3(ENERGY_BANDS.reduce((s, b) => s + kwh[b], 0)), totalCost = _enR2(totalKwh * rate), off = _enR2(kwh.off * rate), shoulder = _enR2(kwh.shoulder * rate);
+  return { cost: { off, shoulder, peak: Math.max(0, _enR2(totalCost - off - shoulder)) }, totalKwh, totalCost };
+}
+defineActions({ 'energy-price-fixed': t => energyFixedPriceSave(t.value) });
+
 defineActions({
   'energy-month-save': () => energyMonthSave(),
   'energy-month-edit': t => energyMonthEdit(t.dataset.id),
@@ -18116,6 +18373,7 @@ function computeReminders(data, today) {
   _taxReminders(data, today).forEach(r => out.push(r));
   _warrantyReminders(data, today).forEach(r => out.push(r));
   _energyReminders(data, today).forEach(r => out.push(r));
+  _mortgageReminders(data, today).forEach(r => out.push(r));
   const rank = { warn: 0, soon: 1, info: 2 };
   return out.sort((a, b) => rank[a.level] - rank[b.level] || a.date.localeCompare(b.date));
 }
@@ -19630,6 +19888,35 @@ function runSmokeTest() {
       expect(diffVaults(a, b).identical, true, 'same content, different key order'); expect(diffVaults({}, {}).identical, true, 'empty vaults'); expect(diffVaults(a, {}).lostTotal, 1, 'snapshot without the collection');
       expectTrue(/identical/.test(pitPreviewHtml(diffVaults(a, b))), 'the preview says nothing would change');
     });
+    test('restore diff: debts, electricity bills, tariff months and mortgage payments are compared by id, nested ones included', () => {
+      const pay = (id, d, a) => ({ id, date: d, paymentAmount: a, annualRate: 3, interest: 1, principal: 1, openingBalance: 100, closingBalance: 99 }), mon = (id, y, m, c) => ({ id, year: y, month: m, totalKwh: 160, totalCost: c });
+      const cur = { debts: [{ id: 'd1', name: 'Car loan', balance: 5000 }, { id: 'd2', name: 'Card', balance: 200 }], energy: { bills: [{ id: 'b1', from: '2026-10-01', to: '2026-10-31', kwh: 150, gross: 71.48 }], tariffHistory: [mon('t1', 2026, 11, 32.12)] }, mortgage: { startBalance: 1000, payments: [pay('m1', '2026-11-15', 100), pay('m2', '2026-12-15', 100)] } };
+      const snap = { debts: [{ id: 'd1', name: 'Car loan', balance: 5200 }], energy: { bills: [], tariffHistory: [mon('t1', 2026, 11, 32.12), mon('t0', 2026, 10, 30)] }, mortgage: { startBalance: 1000, payments: [pay('m1', '2026-11-15', 100), pay('m3', '2026-10-15', 50)] } };
+      const d = diffVaults(cur, snap), L = n => d.lists.find(l => l.name === n), ids = (n, k) => L(n)[k].map(r => r.id).join();
+      expect([ids('debts', 'lost'), ids('debts', 'changed'), ids('debts', 'regained')].join('|'), 'd2|d1|', 'debts: one would go, one was edited');
+      expect([ids('energy.bills', 'lost'), ids('energy.bills', 'regained')].join('|'), 'b1|', 'the bill would be removed'); expect([ids('energy.tariffHistory', 'lost'), ids('energy.tariffHistory', 'regained'), ids('energy.tariffHistory', 'changed')].join('|'), '|t0|', 'tariff months: an older one comes back, the same one is unchanged');
+      expect([ids('mortgage.payments', 'lost'), ids('mortgage.payments', 'regained'), ids('mortgage.payments', 'changed')].join('|'), 'm2|m3|', 'mortgage payments');
+      expect(d.lostTotal + '/' + d.regainedTotal + '/' + d.changedTotal, '3/2/1', 'they all count in the totals'); expect(d.identical, false, 'not identical');
+      expect(pitDescribe(cur.mortgage.payments[0]).startsWith('2026-11-15 · mortgage payment · ') && /100/.test(pitDescribe(cur.mortgage.payments[0])), true, 'a payment reads as a payment, with its amount'); expect(pitDescribe(cur.energy.tariffHistory[0]).startsWith('2026-11 · tariff month · '), true, 'a tariff month reads as one');
+      expect(pitDescribe(cur.energy.bills[0]).startsWith('2026-10-01 · electricity bill · '), true, 'a bill reads as one'); expect(pitDescribe({ id: 'x', name: 'Car loan', balance: 5 }).includes('Car loan'), true, 'existing descriptions are unchanged');
+    });
+    test('restore diff: tag budgets and the mortgage setup are compared too, and an older snapshot without the keys is handled', () => {
+      const cur = { tagBudgets: { food: { amount: 300 }, fun: { amount: 50 } }, mortgage: { startDate: '2026-11-01', startBalance: 1000, rate: 3, payments: [] } }, snap = { tagBudgets: { food: { amount: 250, rollover: true }, travel: { amount: 100 } }, mortgage: { startDate: '2026-11-01', startBalance: 900, rate: 3, payments: [] } };
+      const d = diffVaults(cur, snap), T = d.maps.find(m => m.name === 'tagBudgets'), M = d.maps.find(m => m.name === 'mortgageSetup');
+      expect([T.lost.join(), T.regained.join(), T.changed.join()].join('|'), 'fun|travel|food', 'tag budgets: removed / back / edited'); expect(M.changed.join() + '|' + M.lost.length + '|' + M.regained.length, 'setup|0|0', 'a different starting balance is a changed setup'); expect(d.lostTotal + '/' + d.regainedTotal + '/' + d.changedTotal, '1/1/2', 'and counted');
+      const old = diffVaults(cur, {}); expect(old.maps.find(m => m.name === 'mortgageSetup').lost.join() + '|' + old.maps.find(m => m.name === 'tagBudgets').lost.join(), 'setup|food,fun', 'an older snapshot without the keys would remove them');
+      const newer = diffVaults({}, snap); expect(newer.maps.find(m => m.name === 'mortgageSetup').regained.join() + '|' + newer.regainedTotal, 'setup|3', 'and one that has them would bring them back');
+      const same = { tagBudgets: { a: { amount: 1, rollover: true } }, mortgage: { startBalance: 5, startDate: '2026-11-01', rate: 2, payments: [{ id: 'p', date: '2026-11-15' }] } }, shuffled = { mortgage: { payments: [{ date: '2026-11-15', id: 'p' }], rate: 2, startDate: '2026-11-01', startBalance: 5 }, tagBudgets: { a: { rollover: true, amount: 1 } } };
+      expect(diffVaults(same, shuffled).identical, true, 'key order alone is not a change'); expect(diffVaults({ mortgage: { startBalance: 5, payments: [{ id: 'p' }] } }, { mortgage: { startBalance: 5, payments: [{ id: 'p' }, { id: 'q' }] } }).maps.find(m => m.name === 'mortgageSetup').changed.length, 0, 'payments are not part of the setup');
+    });
+    test('restore preview: the new kinds show up by name, hostile tag names are escaped, junk and missing data are fine, and nothing is mutated', () => {
+      const cur = { tagBudgets: { '<b>x</b>': { amount: 1 }, food: { amount: 2 } }, mortgage: { startBalance: 5, payments: [{ id: 'm1', date: '2026-11-15', paymentAmount: 100, openingBalance: 5 }] }, energy: { bills: [null, 'x', { id: 'b1', from: '2026-10-01', to: '2026-10-31', gross: 5 }], tariffHistory: [{ id: 't1', year: 2026, month: 11, totalKwh: 1, totalCost: 2 }] }, debts: [{ id: 'd1', name: 'Loan', balance: 9 }] };
+      const before = JSON.stringify(cur), html = pitPreviewHtml(diffVaults(cur, {}));
+      expectTrue(/<b>\d+<\/b> item\(s\) you have NOW would be removed: .*1 debts/.test(html) && /1 electricity bills/.test(html) && /1 tariff months/.test(html) && /1 mortgage payments/.test(html) && /2 tag budgets/.test(html) && /1 mortgage setup/.test(html), 'all kinds are named in the counts');
+      expectTrue(html.indexOf('<b>x</b>') < 0 && /&lt;b&gt;x&lt;\/b&gt;/.test(html), 'a hostile tag name is escaped'); expectTrue(/mortgage payment/.test(html) && /tariff month/.test(html) && /electricity bill/.test(html), 'the sample lines are readable');
+      expect(JSON.stringify(cur), before, 'the vaults are not modified'); expect(diffVaults({ energy: null, mortgage: 5, tagBudgets: 'x', debts: 'y' }, { energy: { bills: 3 } }).identical, true, 'wrong shapes are treated as empty, never thrown on');
+      expect(diffVaults({}, {}).maps.length, 2, 'the new sections exist even for empty vaults');
+    });
     test('restore preview: counts, samples (newest first, max 4) and escaping', () => {
       const many = Array.from({ length: 6 }, (_, i) => _pr('n' + i, `2026-10-0${i + 1}`, i === 5 ? '<img src=x onerror=alert(1)> "Q"' : 'Row ' + i, 10 + i));
       const html = pitPreviewHtml(diffVaults({ entries: many }, { entries: [] }));
@@ -20118,6 +20405,135 @@ function runSmokeTest() {
       const input = d.mortgage.payments, snap = JSON.stringify(input), raw = { date: '2026-12-20', paymentAmount: '10', annualRate: '3' }, rs = JSON.stringify(raw), ms = JSON.stringify(d.mortgage);
       mortgageRecompute(90000, input); mortgageSummary(d.mortgage); mergeMortgage(d.mortgage, d.mortgage); validateMortgagePayment(raw, d.mortgage); mortgageApplyPayment(1000, 50, 3);
       expect(JSON.stringify(input) + JSON.stringify(raw) + JSON.stringify(d.mortgage), snap + rs + ms, 'the pure functions leave their inputs alone');
+    });
+    // ── Mortgage outlook: projection, extra-payment what-if, fixed-rate reminder, lender check ──
+    const mgM = (extra) => ({ startDate: '2026-11-01', startBalance: 100000, rate: 12, payments: [], ...(extra || {}) });
+    test('mortgage outlook: the payoff projection runs the balance down month by month and ends on the right month', () => {
+      const m = mgM(), P = mortgageProjection(m, { payment: 2000 });
+      expect(P.months, Math.ceil(-Math.log(1 - 0.01 * 100000 / 2000) / Math.log(1.01)), 'number of payments matches the annuity formula (€100,000, 1 %/month, €2,000)'); expect(P.payoffMonth, '2032-08', 'first payment in the start month 2026-11, so the 70th is 2032-08');
+      expectTrue(P.lastPayment > 0 && P.lastPayment <= 2000, 'the final payment is capped, never above the normal one'); expectClose(P.totalPaid - P.totalInterest, 100000, 0.011, 'everything paid minus interest is exactly the balance repaid');
+      const d = mgFixture(); mgAdd(d, '2026-11-15', 2000, 12, 'p1'); const Q = mortgageProjection(d.mortgage); expect(Q.balance + '|' + Q.payment + '|' + Q.rate, '99000|2000|12', 'with payments it starts from the closing balance, the last payment amount and its rate');
+      expectTrue(Q.payoffMonth > '2026-12', 'and the first projected payment is the month after the last recorded one');
+      expect(mortgageProjection(mgM({ rate: 0, startBalance: 10000 }), { payment: 1000 }).months + '|' + mortgageProjection(mgM({ rate: 0, startBalance: 10000 }), { payment: 1000 }).totalInterest, '10|0', 'zero interest: balance ÷ payment, no interest');
+    });
+    test('mortgage outlook: a payment that does not cover the interest, no payment, no mortgage, or a repaid mortgage are reported, never looped or guessed', () => {
+      expect(mortgageProjection(mgM(), { payment: 1000 }).neverPaysOff, true, 'payment = interest → never falls'); expect(mortgageProjection(mgM(), { payment: 500 }).neverPaysOff, true, 'payment below interest');
+      expect(mortgageProjection(mgM()), null, 'no payment recorded and none given → null'); expect(mortgageProjection(undefined), null, 'no mortgage → null'); expect(mortgageProjection({}, { payment: 5 }), null, 'empty object → null'); expect(mortgageProjection(mgM(), { payment: 'abc' }), null, 'junk payment → null');
+      const d = mgM({ startBalance: 300, rate: 0 }); const r = { ...d, payments: [{ id: 'x', date: '2026-11-05', paymentAmount: 300, annualRate: 0 }] }; r.payments = mortgageRecompute(300, r.payments); expect(mortgageProjection(r).paidOff, true, 'repaid → paidOff');
+    });
+    test('mortgage outlook: the extra-payment what-if shows months and interest saved, and an extra of 0 saves nothing', () => {
+      const m = mgM(), W = mortgageWhatIf(m, 500, 2000);
+      expectTrue(W.withExtra.months < W.base.months && W.monthsSaved === W.base.months - W.withExtra.months && W.monthsSaved > 0, 'fewer payments with the extra'); expectClose(W.interestSaved, W.base.totalInterest - W.withExtra.totalInterest, 0.011, 'interest saved is the difference'); expectTrue(W.interestSaved > 0, 'and it is positive');
+      const Z = mortgageWhatIf(m, 0, 2000); expect(Z.monthsSaved + '|' + Z.interestSaved, '0|0', 'no extra, no saving'); expect(mortgageWhatIf(m, 100, 1000).monthsSaved, null, 'when the base never pays off there is no saving to quote'); expect(mortgageWhatIf(m, 100), null, 'no payment known → null');
+    });
+    test('mortgage outlook: the read-only estimates never change the data or their inputs', () => {
+      const d = { entries: [{ id: 'e', amount: 1 }], mortgage: mgM({ lenderCheck: { date: '2026-11-30', balance: 99000 }, fixedUntil: '2027-01-31' }) }; mgAdd(d, '2026-11-15', 2000, 12, 'p1'); const before = JSON.stringify(d);
+      mortgageProjection(d.mortgage); mortgageWhatIf(d.mortgage, 300); mortgageLenderDiff(d.mortgage); mortgageBalanceOn(d.mortgage, '2026-12-01'); _mortgageReminders(d, '2026-11-18'); validateMortgageLenderCheck({ date: '2026-11-30', balance: '1' }, d.mortgage);
+      expect(JSON.stringify(d), before, 'nothing mutated, no payment created'); expect(d.mortgage.payments.length, 1, 'payment history untouched');
+    });
+    test('mortgage outlook: the fixed-rate reminder appears 90 days before, turns urgent at 30, and drops 30 days after the end', () => {
+      const R = (fixedUntil, today) => _mortgageReminders({ mortgage: mgM({ fixedUntil }) }, today || '2026-11-18'), one = R('2027-01-17');
+      expect(one.length + '|' + one[0].id + '|' + one[0].level + '|' + one[0].icon, '1|mortgage-fixed-end|soon|🏠', '60 days out → a soon reminder'); expect(R('2026-12-10')[0].level, 'warn', '22 days out → warn'); expect(R('2026-11-18')[0].title, 'Your fixed mortgage rate ends today', 'on the day');
+      expect(R('2026-11-08')[0].title, 'Your fixed mortgage rate has ended', 'ended 10 days ago still shown'); expect(R('2026-10-01').length + '|' + R('2027-06-01').length, '0|0', 'more than 30 days past, or more than 90 days away → none');
+      expect(_mortgageReminders({ mortgage: mgM() }, '2026-11-18').length + '|' + _mortgageReminders({ mortgage: mgM({ fixedUntil: '2026-02-30' }) }, '2026-11-18').length + '|' + _mortgageReminders({}, '2026-11-18').length + '|' + _mortgageReminders(undefined, '2026-11-18').length, '0|0|0|0', 'no date, invalid date, no mortgage → none');
+    });
+    test('mortgage outlook: fixed-until in the setup is validated, can be cleared, and a setup without it leaves it alone', () => {
+      const d = { mortgage: mgM() }; mgAdd(d, '2026-11-15', 2000, 12, 'p1');
+      expect(mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12', fixedUntil: '2031-10-31' }).ok + '|' + d.mortgage.fixedUntil + '|' + d.mortgage.payments.length, 'true|2031-10-31|1', 'saved, payments kept');
+      expect(mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12' }).ok && d.mortgage.fixedUntil, '2031-10-31', 'no fixedUntil key → unchanged');
+      expect(mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12', fixedUntil: '2031-02-30' }).ok, false, 'an impossible date is refused'); expect(d.mortgage.fixedUntil, '2031-10-31', 'and nothing changed');
+      expect(mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12', fixedUntil: '' }).ok && 'fixedUntil' in d.mortgage, false, 'empty clears it');
+    });
+    test('mortgage outlook: the lender check compares with the app\'s balance on that date, is validated, and can be saved, undone and cleared', () => {
+      const d = { mortgage: mgM() }; mgAdd(d, '2026-11-15', 2000, 12, 'p1'); mgAdd(d, '2026-12-15', 2000, 12, 'p2');
+      expect([mortgageBalanceOn(d.mortgage, '2026-11-01'), mortgageBalanceOn(d.mortgage, '2026-11-20'), mortgageBalanceOn(d.mortgage, '2026-12-31')].join(), '100000,99000,97990', 'balance on a date = closing balance of the last payment on or before it');
+      expect(mortgageSetLenderCheck(d, { date: '2026-11-20', balance: '99010,50' }).ok, true, 'saved'); const D = mortgageLenderDiff(d.mortgage); expect(D.lender + '|' + D.app + '|' + D.diff + '|' + D.match, '99010.5|99000|10.5|false', 'lender €10.50 higher');
+      mortgageSetLenderCheck(d, { date: '2026-11-20', balance: '99000' }); expect(mortgageLenderDiff(d.mortgage).match, true, 'equal → match'); mortgageSetLenderCheck(d, { date: '2026-12-31', balance: '97000' }); expect(mortgageLenderDiff(d.mortgage).diff, -990, 'lender lower → negative');
+      const bad = [{ date: '', balance: '1' }, { date: '2026-02-30', balance: '1' }, { date: '2026-10-31', balance: '1' }, { date: '2026-11-20', balance: '' }, { date: '2026-11-20', balance: '-5' }, { date: '2026-11-20', balance: 'x' }].map(r => !!mortgageSetLenderCheck(d, r).error);
+      expect(bad.join(), 'true,true,true,true,true,true', 'bad dates and balances refused'); expect(d.mortgage.lenderCheck.balance, 97000, 'a refused check leaves the saved one'); expect(mortgageSetLenderCheck({}, { date: '2026-11-20', balance: '1' }).error !== undefined, true, 'no mortgage yet');
+      const vault = { mortgage: mgM() }; let undo = null; const io = { save: () => {}, render: () => {}, toast: (m2, er, u) => { undo = u; } };
+      commitCore(() => vault, 'lc', x => mortgageSetLenderCheck(x, { date: '2026-11-20', balance: '100000' }), { touch: ['mortgage'] }, io); expect(vault.mortgage.lenderCheck.balance, 100000, 'saved through commit()'); undo(); expect('lenderCheck' in vault.mortgage, false, 'Undo removes it');
+      expect(mortgageClearLenderCheck(d).ok && 'lenderCheck' in d.mortgage, false, 'cleared'); expect(mortgageClearLenderCheck(d).error !== undefined, true, 'clearing twice reports it');
+    });
+    test('mortgage outlook: the new fields survive export/import and the merge, and older mortgages without them work everywhere', () => {
+      const L = mgM(), R = mgM({ fixedUntil: '2031-10-31', lenderCheck: { date: '2026-11-20', balance: 100000 } }), M = mergeMortgage(L, R); expect(M.fixedUntil + '|' + M.lenderCheck.balance, '2031-10-31|100000', 'a newer vault\'s values fill an older local one');
+      expect(mergeMortgage(R, L).fixedUntil, '2031-10-31', 'and an older remote does not remove them'); expect(mergeMortgage({ ...R, fixedUntil: '2030-01-01' }, R).fixedUntil, '2030-01-01', 'this device wins on conflict');
+      const back = JSON.parse(JSON.stringify(R)); expect(back.fixedUntil + '|' + mortgageLenderDiff(back).app, '2031-10-31|100000', 'export → import identical');
+      expect(mortgageProjection(L, { payment: 2000 }).months > 0 && mortgageLenderDiff(L) === null && _mortgageReminders({ mortgage: L }, '2026-11-18').length === 0 && mortgageWhatIf(L, 100, 2000).monthsSaved > 0, true, 'a mortgage without the new fields works with every helper');
+    });
+    // ── Electricity extras: full cost per month, fill helpers, year at a glance ──
+    const enBill = (from, to, kwh, gross, bandKwh) => ({ id: 'b-' + from, from, to, kwh, gross, bandKwh: bandKwh || null });
+    test('electricity extras: a bill is prorated by days into the months it covers, and the parts add back up to the whole bill', () => {
+      const b = enBill('2026-10-16', '2026-11-15', 310, 93);
+      expect([_enOverlap(b, '2026-10-01', '2026-10-31').share * 31, _enOverlap(b, '2026-11-01', '2026-11-30').share * 31, _enOverlap(b, '2026-11-01', '2026-11-30').days].map(x => Math.round(x)).join(), '16,15,15', '16 of 31 days in October, 15 in November');
+      expectClose(_enOverlap(b, '2026-10-01', '2026-10-31').share + _enOverlap(b, '2026-11-01', '2026-11-30').share, 1, 1e-9, 'the shares sum to 1');
+      expect(_enOverlap(b, '2026-12-01', '2026-12-31'), null, 'a month it does not touch'); expect(_enOverlap(enBill('2026-11-30', '2026-11-01', 1, 1), '2026-11-01', '2026-11-30'), null, 'an upside-down period'); expect(_enOverlap(enBill('x', 'y', 1, 1), '2026-11-01', '2026-11-30'), null, 'junk dates'); expect(_enOverlap(null, '2026-11-01', '2026-11-30'), null, 'null bill');
+    });
+    test('electricity extras: full cost per month = bill total − energy price, with partial and overlapping coverage reported', () => {
+      const en = { bills: [enBill('2026-11-01', '2026-11-30', 200, 71.48)] }; const d = { energy: en }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'n'); const rec = d.energy.tariffHistory[0];
+      const f = energyFullCost(d.energy, rec); expect([f.billed, f.energy, f.other, f.otherPct, f.coverage, f.partial, f.overlap].join(), '71.48,40,31.48,44,1,false,false', 'energy €40 of a €71.48 bill → €31.48 grid, levies and fees (44 %)');
+      const p = energyFullCost({ bills: [enBill('2026-11-01', '2026-11-15', 100, 35)], tariffHistory: d.energy.tariffHistory }, rec); expect([p.billed, p.energy, p.other, p.coverage, p.partial].join(), '35,20,15,0.5,true', 'half a month covered → only half the energy price is set against the bill');
+      const o = energyFullCost({ bills: [enBill('2026-11-01', '2026-11-30', 1, 10), enBill('2026-11-10', '2026-11-20', 1, 5)] }, rec); expect(o.overlap, true, 'overlapping bills are flagged'); expect(energyFullCost({ bills: [] }, rec), null, 'no bill → null'); expect(energyFullCost(undefined, rec), null, 'no energy → null'); expect(energyFullCost(en, { id: 'x' }), null, 'a malformed record → null');
+      const net = { bills: en.bills }; addM({ energy: net }, mkM('2026-11', [100, 50, 50], [10, 10, 10], 'net', 20), 'm2'); expect(energyFullCost({ bills: en.bills }, energyBuildMonthRecordWithId2('n2', '2026-11', 'net')).energy, 24, 'a net month is converted with its own VAT first (€20 net → €24)');
+      function energyBuildMonthRecordWithId2(id, month, mode) { return { id, ...energyBuildMonthRecord(mkM(month, [100, 50, 50], [10, 10, 10], mode, 20)).record }; }
+    });
+    test('electricity extras: fill from bills — the bill\'s own band kWh, the usual split otherwise, several bills and partial months', () => {
+      const own = energyFillFromBills({ bills: [enBill('2026-11-01', '2026-11-30', 180, 60, { off: 120, shoulder: 40, peak: 20 })] }, 2026, 11); expect([own.ok, own.kwh.off, own.kwh.shoulder, own.kwh.peak, own.bills, own.coverage, own.byDefault].join(), 'true,120,40,20,1,1,false', 'the bill\'s band kWh');
+      const def = energyFillFromBills({ bills: [enBill('2026-11-01', '2026-11-30', 160, 60)] }, 2026, 11); expect(def.byDefault, true, 'no band kWh → the usual split'); expectClose(def.kwh.off + def.kwh.shoulder + def.kwh.peak, 160, 0.0011, 'and it adds up to the total');
+      const two = energyFillFromBills({ bills: [enBill('2026-11-01', '2026-11-15', 90, 30, { off: 60, shoulder: 20, peak: 10 }), enBill('2026-11-16', '2026-11-30', 90, 30, { off: 50, shoulder: 25, peak: 15 })] }, 2026, 11); expect([two.kwh.off, two.kwh.shoulder, two.kwh.peak, two.bills, two.coverage].join(), '110,45,25,2,1', 'two bills add up');
+      const part = energyFillFromBills({ bills: [enBill('2026-10-16', '2026-11-15', 310, 93, { off: 155, shoulder: 93, peak: 62 })] }, 2026, 11); expect([part.kwh.off, part.kwh.shoulder, part.kwh.peak, part.partial].join(), '75,45,30,true', 'a bill that spans months contributes its November days only (15/31)');
+      expect([energyFillFromBills({ bills: [] }, 2026, 11).error !== undefined, energyFillFromBills({ bills: [enBill('2026-10-01', '2026-10-31', 1, 1)] }, 2026, 11).error !== undefined, energyFillFromBills({ bills: [] }, NaN, NaN).error !== undefined, energyFillFromBills({ bills: [] }, 2026, 13).error !== undefined, energyFillFromBills(undefined, 2026, 11).error !== undefined].join(), 'true,true,true,true,true', 'no bill / wrong month / no month / no energy → an error, never a guess');
+    });
+    test('electricity extras: fill from two meter readings, validated', () => {
+      const r = energyFillFromReadings('1000', '1160,5'); expect(r.total, 160.5, 'new − old'); expectClose(r.kwh.off + r.kwh.shoulder + r.kwh.peak, 160.5, 0.0011, 'split across the bands by the usual shares'); expect(energyFillFromReadings('5', '5').total, 0, 'equal readings → 0 kWh');
+      expect([energyFillFromReadings('', '5'), energyFillFromReadings('5', ''), energyFillFromReadings('x', '5'), energyFillFromReadings('9', '5'), energyFillFromReadings('-1', '5')].map(x => x.error !== undefined).join(), 'true,true,true,true,true', 'blank, junk, falling or negative readings are refused');
+    });
+    test('electricity extras: the year at a glance — prorated kWh and cost, the all-in price against the Austrian average, coverage, and the energy-only history', () => {
+      const en = { bills: [enBill('2026-10-01', '2026-12-31', 920, 276), enBill('2026-12-16', '2027-01-15', 310, 93)] };
+      const S = energyYearSummary(en, 2026); expect([S.bills, S.kwh, S.gross, S.allInRate, S.vs.pct, S.vs.above, S.vs.avgCents].join(), '2,1080,324,0.3,7,true,28', '2026: 920 + 16/31 of 310 kWh, €276 + €48, 30 ct all in = 7 % above 28 ct'); expect(S.coverage, 0.296, 'the bills cover 108 of 365 days');
+      const T = energyYearSummary(en, 2027); expect([T.kwh, T.gross].join(), '150,45', '2027 gets the other 15/31 of the spanning bill'); expect(energyYearSummary(en, 2030), null, 'a year with nothing → null'); expect(energyYearSummary(undefined, 2026), null, 'no energy → null'); expect(energyYearSummary(en, 'x'), null, 'junk year → null');
+      const d = { energy: { bills: [] } }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'a'); const H = energyYearSummary(d.energy, 2026); expect([H.bills, H.allInRate, H.vs, H.tariff.months, H.tariff.cost.total].join(), '0,,,1,40', 'history only → no bill figures, the energy-price totals present');
+      expect(energyYears({ bills: en.bills, tariffHistory: d.energy.tariffHistory }).join(), '2026,2027', 'years from bills and history, sorted'); expect(energyYears(undefined).length, 0, 'no energy → no years');
+      expect(energyYearSummary({ bills: [{ id: 'x', from: '2026-01-01', to: '2026-12-31', kwh: 100 }] }, 2026), null, 'a bill without an amount is not counted, so there is nothing to summarise');
+    });
+    test('electricity extras: nothing is saved or changed by the views and fill helpers, and older vaults work', () => {
+      const d = { entries: [{ id: 'e1', amount: 5 }], mortgage: { startBalance: 1, payments: [] }, energy: { bills: [enBill('2026-11-01', '2026-11-30', 200, 71.48, { off: 100, shoulder: 50, peak: 50 })], tariff: { vat: 13 }, lastReading: 1718.194 } }; addM(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'a');
+      const before = JSON.stringify(d); energyFullCost(d.energy, d.energy.tariffHistory[0]); energyFillFromBills(d.energy, 2026, 11); energyFillFromReadings('1', '2'); energyYearSummary(d.energy, 2026); energyYears(d.energy); _enBillsIn(d.energy, '2026-01-01', '2026-12-31'); energyFullCostHtml(d.energy, d.energy.tariffHistory);
+      expect(JSON.stringify(d), before, 'DATA unchanged, no record created by a fill'); expect(d.energy.tariffHistory.length, 1, 'still just the one saved month');
+      const old = migrate(Object.assign(FRESH(), { v: 22, energy: { bills: [{ id: 'b9', gross: 9 }] } })); expect(energyFullCost(old.energy, { id: 'x', year: 2026, month: 11 }) === null && energyYearSummary(old.energy, 2026) === null && energyYears(old.energy).length === 0 && energyFullCostHtml(old.energy, []) === '', true, 'an older vault with a bill that has no dates → every view copes');
+    });
+    // ── Fixed price per kWh ──
+    test('fixed price (settings): one price sets all three bands, gross is converted, clearing is careful, and the band split stops mattering', () => {
+      expect(energyParseFixedPrice('30', 'net', 20).net, 30, 'net as typed'); expect(energyParseFixedPrice('36,00', 'gross', 20).net, 30, 'incl. VAT 36 ct = 30 ct net'); expect(energyParseFixedPrice('', 'net', 20).clear, true, 'empty clears');
+      expect(['x', '-1', '1001'].map(v => energyParseFixedPrice(v, 'net', 20).error !== undefined).join(), 'true,true,true', 'junk, negative and absurd prices are refused');
+      const d = { energy: { bills: [{ id: 'b' }] } }; expect(energyFixedPrice(d.energy), null, 'the default tariff is not a fixed price'); energyApplyFixedPrice(d, 30);
+      const b = energyTariff(d.energy).bands; expect([b.off, b.shoulder, b.peak].join(), '30,30,30', 'all three bands'); expect(energyFixedPrice(d.energy), 30, 'and it reads back as fixed'); expect(d.energy.bills.length, 1, 'other energy data untouched');
+      const split = k => energyEstimate(energyTariff(d.energy), { kwh: 150, days: 30, months: 1, bandKwh: k }); const a = split({ off: 100, shoulder: 30, peak: 20 }), c = split({ off: 10, shoulder: 10, peak: 130 }); expect(a.energy.sum, c.energy.sum, 'any band split gives the same energy cost'); expectClose(a.energy.sum, 45 + energyTariff(d.energy).baseFee, 0.011, '150 kWh × 30 ct = €45 net, plus the supplier base fee');
+      energyApplyFixedPrice(d, null); expect(energyFixedPrice(d.energy), null, 'cleared'); expect(Object.keys(d.energy.tariff).filter(k => k.startsWith('bands.')).length, 0, 'the three prices are removed');
+      const e = {}; energyApplyFixedPrice(e, null); expect('energy' in e, false, 'clearing when there is nothing creates nothing');
+      const sep = { energy: { tariff: { 'bands.off': 10, 'bands.shoulder': 20, 'bands.peak': 30, vat: 13 } } }; expect(energyFixedPrice(sep.energy), null, 'separate band prices are not a fixed price'); expect(energyTariff(sep.energy).vat, 13, 'other settings are kept when a fixed price is set'); energyApplyFixedPrice(sep, 25); expect(sep.energy.tariff.vat, 13, 'VAT override survives');
+    });
+    test('fixed price (settings): saves through commit() and Undo restores the three separate prices', () => {
+      const vault = { energy: { tariff: { 'bands.off': 10, 'bands.shoulder': 20, 'bands.peak': 30 } } }; let undo = null; const io = { save: () => {}, render: () => {}, toast: (m, er, u) => { undo = u; } };
+      commitCore(() => vault, 'fixed', d => energyApplyFixedPrice(d, 28), { touch: ['energy'] }, io); expect(energyFixedPrice(vault.energy), 28, 'saved through commit()'); undo(); expect(JSON.stringify(vault.energy.tariff), JSON.stringify({ 'bands.off': 10, 'bands.shoulder': 20, 'bands.peak': 30 }), 'Undo brings the separate prices back');
+    });
+    const mkF = (month, total, rateCt, mode, vat) => ({ month, fixedPrice: true, totalKwh: String(total), fixedRate: String(rateCt), priceMode: mode || 'net', vat: vat === undefined ? '20' : String(vat) });
+    test('fixed price (monthly history): one total and one rate give exact totals, a nominal band split, and the flag', () => {
+      const r = energyBuildMonthRecord(mkF('2026-11', '200', '30,5')).record; expect([r.fixedPrice, r.totalKwh, r.totalCost, r.rate.off, r.rate.shoulder, r.rate.peak, r.priceMode, r.vat, r.currency].join(), 'true,200,61,0.305,0.305,0.305,net,20,EUR', '200 kWh × 30.5 ct = €61.00 exactly');
+      expectClose(r.kwh.off + r.kwh.shoulder + r.kwh.peak, 200, 0.0011, 'the nominal split adds up to the total'); expectClose(r.cost.off + r.cost.shoulder + r.cost.peak, 61, 0.0051, 'and the band costs add up to the total cost');
+      const odd = energyBuildMonthRecord(mkF('2026-11', '123,457', '27,33', 'gross')).record; expectClose(odd.cost.off + odd.cost.shoulder + odd.cost.peak, odd.totalCost, 0.0051, 'also with awkward numbers'); expect(odd.totalCost, _enR2(123.457 * 0.2733), 'total = kWh × rate rounded once'); expect(odd.priceMode, 'gross', 'price mode kept');
+      expect(energyBuildMonthRecord(mkF('2026-11', '0', '30')).record.totalCost, 0, 'zero consumption is allowed'); expect(energyBuildMonthRecord(mkM('2026-11', [1, 1, 1], [10, 10, 10])).record.fixedPrice, undefined, 'a band-tariff record has no flag');
+      const bad = f => { const x = mkF('2026-11', 200, 30); f(x); return !!energyBuildMonthRecord(x).error; };
+      expect([bad(x => { x.totalKwh = ''; }), bad(x => { x.totalKwh = 'abc'; }), bad(x => { x.totalKwh = '-1'; }), bad(x => { x.fixedRate = ''; }), bad(x => { x.fixedRate = '-2'; }), bad(x => { x.fixedRate = '1001'; }), bad(x => { x.vat = '101'; }), bad(x => { x.priceMode = 'q'; }), bad(x => { x.month = '2026-13'; })].join(), 'true,true,true,true,true,true,true,true,true', 'bad totals, rates, VAT, mode and month are refused');
+    });
+    test('fixed price (monthly history): stored, edited, mixed with band months, compared and merged like any other month', () => {
+      const d = { energy: {} }; addM(d, mkF('2026-11', 200, 30, 'gross'), 'f1'); addM(d, mkM('2026-12', [100, 50, 50], [20, 20, 20], 'gross'), 'b1'); const snapB = JSON.stringify(d.energy.tariffHistory[1]);
+      expect([_enMonthRecOk(d.energy.tariffHistory[0]), d.energy.tariffHistory[0].fixedPrice, energySetMonthRecord(d, mkF('2026-11', 250, 31, 'gross'), null, 'x').error !== undefined].join(), 'true,true,true', 'valid, flagged, and the same month still refused as a duplicate');
+      expect(energySetMonthRecord(d, mkF('2026-11', 250, 31, 'gross'), 'f1').ok, true, 'edit'); expect(d.energy.tariffHistory[0].totalCost + '|' + JSON.stringify(d.energy.tariffHistory[1]), '77.5|' + snapB, 'the fixed month changed, the band month did not');
+      expect(energySetMonthRecord(d, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), 'f1').ok && d.energy.tariffHistory[0].fixedPrice, undefined, 'switching a month to band prices drops the flag'); expect(energySetMonthRecord(d, mkF('2026-11', 200, 30, 'gross'), 'f1').ok && d.energy.tariffHistory[0].fixedPrice, true, 'and back');
+      const T = energyAnnualTotals(d.energy)[0]; expect([T.kwh.total, T.cost.total, T.effective].join(), '400,100,0.25', 'annual totals add the fixed month (200 kWh × 30 ct = €60) and the band month (200 kWh × 20 ct = €40)');
+      const m = energyCompareMonths(d.energy.tariffHistory[0], d.energy.tariffHistory[1]); expect([m.rows[3].kwh.delta, m.rows[3].cost.delta, m.effective.a, m.effective.b].join(), '0,-20,0.3,0.2', 'month against month on totals and average price: same kWh, €20 cheaper');
+      const before = JSON.stringify(d); expect(JSON.stringify(JSON.parse(JSON.stringify(d.energy)).tariffHistory), JSON.stringify(d.energy.tariffHistory), 'export → import identical'); const M = mergeEnergyMonthRecords(d.energy.tariffHistory, []); expect(M[0].fixedPrice, true, 'the flag survives the merge'); expect(JSON.stringify(d), before, 'merge does not mutate');
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
