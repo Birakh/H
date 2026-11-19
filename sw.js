@@ -4,7 +4,7 @@
 // only fall back to whatever was last cached when there's no connection.
 // The cache name below is a PLACEHOLDER: `node release.js` stamps release/sw.js with a name derived from the content, so it changes exactly
 // when the app changes (and old caches are evicted). Do not edit it by hand.
-const CACHE_NAME = 'vault-finance-1cc70274';
+const CACHE_NAME = 'vault-finance-cf332187';
 const APP_SHELL  = ['./', './index.html', './manifest.webmanifest'];
 // Third-party libraries the app depends on at runtime (currently just the Excel
 // export library). Cached separately from APP_SHELL and best-effort per-file —
@@ -32,6 +32,9 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return; // never intercept POST/PUT (e.g. GitHub API writes)
+  // Other sites' data — the oil-price relays, the GitHub API, … — is never cached and never answered from the cache: an old answer must not look live, and a failure must
+  // look like a failure (offline / timeout) instead of coming back as the app's own index.html. Only this app and its own CDN library are cached.
+  if (new URL(event.request.url).origin !== self.location.origin && !CDN_ASSETS.includes(event.request.url)) return;
 
   event.respondWith(
     fetch(event.request)
