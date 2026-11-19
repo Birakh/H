@@ -724,6 +724,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fuel-tbl{max-height:70vh;overflow-y:auto}
 .fuel-tbl th{position:sticky;top:0;z-index:1}
 .fuel-tbl th.sticky-end{z-index:2}
+.fuel-tbl th.sticky-end{z-index:2}
+/* Entries and Grocery scroll inside their own box too, header row visible — "All months" no longer makes the page endless */
+.tbl-scroll{max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tbl-scroll th{position:sticky;top:0;z-index:1}
 @media(max-width:680px){
   .fuel-tbl{display:none}
   .fuel-cards{display:block;max-height:70vh;overflow-y:auto}
@@ -1914,7 +1918,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <input type="text" id="ef-fs" placeholder="Search…" data-action-input="ent-search">
       </div>
 
-      <div class="tbl-wrap"><table>
+      <div class="tbl-wrap tbl-scroll"><table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" class="row-sel" id="sel-all" data-action-change="ent-select-all"></th>
           <th>Date</th><th>Description</th><th>Amount</th>
@@ -2051,7 +2055,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <span id="gr-totals" style="font-size:12px;color:var(--ink2);font-family:var(--mono);margin-left:auto"></span>
       </div>
 
-      <div class="tbl-wrap"><table>
+      <div class="tbl-wrap tbl-scroll"><table>
         <thead><tr>
           <th style="width:28px"></th><th>Item</th><th class="gr-hide-mob">Category</th>
           <th class="gr-hide-mob">Store</th><th>Qty</th><th>Unit</th><th>Disc.</th><th>Total</th><th class="gr-hide-mob">Price trend</th><th class="gr-hide-mob" style="width:110px" title="EAN/UPC barcode — double-click to edit, or use scanner above">Barcode</th><th class="gr-hide-mob">Bought</th><th></th>
@@ -16294,6 +16298,14 @@ async function _oilViaRaw(url) {
   if (!r.ok) throw _oilErr('http', `relay HTTP ${r.status}`);
   return _parseYahooChart(await r.json());
 }
+// A second, independent relay (codetabs.com). The relays are now tried TOGETHER and the first answer wins, so one being down no longer costs the wait of the others.
+// Not tested against the live services from the sandbox — the failure panel says exactly which relay answered what.
+const _OIL_RELAY2 = 'https://api.codetabs.com/v1/proxy';
+async function _oilViaCodetabs(url) {
+  const r = await _fetchWithTimeout(`${_OIL_RELAY2}?quest=${encodeURIComponent(url)}`, {}, 8000);
+  if (!r.ok) throw _oilErr('http', `relay HTTP ${r.status}`);
+  return _parseYahooChart(await r.json());
+}
 
 // Optional fallback: EIA's own API (free key, kept in the vault as DATA.settings.eiaKey). Daily SPOT prices, which EIA publishes about once a week,
 // so the latest price can be days old. Route petroleum/pri/spt, series RBRTE (Brent) and RWTC (WTI). Not tested against the live service from the sandbox.
@@ -16328,21 +16340,26 @@ function _oilSources(type, range) {
   const symbol = OIL_SYMBOLS[type], interval = OIL_INTERVALS[range] || '1d';
   const q = host => `https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}&includePrePost=false`;
   const list = [
-    { label: 'relay → Yahoo query1',       run: () => _oilViaWrapper(q('query1')) },
-    { label: 'relay (raw) → Yahoo query2', run: () => _oilViaRaw(q('query2')) },
+    { label: 'relay → Yahoo query1',                 parallel: true, run: () => _oilViaWrapper(q('query1')) },
+    { label: 'relay (raw) → Yahoo query2',           parallel: true, run: () => _oilViaRaw(q('query2')) },
+    { label: 'second relay (codetabs) → Yahoo query1', parallel: true, run: () => _oilViaCodetabs(q('query1')) },
   ];
   const key = ((DATA.settings && DATA.settings.eiaKey) || '').trim();
   if (key) list.push({ label: 'EIA spot prices (your key)', run: () => _oilViaEia(type, range, key) });
   return list;
 }
 async function _oilRunChain(sources, key) {
-  const attempts = [];
-  for (const src of sources) {
-    try { return await src.run(); }
-    catch (e) {
-      const x = _oilExplain(e); x.message = _oilScrub(x.message, key);
-      attempts.push({ label: src.label, kind: x.kind, message: x.message }); console.warn('[oil]', src.label, x.kind, x.message);
-    }
+  const attempts = [], fail = (src, e) => {
+    const x = _oilExplain(e); x.message = _oilScrub(x.message, key);
+    attempts.push({ label: src.label, kind: x.kind, message: x.message }); console.warn('[oil]', src.label, x.kind, x.message);
+  };
+  const together = sources.filter(s => s.parallel), inOrder = sources.filter(s => !s.parallel);
+  if (together.length) {                                                       // the relays: all at once, the first good answer wins
+    const won = await new Promise(resolve => { let left = together.length; together.forEach(src => { Promise.resolve().then(() => src.run()).then(resolve, e => { fail(src, e); if (--left === 0) resolve(null); }); }); });
+    if (won) return won;
+  }
+  for (const src of inOrder) {                                                 // anything else (EIA with your key): one after the other
+    try { return await src.run(); } catch (e) { fail(src, e); }
   }
   const err = new Error('Live oil prices are not available right now.'); err.attempts = attempts; throw err;
 }
@@ -16350,10 +16367,41 @@ async function _fetchOilSeries(type, range) {
   return _oilRunChain(_oilSources(type, range), ((DATA.settings && DATA.settings.eiaKey) || '').trim());
 }
 
+// ── Last good prices, remembered ──
+// After a successful fetch the prices are kept in the vault as DATA.settings.oilLast = { brent: {...}, wti: {...} } (at most once every 2 hours per range). When no live source answers — or the
+// device is offline — the app shows these instead of an empty panel, and SAYS they are saved ones and how old. They are never presented as live, and never replace a live answer.
+const _oilNum = x => Number.isFinite(+x) && x !== null && x !== '';
+function _oilPack(d, range) {
+  const pts = Array.isArray(d.pts) ? d.pts : [], step = Math.max(1, Math.ceil(pts.length / 120)), r3 = x => Math.round(x * 1000) / 1000;
+  return { current: r3(d.current), prev: _oilNum(d.prev) ? r3(d.prev) : null, currency: d.currency || 'USD', ts: d.ts, source: d.source || 'Yahoo', range,
+    pts: pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map(p => ({ t: p.t, p: r3(p.p) })), ...(d.daily ? { daily: true, asOf: d.asOf } : {}) };
+}
+function _oilUnpack(rec, range) {
+  if (!rec || typeof rec !== 'object' || !_oilNum(rec.current) || !(+rec.current > 0) || !_oilNum(rec.ts)) return null;
+  const pts = rec.range === range && Array.isArray(rec.pts) ? rec.pts.filter(p => p && _oilNum(p.t) && _oilNum(p.p)).map(p => ({ t: +p.t, p: +p.p })) : [];
+  return { pts: pts.length ? pts : [{ t: +rec.ts, p: +rec.current }], current: +rec.current, prev: _oilNum(rec.prev) && +rec.prev > 0 ? +rec.prev : null, currency: rec.currency || 'USD', ts: +rec.ts, source: rec.source || 'Yahoo', stale: true, ...(rec.daily ? { daily: true, asOf: rec.asOf } : {}) };
+}
+function _oilAgo(ts, now) {
+  const m = Math.max(0, Math.floor(((now === undefined ? Date.now() : now) - ts) / 60000)); if (m < 1) return 'just now'; if (m < 60) return `${m} min ago`; const h = Math.floor(m / 60); if (h < 48) return `${h} h ago`; return `${Math.floor(h / 24)} days ago`;
+}
+function _oilRestoreLast() {
+  const last = DATA && DATA.settings && DATA.settings.oilLast; if (!last || typeof last !== 'object') return false; let any = false;
+  ['brent', 'wti'].forEach(t => { if (_oilCache[t]) return; const u = _oilUnpack(last[t], _oilRange); if (u) { _oilCache[t] = u; _oilFetched[t] = 0; any = true; } });
+  return any;
+}
+function _oilSaveLast(types) {
+  const now = Date.now(), last = (DATA.settings && DATA.settings.oilLast) || {};
+  const due = types.filter(t => _oilCache[t] && !_oilCache[t].manual && !_oilCache[t].stale && !(last[t] && last[t].range === _oilRange && now - last[t].ts < 2 * MS_PER_HOUR));
+  if (!due.length) return;
+  const packed = Object.fromEntries(due.map(t => [t, _oilPack(_oilCache[t], _oilRange)]));
+  commit('Oil prices remembered', d => { d.settings = d.settings || {}; d.settings.oilLast = { ...(d.settings.oilLast || {}), ...packed }; }, { touch: ['settings'], toast: null, render: false });
+}
+
 let _oilInFlight = false, _oilFailedAt = 0;
 // Called whenever the Fuel tab is drawn: loads the chart by itself, but never in a retry storm —
 // not while a request is running, not while offline, and not for 5 minutes after a failure (↻ Refresh always tries).
 function maybeAutoFetchOil() {
+  if (!_oilCache.brent && !_oilCache.wti && _oilRestoreLast()) { updateOilBadges(); renderOilChart(); updateOilCalc(); }   // offline or slow: the saved prices straight away, marked as saved
   if (_oilInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
   if (Date.now() - _oilFailedAt < 5 * 60 * 1000) return;
   fetchOilPrices();
@@ -16368,16 +16416,16 @@ async function fetchOilPrices(force=false) {
     const TTL = _oilRange === '1d' ? MS_PER_HOUR / 4 : MS_PER_HOUR; // 15min for 24h, 1hr otherwise
     const needsWti   = force || !_oilCache.wti   || Date.now() - _oilFetched.wti   > TTL;
     const needsBrent = force || !_oilCache.brent || Date.now() - _oilFetched.brent > TTL;
-    const fetches = [];
+    const fetches = [], fresh = [];
     let  fetchErr  = null;
     if (needsBrent) fetches.push(
       _fetchOilSeries('brent', _oilRange)
-        .then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); })
+        .then(d => { _oilCache.brent = d; _oilFetched.brent = Date.now(); fresh.push('brent'); })
         .catch(e => { fetchErr = e; })
     );
     if (needsWti)   fetches.push(
       _fetchOilSeries('wti', _oilRange)
-        .then(d => { _oilCache.wti = d; _oilFetched.wti = Date.now(); })
+        .then(d => { _oilCache.wti = d; _oilFetched.wti = Date.now(); fresh.push('wti'); })
         .catch(e => { if (!fetchErr) fetchErr = e; })
     );
     await Promise.allSettled(fetches);
@@ -16386,11 +16434,14 @@ async function fetchOilPrices(force=false) {
     // Nothing to show: say why, and offer manual entry
     if (fetchErr && !_oilCache.brent && !_oilCache.wti) {
       _oilFailedAt = Date.now();
-      const chartEl = el('oil-chart');
-      if (chartEl) chartEl.innerHTML = _oilFailureHtml(fetchErr);
-      return;
+      if (!_oilRestoreLast()) {                                                // no saved prices either: say why, and offer manual entry
+        const chartEl = el('oil-chart');
+        if (chartEl) chartEl.innerHTML = _oilFailureHtml(fetchErr);
+        return;
+      }                                                                        // saved prices exist: show them, marked as saved (below)
     }
     if (!fetchErr) _oilFailedAt = 0;
+    if (fresh.length) _oilSaveLast(fresh);
     updateOilBadges();
     renderOilChart();
     updateOilCalc();
@@ -16405,7 +16456,7 @@ function _oilFailureHtml(err) {
       <div style="font-size:12px;color:var(--ink2);padding:8px 0">
         <div style="color:var(--Am);margin-bottom:6px">⚠ ${esc(err.message)}</div>
         <div style="color:var(--ink3);font-size:11px;margin-bottom:6px">
-          The prices come from Yahoo Finance through a free public relay (allorigins.win), which is sometimes down or throttled.
+          The prices come from Yahoo Finance through free public relays (allorigins.win and codetabs.com), which are sometimes down or throttled.
           Try ↻ Refresh later — or enter the prices by hand below; the crude-cost calculator works with them either way.${hasKey ? '' : ' You can also add a free EIA key under the chart for daily spot prices as a fallback.'}
         </div>
         ${rows ? `<details style="font-size:11px;color:var(--ink3);margin-bottom:10px"><summary style="cursor:pointer">What was tried</summary>${rows}</details>` : ''}
@@ -16461,6 +16512,7 @@ function _oilSourceText() {
   const d = brentFirst ? (_oilCache.brent || _oilCache.wti) : (_oilCache.wti || _oilCache.brent);
   if (!d) return '';
   if (d.manual) return 'Entered by hand.';
+  if (d.stale) return `Last saved prices (${_oilAgo(d.ts)}${d.source === 'EIA' && d.asOf ? ', EIA price of ' + d.asOf : ''}) — live prices are not reachable right now. ↻ Refresh tries again.`;
   if (d.source === 'EIA') return `Source: EIA daily spot prices, last price ${d.asOf}. EIA publishes them about once a week, so this can be several days old.`;
   return 'Source: Yahoo Finance, through a public relay.';
 }
@@ -20534,6 +20586,32 @@ function runSmokeTest() {
       const T = energyAnnualTotals(d.energy)[0]; expect([T.kwh.total, T.cost.total, T.effective].join(), '400,100,0.25', 'annual totals add the fixed month (200 kWh × 30 ct = €60) and the band month (200 kWh × 20 ct = €40)');
       const m = energyCompareMonths(d.energy.tariffHistory[0], d.energy.tariffHistory[1]); expect([m.rows[3].kwh.delta, m.rows[3].cost.delta, m.effective.a, m.effective.b].join(), '0,-20,0.3,0.2', 'month against month on totals and average price: same kWh, €20 cheaper');
       const before = JSON.stringify(d); expect(JSON.stringify(JSON.parse(JSON.stringify(d.energy)).tariffHistory), JSON.stringify(d.energy.tariffHistory), 'export → import identical'); const M = mergeEnergyMonthRecords(d.energy.tariffHistory, []); expect(M[0].fixedPrice, true, 'the flag survives the merge'); expect(JSON.stringify(d), before, 'merge does not mutate');
+    });
+    // ── Oil prices: remembered last good prices ──
+    test('oil: the last good prices are packed small, unpacked as stale, and bad records are ignored', () => {
+      const pts = Array.from({ length: 300 }, (_, i) => ({ t: 1700000000000 + i * 300000, p: 80 + i / 1000 + 0.0004 })), d = { pts, current: 82.123456, prev: 81.5, currency: 'USD', ts: 1700000000000, source: 'Yahoo' };
+      const rec = _oilPack(d, '1d'); expectTrue(rec.pts.length <= 121 && rec.pts.length >= 100, 'at most about 120 points are kept'); expect(rec.pts[rec.pts.length - 1].t, pts[299].t, 'and the last point is always kept'); expect(rec.current + '|' + rec.prev + '|' + rec.range, '82.123|81.5|1d', 'rounded to 3 decimals');
+      const u = _oilUnpack(rec, '1d'); expect(u.stale + '|' + u.current + '|' + u.prev + '|' + u.source + '|' + (u.pts.length === rec.pts.length), 'true|82.123|81.5|Yahoo|true', 'comes back flagged stale with the chart points');
+      const o = _oilUnpack(rec, '1mo'); expect(o.pts.length + '|' + o.pts[0].p, '1|82.123', 'another range: just the price, never a chart of the wrong range');
+      expect([null, undefined, {}, 5, { current: 0, ts: 1 }, { current: 'x', ts: 1 }, { current: 80 }, { current: -3, ts: 1 }].map(r => _oilUnpack(r, '1d') === null).join(), 'true,true,true,true,true,true,true,true', 'junk or incomplete records are ignored');
+      expect(_oilUnpack({ current: 80, ts: 5, prev: 'x', pts: [null, { t: 1 }, { t: 1, p: 2 }], range: '1d' }, '1d').pts.length + '|' + _oilUnpack({ current: 80, ts: 5, prev: 'x' }, '1d').prev, '1|null', 'bad points and a bad previous close are dropped');
+      const eia = _oilUnpack(_oilPack({ pts: [{ t: 1, p: 70 }], current: 70, ts: 5, source: 'EIA', daily: true, asOf: '2026-11-13' }, '14d'), '14d'); expect(eia.daily + '|' + eia.asOf + '|' + eia.source, 'true|2026-11-13|EIA', 'an EIA price keeps its date');
+    });
+    test('oil: "how old" reads naturally', () => {
+      const n = 1700000000000; expect([_oilAgo(n, n), _oilAgo(n - 5 * 60000, n), _oilAgo(n - 3 * 3600000, n), _oilAgo(n - 47 * 3600000, n), _oilAgo(n - 72 * 3600000, n), _oilAgo(n + 5000, n)].join(), 'just now,5 min ago,3 h ago,47 h ago,3 days ago,just now', 'minutes, hours, days, and a clock that is slightly ahead');
+    });
+    test('oil: restoring only fills what is missing, never overwrites a live answer, and saving is skipped for manual, stale or recent prices', () => {
+      const keep = { c: _oilCache, f: _oilFetched, d: DATA, r: _oilRange, commit };
+      try {
+        _oilRange = '1d'; _oilCache = { wti: null, brent: { current: 90, live: true, ts: 1 } }; _oilFetched = { wti: 0, brent: 5 };
+        DATA = { settings: { oilLast: { brent: _oilPack({ pts: [{ t: 1, p: 70 }], current: 70, prev: 69, ts: Date.now() - 3600000, source: 'Yahoo' }, '1d'), wti: _oilPack({ pts: [{ t: 1, p: 66 }], current: 66, prev: 65, ts: Date.now() - 7200000, source: 'Yahoo' }, '1d') } } };
+        expect(_oilRestoreLast(), true, 'something was restored'); expect(_oilCache.brent.current + '|' + _oilCache.brent.live, '90|true', 'the live Brent answer is untouched'); expect(_oilCache.wti.current + '|' + _oilCache.wti.stale, '66|true', 'the missing WTI comes from the saved one'); expect(_oilFetched.wti + '|' + _oilFetched.brent, '0|5', 'and it still counts as due for a live fetch');
+        expect(_oilRestoreLast(), false, 'nothing left to restore'); _oilCache = { wti: null, brent: null }; DATA = { settings: {} }; expect(_oilRestoreLast(), false, 'no saved prices → false'); DATA = {}; expect(_oilRestoreLast(), false, 'no settings → false'); DATA = { settings: { oilLast: 'junk' } }; expect(_oilRestoreLast(), false, 'junk → false');
+        let saved = 0; commit = () => { saved++; };
+        _oilCache = { wti: { current: 1, ts: 1, manual: true }, brent: { current: 2, ts: 1, stale: true } }; DATA = { settings: {} }; _oilSaveLast(['wti', 'brent']); expect(saved, 0, 'manual and stale prices are never saved');
+        _oilCache = { wti: { pts: [{ t: 1, p: 66 }], current: 66, ts: Date.now() }, brent: null }; DATA = { settings: { oilLast: { wti: { range: '1d', ts: Date.now() - 600000 } } } }; _oilSaveLast(['wti']); expect(saved, 0, 'saved less than 2 hours ago for this range → skipped');
+        DATA = { settings: { oilLast: { wti: { range: '14d', ts: Date.now() - 600000 } } } }; _oilSaveLast(['wti']); expect(saved, 1, 'another range → saved'); DATA = { settings: {} }; _oilSaveLast(['wti']); expect(saved, 2, 'nothing saved yet → saved');
+      } finally { _oilCache = keep.c; _oilFetched = keep.f; DATA = keep.d; _oilRange = keep.r; commit = keep.commit; }
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
