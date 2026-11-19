@@ -517,6 +517,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 /* ── KEYBOARD SHORTCUT OVERLAY ── */
 .keys-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
 .keys-overlay.open{display:flex}
+.keys-overlay.open{display:flex}
+/* Help: the pill, its first-visit pulse and bubble, and the sheet */
+.help-pill{display:inline-flex;align-items:center;gap:5px;font-weight:600;text-transform:none;letter-spacing:0}
+.help-pill .hp-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--B);color:#fff;font-size:10px;line-height:1}
+body.help-new .help-pill{animation:helpPulse 2s ease-out infinite}
+.help-fab{display:none;position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:540;box-shadow:0 4px 16px rgba(0,0,0,.25);padding:7px 12px;font-size:13px}
+@media(max-width:680px){.h-right .help-pill{display:none}.help-fab{display:inline-flex}#help-hint.help-hint{top:auto;bottom:calc(62px + env(safe-area-inset-bottom,0px))}}
+@keyframes helpPulse{0%{box-shadow:0 0 0 0 rgba(42,108,203,.5)}70%{box-shadow:0 0 0 9px rgba(42,108,203,0)}100%{box-shadow:0 0 0 0 rgba(42,108,203,0)}}
+@media (prefers-reduced-motion:reduce){body.help-new .help-pill{animation:none;box-shadow:0 0 0 2px rgba(42,108,203,.5)}}
+.help-hint{display:none;position:fixed;top:56px;right:10px;z-index:550;width:min(300px,calc(100vw - 20px));background:var(--s0);border:.5px solid var(--bdr2);border-radius:12px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.2);font-size:13px;line-height:1.5;color:var(--ink)}
+body.help-new .help-hint{display:block}
+.help-box{width:min(640px,100%);max-height:88vh}
+.help-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
 .keys-box{background:var(--s0);border-radius:16px;padding:28px 28px 22px;width:min(560px,100%);box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto}
 .keys-title{font-size:17px;font-weight:700;margin-bottom:18px;letter-spacing:-.01em}
 .keys-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
@@ -980,7 +993,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <button class="btn xs ghost" data-action="sh-cmdk-open" title="Search everything (⌘K)">🔍</button>
       <button class="btn xs ghost" data-action="sh-wizard-open" title="Month setup wizard">🗓</button>
       <button class="btn xs ghost" data-action="sh-receipt-open" title="Quick receipt entry (R)">🧾</button>
-      <button class="btn xs ghost" data-action="sh-keys-open" title="Keyboard shortcuts (?)">?</button>
+      <button class="btn xs help-pill" id="help-pill" data-action="sh-help-open" title="How to use this screen" aria-label="Help: how to use this screen"><span class="hp-q">?</span>Help</button>
       <span class="auto-theme-badge" id="auto-theme-badge" data-action="sh-theme-auto" title="Scheduled dark/light mode" style="display:none">auto</span>
       <button class="btn xs" data-action="sh-gh-pull">↓ Pull</button>
       <button class="btn xs primary" data-action="sh-gh-push">↑ Push</button>
@@ -991,6 +1004,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <button class="btn xs danger" data-action="sh-disconnect">Lock</button>
     </div>
   </header>
+  <div class="help-hint" id="help-hint" role="note"><strong>New here?</strong> Tap <strong>Help</strong> for a short guide to the screen you are on.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn xs primary" data-action="sh-help-open">Show me</button><button class="btn xs ghost" data-action="sh-help-hint-skip">Skip — I know this</button></div></div>
+  <button class="btn xs primary help-pill help-fab" id="help-fab" data-action="sh-help-open" title="How to use this screen" aria-label="Help: how to use this screen"><span class="hp-q">?</span>Help</button>
   <div id="toast"></div>
   <div id="service-alert-bar">
     <span id="svc-alert-icon">🔧</span>
@@ -1110,6 +1125,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
       <div style="margin-top:16px;padding-top:12px;border-top:.5px solid var(--bdr);font-size:12px;color:var(--ink3)">Press <strong>?</strong> anywhere (outside inputs) to toggle this overlay.</div>
       <div style="margin-top:10px"><button class="btn sm ghost" data-action="sh-keys-close">Close</button></div>
+    </div>
+  </div>
+  <div class="keys-overlay" id="help-overlay" data-action="sh-help-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="keys-box help-box">
+      <div class="keys-title" id="help-title">? How to use Vault Finance</div>
+      <div class="help-chips" id="help-chips"></div>
+      <div id="help-body"></div>
+      <div style="margin-top:16px;padding-top:12px;border-top:.5px solid var(--bdr);display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="help-close-btn" data-action="sh-help-close">Close</button><button class="btn sm ghost" data-action="sh-help-keys">⌨ Keyboard shortcuts</button></div>
     </div>
   </div>
 
@@ -10915,6 +10938,101 @@ function openKeys()  { el('keys-overlay').classList.add('open'); }
 function closeKeys() { el('keys-overlay').classList.remove('open'); }
 
 // ══════════════════════════════════════════
+// HELP — the "? Help" pill in the top bar opens a short how-to for the tab you are on (and, through the chips, for every other tab). Plain text only, written from what the app actually has.
+// First visit on a device: the pill pulses and a small bubble says what it is, with "Show me" and "Skip — I know this". Either choice, or just opening Help, ends the hint for good.
+// That one flag lives in this device's localStorage (vf4_help_seen) — a screen preference like the theme, not finance data, so it is not in the vault and not synced.
+// ══════════════════════════════════════════
+const LS_HELP_SEEN = 'vf4_help_seen';
+const HELP_ORDER = ['start', 'dash', 'entries', 'grocery', 'wealth', 'fuel', 'settings'];
+const HELP = {
+  start: { label: 'Start here', title: 'Start here', nav: null,
+    what: 'Vault Finance is a private money tracker. Your data is encrypted in your browser with your passphrase and stored in your own private GitHub repository — there is no other server.',
+    how: ['Add what you earn and spend on the Entries tab. Everything else is calculated from your entries.',
+      'Set your budget split and savings goals in Settings → Budget splits & goals.',
+      'Open Overview to see the month: your 50/30/20 split, spending by category, upcoming dates and insights.',
+      'Save with ↑ Push (top right). On another device use ↓ Pull. The small dot next to the sync status means you have local changes that are not pushed yet.',
+      'Made a mistake? Most changes show an Undo button in the message that appears at the bottom.'],
+    bar: ['🔍 — search everything (⌘K or Ctrl+K)', '🗓 — month setup wizard', '🧾 — quick receipt entry (R)', '↓ Pull / ↑ Push — get your data from GitHub / save it to GitHub', 'Sun / moon — switch dark mode'],
+    tips: ['Your passphrase cannot be recovered. If you lose it, your data cannot be opened.', 'Settings → Export data saves a readable copy of everything. It is not encrypted, so keep that file private.',
+      'Settings → Point-in-time restore lists earlier saves. Its preview shows what would be removed or come back before you confirm.'] },
+  dash: { label: 'Overview', title: 'Overview', nav: 'dash',
+    what: 'A picture of your money, calculated from your entries. Most cards update by themselves when you add or change an entry.',
+    how: ['Coming up shows dates that need attention, such as car and tax dates, bills and reminders.',
+      'Insights, This week and Spending by category show where the month\'s money goes against your 50/30/20 split.',
+      'Savings goals and Sinking funds are the cards you fill in yourself: add a goal, set a target and top it up.',
+      'Electricity bill: log your bills, record the prices of each month, or enter one fixed price if your tariff has one. "Year at a glance" sets your yearly price against the Austrian average.',
+      'Press W for the what-if planner.'],
+    tips: ['To change a number that comes from your entries, change the entry itself on the Entries tab.', 'Switch tabs with the keys 1 to 6.'] },
+  entries: { label: 'Entries', title: 'Entries', nav: 'entries',
+    what: 'Your ledger. Every income and expense lives here, and the other tabs are calculated from it.',
+    how: ['Add an entry with the form: date, amount, description, category and optional tags.',
+      'The quick-add row at the top of the table adds an entry without opening the form.',
+      'Change an entry by editing it right in the table. Use the checkboxes to select several rows at once.',
+      'The filters above the table narrow it by month and tag. "All months" shows everything — the table scrolls inside its own box and the header stays visible.',
+      'Import from CSV or a bank export: choose the file, match the columns, and check "Possible duplicates" before you confirm.',
+      'Recurring entries are things that repeat, such as rent or subscriptions. Active installment plans track payments that run over time.'],
+    tips: ['Press N anywhere to jump to a new entry.', 'The 🧾 button in the top bar adds several items from one shop visit.'] },
+  grocery: { label: 'Grocery', title: 'Grocery', nav: 'grocery',
+    what: 'A product catalog and shopping list with prices, so you can see what your shop really costs.',
+    how: ['Add products to the catalog with a price.', 'Put items on the shopping list from the catalog, or type a custom item.',
+      'Import prices from a spreadsheet: match its columns to the fields.', 'An arrow beside an item shows when its price has gone up or down since last time.'],
+    tips: ['The list scrolls inside its own box, so a long list does not make the page longer.'] },
+  wealth: { label: 'Wealth', title: 'Wealth', nav: 'wealth',
+    what: 'Long-term money: investments, debts, your mortgage, and planning calculators.',
+    how: ['Stock portfolio: add your holdings. Portfolio allocation and the net worth trajectory are calculated from them.',
+      'FIRE calculator and Wealth Trajectory show where your plan leads, based on the numbers you enter.',
+      'Debts: add each debt with its balance and rate. The payoff simulation compares how quickly different strategies clear them.',
+      'Mortgage payments: enter your balance and rate for the month you start tracking, then add each payment. Interest is estimated as balance × rate ÷ 12. The Outlook shows your payoff date and what an extra monthly payment would save; type in your lender\'s statement balance to check the estimate.',
+      'Loan amortisation calculator and Mortgage rate checker are planning tools.'],
+    tips: ['Mortgage interest here is an estimate. Your lender may calculate interest daily or add fees, so the real split can differ.'] },
+  fuel: { label: 'Fuel', title: 'Fuel', nav: 'fuel',
+    what: 'Tracks what your car really costs: fuel, service, insurance and the price of crude oil.',
+    how: ['Log each refuel with litres, price and odometer, and mark full tanks so the consumption is accurate.',
+      'Refuel history lists every fill-up. Edit cells right in the table; it scrolls inside its own box.',
+      'True cost per km, Price per litre trend, Monthly fuel cost and Predictions are calculated from your refuels.',
+      'Car maintenance and Insurance renewal keep your service costs and renewal date. Their reminders show on Overview.',
+      'Crude oil prices come from free public services. If they cannot be reached, the app shows the last saved prices, marked as saved. You can also enter prices by hand or add a free EIA key under the chart.'],
+    tips: ['Hybrid assist is for plug-in or hybrid cars. Leave it alone if yours is not one.'] },
+  settings: { label: 'Settings', title: 'Settings', nav: 'settings',
+    what: 'Preferences, syncing and safety.',
+    how: ['Budget splits & goals: set the 50/30/20 split and the goals that Overview uses.', 'Accounts: add your bank and cash accounts to see balances.',
+      'Sync & auto-push: choose whether changes are pushed to GitHub automatically.',
+      'Export data saves a readable copy of everything. It is not encrypted, so keep the file private.',
+      'Point-in-time restore lists earlier saves. The preview tells you what would be removed or come back before you confirm.',
+      'Data health check, Self-test and Smoke test look for problems in your data and in the app.', 'Danger zone deletes data. Read each message before you confirm.'],
+    tips: ['Your passphrase cannot be recovered. Keep it somewhere safe.'] },
+};
+const helpTopic = view => HELP_ORDER.includes(view) ? view : 'start';                          // the tab you are on → its help (anything unknown → Start here)
+const _helpP = t => `<p style="font-size:13px;line-height:1.6;margin:0 0 10px;color:var(--ink2)">${esc(t)}</p>`;
+const _helpH = t => `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">${esc(t)}</div>`;
+function helpHtml(key) {
+  const h = HELP[helpTopic(key)], li = (a, ordered) => `<${ordered ? 'ol' : 'ul'} style="margin:0 0 4px;padding-left:20px;font-size:13px;line-height:1.6;color:var(--ink2)">${a.map(x => `<li style="margin-bottom:5px">${esc(x)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>`;
+  return _helpH('What it is') + _helpP(h.what) + _helpH('How to use it') + li(h.how, true) + (h.bar ? _helpH('The top bar') + li(h.bar, false) : '') + _helpH('Good to know') + li(h.tips, false)
+    + (h.nav ? `<div style="margin-top:12px"><button class="btn sm primary" data-action="sh-help-go" data-view="${esc(h.nav)}">Take me to ${esc(h.label)}</button></div>` : '');
+}
+// The device flag, with any kind of storage: a missing or blocked localStorage just means "not seen", never an error.
+const helpSeenIn = st => { try { return !!(st && st.getItem(LS_HELP_SEEN)); } catch (e) { return false; } };
+const helpMarkSeenIn = st => { try { st.setItem(LS_HELP_SEEN, '1'); } catch (e) { /* private mode: the hint just shows again next time */ } };
+function renderHelp(key) {
+  const k = helpTopic(key), chips = el('help-chips'), body = el('help-body'); if (!chips || !body) return;
+  chips.innerHTML = HELP_ORDER.map(x => `<button class="btn xs ${x === k ? 'primary' : 'ghost'}" data-action="sh-help-tab" data-k="${x}" style="text-transform:none;letter-spacing:0">${esc(HELP[x].label)}</button>`).join('');
+  body.innerHTML = helpHtml(k); body.scrollTop = 0;
+}
+function _helpEndHint() { helpMarkSeenIn(localStorage); document.body.classList.remove('help-new'); }
+function openHelp(key) { _helpEndHint(); renderHelp(key === undefined ? VIEW : key); el('help-overlay').classList.add('open'); const c = el('help-close-btn'); if (c) c.focus(); }
+function closeHelp() { el('help-overlay').classList.remove('open'); }
+defineActions({
+  'sh-help-open':     () => openHelp(),
+  'sh-help-close':    () => closeHelp(),
+  'sh-help-backdrop': (t, ev) => { if (ev.target === t) closeHelp(); },
+  'sh-help-tab':      t => renderHelp(t.dataset.k),
+  'sh-help-go':       t => { closeHelp(); nav(t.dataset.view); },
+  'sh-help-keys':     () => { closeHelp(); openKeys(); },
+  'sh-help-hint-skip': () => _helpEndHint(),
+});
+(function () { const on = () => { if (!helpSeenIn(window.localStorage)) document.body.classList.add('help-new'); }; document.body ? on() : document.addEventListener('DOMContentLoaded', on); })();
+
+// ══════════════════════════════════════════
 // COMMAND PALETTE / GLOBAL SEARCH
 // ══════════════════════════════════════════
 let _cmdkActive = -1; // index of the highlighted result row
@@ -20613,6 +20731,25 @@ function runSmokeTest() {
         DATA = { settings: { oilLast: { wti: { range: '14d', ts: Date.now() - 600000 } } } }; _oilSaveLast(['wti']); expect(saved, 1, 'another range → saved'); DATA = { settings: {} }; _oilSaveLast(['wti']); expect(saved, 2, 'nothing saved yet → saved');
       } finally { _oilCache = keep.c; _oilFetched = keep.f; DATA = keep.d; _oilRange = keep.r; commit = keep.commit; }
     });
+    // ── Help sheet ──
+    test('help: every tab has complete help, the right tab opens, and anything unknown falls back to Start here', () => {
+      expect(HELP_ORDER.join(), 'start,dash,entries,grocery,wealth,fuel,settings', 'Start here plus the six tabs, in tab order');
+      expect(HELP_ORDER.every(k => HELP[k] && HELP[k].label && HELP[k].what.length > 20 && HELP[k].how.length >= 4 && HELP[k].tips.length >= 1 && HELP[k].how.every(x => x.length > 15)), true, 'each has what / how / tips, none empty');
+      expect(['dash', 'entries', 'grocery', 'wealth', 'fuel', 'settings'].map(v => helpTopic(v)).join(), 'dash,entries,grocery,wealth,fuel,settings', 'the current tab picks its own help'); expect([helpTopic('nope'), helpTopic(undefined), helpTopic(null), helpTopic('__proto__')].join(), 'start,start,start,start', 'unknown → Start here');
+      const tabs = [...document.querySelectorAll('header .tab')].map(t => t.dataset.s); expect(tabs.join(), HELP_ORDER.slice(1).join(), 'the help covers exactly the tabs that exist in the top bar');
+      expect(HELP_ORDER.slice(1).every(k => HELP[k].nav === k && document.querySelector(`header .tab[data-s="${HELP[k].nav}"]`)), true, '"Take me to" always points at a real tab'); expect(HELP.start.nav, null, 'Start here has no tab to go to');
+    });
+    test('help: the page is plain, escaped text, with the right buttons, and shows what the top bar icons mean', () => {
+      const h = helpHtml('entries'); expectTrue(h.includes('data-action="sh-help-go" data-view="entries"') && h.includes('Take me to Entries'), 'a Take-me-there button'); expect((h.match(/<li/g) || []).length, HELP.entries.how.length + HELP.entries.tips.length, 'every step and tip is listed once');
+      expect(helpHtml('start').includes('Take me to'), false, 'Start here has no such button'); expectTrue(helpHtml('start').includes('The top bar') && helpHtml('start').includes('quick receipt entry'), 'Start here explains the top bar icons');
+      const saved = HELP.dash.how[0]; try { HELP.dash.how[0] = '<img src=x onerror=alert(1)> & "q"'; const x = helpHtml('dash'); expectTrue(x.indexOf('<img') < 0 && x.includes('&lt;img') && x.includes('&amp;'), 'text is escaped, never trusted as HTML'); } finally { HELP.dash.how[0] = saved; }
+      expect(helpHtml('nope'), helpHtml('start'), 'an unknown topic renders Start here');
+    });
+    test('help: the "seen the hint" flag works with any storage, including none or a blocked one', () => {
+      const mem = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; }, st = mem();
+      expect(helpSeenIn(st), false, 'not seen at first'); helpMarkSeenIn(st); expect(helpSeenIn(st), true, 'seen afterwards'); expect(LS_HELP_SEEN, 'vf4_help_seen', 'same vf4_ naming as the other screen preferences');
+      const blocked = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } }; expect(helpSeenIn(blocked), false, 'blocked storage → not seen, no error'); helpMarkSeenIn(blocked); expect(helpSeenIn(null) + '|' + helpSeenIn(undefined), 'false|false', 'no storage at all'); helpMarkSeenIn({});
+    });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
       const base = () => ({ entries: [], savingsGoals: [{ id: 'g1', name: 'Holiday', target: 1000, saved: 100, contribution: { amount: 200, day: 5 } },
@@ -22340,6 +22477,7 @@ document.addEventListener('keydown', e => {
   // Cmd/Ctrl+K opens the command palette regardless of focus (it's a modifier
   // combo, so it can't collide with normal typing the way bare letter keys would).
   if (e.key==='k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); el('cmdk-overlay').classList.contains('open') ? closeCmdK() : openCmdK(); return; }
+  if (e.key==='Escape' && el('help-overlay').classList.contains('open')) { closeHelp(); return; }
   if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key==='1') nav('dash');
   if (e.key==='2') nav('entries');
