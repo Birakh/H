@@ -529,6 +529,11 @@ body.help-new .help-pill{animation:helpPulse 2s ease-out infinite}
 .help-hint{display:none;position:fixed;top:56px;right:10px;z-index:550;width:min(300px,calc(100vw - 20px));background:var(--s0);border:.5px solid var(--bdr2);border-radius:12px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.2);font-size:13px;line-height:1.5;color:var(--ink)}
 body.help-new .help-hint{display:block}
 .help-box{width:min(640px,100%);max-height:88vh}
+/* Connect screen, first visit only: the setup guide's toggle becomes a clear call to action (the guide itself stays closed until tapped) */
+.guide-cta{display:flex!important;align-items:center;gap:8px;width:100%;padding:11px 14px!important;font-size:13px!important;font-weight:600;color:var(--B)!important;background:var(--Bbg)!important;border:1px solid var(--B)!important;border-radius:var(--rs);text-align:left;cursor:pointer;white-space:normal!important;line-height:1.35;justify-content:flex-start;box-sizing:border-box}
+.guide-cta.pulse{animation:guidePulse 2s ease-out infinite}
+@keyframes guidePulse{0%{box-shadow:0 0 0 0 rgba(42,108,203,.45)}70%{box-shadow:0 0 0 9px rgba(42,108,203,0)}100%{box-shadow:0 0 0 0 rgba(42,108,203,0)}}
+@media (prefers-reduced-motion:reduce){.guide-cta.pulse{animation:none}}
 .help-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
 .keys-box{background:var(--s0);border-radius:16px;padding:28px 28px 22px;width:min(560px,100%);box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto}
 .keys-title{font-size:17px;font-weight:700;margin-bottom:18px;letter-spacing:-.01em}
@@ -911,10 +916,15 @@ body.help-new .help-hint{display:block}
     </div>
   </div>
 
+  <div id="connect-intro" style="display:none;margin-bottom:14px;padding:12px 14px;background:var(--s1);border-radius:var(--rs);font-size:12px;line-height:1.65;color:var(--ink2)">
+    <div style="font-weight:600;color:var(--ink);margin-bottom:4px">New here?</div>
+    <div>Vault Finance is a private money tracker with no server and no account. Your data is encrypted in your browser and saved in <strong>your own private GitHub repository</strong>.</div>
+    <div style="margin-top:6px">You need three things: a <strong>private GitHub repository</strong>, a <strong>token</strong> that can read and write only that repository, and a <strong>passphrase</strong> you choose (it cannot be recovered). Tap the <strong>highlighted button</strong> below for a step-by-step walkthrough.</div>
+  </div>
   <!-- ── Setup guide (collapsible) ── -->
   <div style="margin-bottom:16px">
-    <button class="btn xs ghost" style="padding:0;font-size:12px;color:var(--ink3)" data-action="sh-setup-guide">
-      <span id="guide-arrow">▸</span> First-time setup guide
+    <button class="btn xs ghost" id="guide-toggle" style="padding:0;font-size:12px;color:var(--ink3)" data-action="sh-setup-guide">
+      <span id="guide-arrow">▸</span> <span id="guide-label">First-time setup guide</span>
     </button>
     <div id="setup-guide" style="display:none;margin-top:10px;padding:12px 14px;background:var(--s1);border-radius:var(--rs);font-size:12px;color:var(--ink2);line-height:1.75">
       <div style="font-weight:600;color:var(--ink);margin-bottom:8px">Recommended setup — app public, vault private</div>
@@ -1232,6 +1242,7 @@ body.help-new .help-hint{display:block}
 
     <!-- OVERVIEW -->
     <section id="sec-dash" class="section active">
+      <div class="card" id="started-card" style="display:none"><div id="d-started"></div></div>
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
         <div>
           <label>Monthly income</label>
@@ -5321,6 +5332,7 @@ function onMonthChange() {
 }
 
 function renderDash() {
+  renderStarted();
   const month   = curMonth();
   // Only show income that was explicitly saved for this month — never fall back to global
   const savedInc = DATA.incomes[month];
@@ -10957,7 +10969,8 @@ const HELP = {
       'Settings → Point-in-time restore lists earlier saves. Its preview shows what would be removed or come back before you confirm.'] },
   dash: { label: 'Overview', title: 'Overview', nav: 'dash',
     what: 'A picture of your money, calculated from your entries. Most cards update by themselves when you add or change an entry.',
-    how: ['Coming up shows dates that need attention, such as car and tax dates, bills and reminders.',
+    how: ['The Getting started card at the top ticks itself as you set things up. Press Hide when you no longer need it.',
+      'Coming up shows dates that need attention, such as car and tax dates, bills and reminders.',
       'Insights, This week and Spending by category show where the month\'s money goes against your 50/30/20 split.',
       'Savings goals and Sinking funds are the cards you fill in yourself: add a goal, set a target and top it up.',
       'Electricity bill: log your bills, record the prices of each month, or enter one fixed price if your tariff has one. "Year at a glance" sets your yearly price against the Austrian average.',
@@ -11030,6 +11043,45 @@ defineActions({
   'sh-help-keys':     () => { closeHelp(); openKeys(); },
   'sh-help-hint-skip': () => _helpEndHint(),
 });
+
+// ── Getting started ──
+// A short checklist at the top of Overview whose ticks come from the data itself (nothing extra is stored to tick them). "Hide" is a screen preference of this device (vf4_started_hide), like the
+// help hint. On the connect screen a first-time visitor (no saved connection on this device) also sees a plain-English intro; the setup guide stays closed until they open it.
+const LS_STARTED_HIDE = 'vf4_started_hide';
+function startedSteps(d) {
+  d = d || {}; const arr = x => Array.isArray(x) ? x : [];
+  return [
+    { id: 'income',  label: 'Save your monthly income', hint: 'Type it in the Monthly income box above and press Save.', go: 'income',  done: !!(d.incomes && typeof d.incomes === 'object' && Object.values(d.incomes).some(v => v && +v.amount > 0)) },
+    { id: 'expense', label: 'Add your first expense', hint: 'On Entries, use the quick-add row or the form.', go: 'entries', done: arr(d.entries).some(e => e && e.type === 'expense') },
+    { id: 'account', label: 'Add a bank account', hint: 'Settings → Accounts. A Cash account is already there.', go: 'settings', done: arr(d.accounts).some(a => a && a.id !== 'cash_default') },
+    { id: 'goal',    label: 'Set a savings goal', hint: 'Further down on Overview, open Savings goals and add one.', go: null, done: arr(d.savingsGoals).length > 0 },
+    { id: 'sync',    label: 'Back up to GitHub', hint: 'Press ↑ Push in the top bar, and do it regularly.', go: null, done: !!(d.meta && d.meta.lastSync) },
+  ];
+}
+const startedHiddenIn = st => { try { return !!(st && st.getItem(LS_STARTED_HIDE)); } catch (e) { return false; } };
+const startedHideIn = st => { try { st.setItem(LS_STARTED_HIDE, '1'); } catch (e) { /* blocked storage: it just shows again next time */ } };
+function renderStarted() {
+  const card = el('started-card'), box = el('d-started'); if (!card || !box) return;
+  if (startedHiddenIn(window.localStorage)) { card.style.display = 'none'; return; }
+  const steps = startedSteps(DATA), done = steps.filter(s => s.done).length, all = done === steps.length; card.style.display = '';
+  box.innerHTML = `<div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap"><div style="font-size:13px;font-weight:600">${all ? 'All set — you are up and running 🎉' : `Getting started · ${done} of ${steps.length}`}</div><span><button class="btn xs ghost" data-action="sh-started-help">Open the guide</button> <button class="btn xs ${all ? 'primary' : 'ghost'}" data-action="sh-started-hide">${all ? 'Hide this' : 'Hide'}</button></span></div>`
+    + `<div style="height:5px;border-radius:3px;background:var(--s2);margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${Math.round(done / steps.length * 100)}%;background:var(--G);transition:width .3s"></div></div>`
+    + steps.map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0"><span aria-hidden="true" style="flex:0 0 18px;height:18px;border-radius:50%;border:1.5px solid ${s.done ? 'var(--G)' : 'var(--bdr2)'};background:${s.done ? 'var(--G)' : 'transparent'};color:#fff;font-size:11px;line-height:15px;text-align:center">${s.done ? '✓' : ''}</span>`
+      + `<div style="flex:1;min-width:0"><div style="font-size:13px;${s.done ? 'color:var(--ink3);text-decoration:line-through' : 'font-weight:500'}">${esc(s.label)}</div>${s.done ? '' : `<div style="font-size:12px;color:var(--ink3)">${esc(s.hint)}</div>`}${!s.done && s.go ? `<div style="margin-top:5px"><button class="btn xs" data-action="sh-started-go" data-go="${esc(s.go)}">Go</button></div>` : ''}</div></div>`).join('');
+}
+defineActions({
+  'sh-started-go':   t => { const g = t.dataset.go; if (g === 'income') { const i = el('d-income'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } } else if (g === 'entries') { nav('entries'); setTimeout(() => { el('qa-desc')?.focus() || el('ef-desc')?.focus(); }, 60); } else if (g === 'settings') nav('settings'); },
+  'sh-started-hide': () => { startedHideIn(localStorage); renderStarted(); },
+  'sh-started-help': () => openHelp('start'),
+});
+(function () {                                                                   // first-time visitor on this device: say what this is (the setup guide itself stays closed until they open it)
+  const on = () => { try { if (localStorage.getItem(LS_CFG)) return; } catch (e) { /* blocked storage counts as a first visit */ }
+    const i = document.getElementById('connect-intro'), t = document.getElementById('guide-toggle'), l = document.getElementById('guide-label');
+    if (i) i.style.display = '';
+    if (t) { t.classList.add('guide-cta', 'pulse'); t.addEventListener('click', () => t.classList.remove('pulse'), { once: true }); }   // obvious until they open it once
+    if (l) l.textContent = 'First time here? Open the setup guide'; };
+  document.getElementById('connect-intro') ? on() : document.addEventListener('DOMContentLoaded', on);
+})();
 (function () { const on = () => { if (!helpSeenIn(window.localStorage)) document.body.classList.add('help-new'); }; document.body ? on() : document.addEventListener('DOMContentLoaded', on); })();
 
 // ══════════════════════════════════════════
@@ -12786,6 +12838,39 @@ function srTip(rect, tip, cx, cy) {
 }
 function srHideTip() { ['sr-tipbg','sr-tiptxt'].forEach(id=>{const e=el(id);if(e)e.style.display='none';}); }
 
+// The current net worth the way the chart and the daily snapshot count it (one place, so the chart, the wrong-snapshot check and the Remove button can never disagree).
+function nwCurrentTotal() {
+  const acctNw    = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
+  const stocksEur = (DATA.stocks||[]).reduce((s,st) => {
+    const rate = (typeof _fxRates!=='undefined'&&_fxRates[st.currency])||null;
+    const native = fifoTotalShares(st)*(st.currentPrice||0);
+    return s + (st.currency==='EUR'?native:(rate?native*rate:0));
+  }, 0);
+  const goalsSaved = (DATA.savingsGoals||[]).reduce((s,g)=>s+(+g.saved||0),0);
+  return acctNw + stocksEur + goalsSaved;
+}
+// Saved snapshots that cannot be right — far beyond both today's net worth and the typical snapshot (an old bug, a wrong import) — would stretch the whole chart. They are LEFT OUT of the chart and
+// offered for removal; nothing is deleted unless you press the button. → the flagged snapshots, as they are.
+function nwBadSnapshots(hist, currentNW) {
+  const pts = (Array.isArray(hist) ? hist : []).filter(p => p && typeof p.date === 'string' && Number.isFinite(+p.nw));
+  const vals = pts.map(p => Math.abs(+p.nw)).sort((a, b) => a - b), med = vals.length >= 3 ? vals[Math.floor(vals.length / 2)] : 0, ref = Math.max(Math.abs(+currentNW || 0), med);
+  return pts.filter(p => Math.abs(+p.nw) > 10 * ref + 10000);
+}
+// x positions of the history points: by real date inside [left, left+width], today at the right end, never leaving the box.
+function nwHistXs(dates, nowMs, left, width) {
+  const t = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +(s.slice(8, 10) || 1)), t0 = dates.length ? Math.min(...dates.map(t)) : nowMs, span = Math.max(nowMs - t0, 30 * 864e5);
+  return dates.map(d => left + width - Math.min(1, Math.max(0, (nowMs - t(d)) / span)) * width);
+}
+// Axis labels in priority order; one that would sit closer than `gap` to a kept one is dropped, so labels never print over each other.
+function nwPlaceLabels(items, gap) { const kept = []; items.forEach(it => { if (kept.every(k => Math.abs(k.x - it.x) >= gap)) kept.push(it); }); return kept; }
+defineActions({
+  'nw-snap-remove': t => {
+    const want = String(t.dataset.dates || '').split(',').filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)), bad = new Set(nwBadSnapshots(DATA.nwHistory, nwCurrentTotal()).map(p => p.date)), dates = want.filter(x => bad.has(x));
+    if (!dates.length) return;
+    commit('Wrong net worth snapshots removed', d => { d.nwHistory = (d.nwHistory || []).filter(p => !(p && dates.includes(p.date))); }, { touch: ['nwHistory'], render: () => renderNwTrajectory(), toast: `Removed ${dates.length} wrong snapshot${dates.length === 1 ? '' : 's'}` });
+  },
+});
+
 // ══════════════════════════════════════════
 // NET WORTH TRAJECTORY
 // Projects current NW forward using avg monthly savings + real return from FIRE calc
@@ -12797,27 +12882,17 @@ function renderNwTrajectory() {
   const now = new Date();
 
   // ── Real history from nwHistory snapshots ─────────────────────────────
-  // Keep last 24 months of snapshots, one per month (last snapshot per month-key)
-  const hist = (DATA.nwHistory||[])
-    .slice()
+  // Sorted raw snapshots; the chart keeps the last 24 months, one per month (the latest in that month),
+  // AFTER setting aside any that cannot be right (see nwBadSnapshots).
+  const histRaw = (DATA.nwHistory||[]).filter(p => p && typeof p.date === 'string' && Number.isFinite(+p.nw)).map(p => ({ date: p.date, nw: +p.nw }))
     .sort((a,b) => a.date.localeCompare(b.date));
 
-  // Deduplicate to one point per month (latest in that month)
-  const histByMonth = {};
-  hist.forEach(p => { histByMonth[p.date.slice(0,7)] = p; });
-  const histPts = Object.values(histByMonth)
-    .sort((a,b) => a.date.localeCompare(b.date))
-    .slice(-24); // last 24 months
-
   // ── Current net worth ──────────────────────────────────────────────────
-  const acctNw    = DATA.accounts.reduce((s,a) => s + computeAcctBalance(a), 0);
-  const stocksEur = (DATA.stocks||[]).reduce((s,st) => {
-    const rate = (typeof _fxRates!=='undefined'&&_fxRates[st.currency])||null;
-    const native = fifoTotalShares(st)*(st.currentPrice||0);
-    return s + (st.currency==='EUR'?native:(rate?native*rate:0));
-  }, 0);
-  const goalsSaved = (DATA.savingsGoals||[]).reduce((s,g)=>s+(+g.saved||0),0);
-  const currentNW  = acctNw + stocksEur + goalsSaved;
+  const currentNW  = nwCurrentTotal();
+  const badSnaps   = nwBadSnapshots(histRaw, currentNW), badDates = new Set(badSnaps.map(p => p.date));
+  const histByMonth = {};
+  histRaw.filter(p => !badDates.has(p.date)).forEach(p => { histByMonth[p.date.slice(0,7)] = p; });
+  const histPts = Object.values(histByMonth).sort((a,b) => a.date.localeCompare(b.date)).slice(-24);
 
   // ── Projection parameters ──────────────────────────────────────────────
   const recentMonths = [];
@@ -12874,7 +12949,9 @@ function renderNwTrajectory() {
   const histVals = histPts.map(p=>p.nw);
   const projVals = projPts.filter((_,i)=>i%12===0).map(p=>p.v);
   const minV = Math.min(0, ...histVals, ...projVals);
-  const maxV = Math.max(...histVals, ...projVals, 1);
+  const projMax = Math.max(...projVals, currentNW, 1);
+  // the FIRE target joins the axis when it is a sensible distance away, so the line to aim for is visible; an absurdly far one is left off, as before
+  const maxV = Math.max(...histVals, ...projVals, (fireNumber > 0 && fireNumber <= 3 * projMax ? fireNumber : 0), 1);
   const range = maxV - minV || 1;
 
   const fmtAx = v => {
@@ -12886,11 +12963,12 @@ function renderNwTrajectory() {
 
   // History occupies left portion of chart; projection occupies right.
   // Total "months" = histPts.length (past) + N (future)
-  const totalMo = histPts.length + N;
-  const histFrac = histPts.length / totalMo;
+  // The past gets its own readable part of the chart (a quarter of the width; less for a single point) with points placed by real date; the next 20 years share the rest.
+  // (Counting a point as one "month" on both sides gave 6 snapshots about 2 % of the width.)
+  const histFrac = histPts.length >= 2 ? 0.25 : histPts.length === 1 ? 0.12 : 0;
   const todayX   = padL + histFrac * cW;
-
-  const xForHist = i => padL + (i / Math.max(histPts.length-1,1)) * (histFrac * cW);
+  const histXs   = nwHistXs(histPts.map(p => p.date), Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()), padL, histFrac * cW);
+  const xForHist = i => histXs[i];
   const xForProj = i => todayX + (i / N) * ((1-histFrac) * cW);
   const yS = v => padT + cH - ((v-minV)/range)*cH;
 
@@ -12902,7 +12980,7 @@ function renderNwTrajectory() {
   // Dot at each history point
   const histDots = histPts.map((p,i) =>
     `<circle cx="${xForHist(i).toFixed(1)}" cy="${yS(p.nw).toFixed(1)}" r="2.5"
-      fill="var(--ink3)" opacity=".6" title="${p.date}: ${fmtAx(p.nw)}"/>`
+      fill="var(--ink3)" opacity=".6"><title>${p.date}: ${fmtAx(p.nw)}</title></circle>`
   ).join('');
 
   // Projection line + area
@@ -12937,22 +13015,14 @@ function renderNwTrajectory() {
   })() : '';
 
   // X-axis labels: key history dates + future years
-  const xLabels = [];
-  if (histPts.length > 0) {
-    // First and last history point
-    [0, histPts.length-1].forEach(i => {
-      if (!histPts[i]) return;
-      xLabels.push(`<text x="${xForHist(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8" fill="var(--chart-txt)">${histPts[i].date.slice(0,7)}</text>`);
-    });
-  }
-  // Future year labels every 5 years
-  for (let mo=60; mo<=N; mo+=60) {
-    const d = new Date(now.getFullYear(), now.getMonth()+mo);
-    xLabels.push(`<text x="${xForProj(mo).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="var(--chart-txt)">${d.getFullYear()}</text>`);
-  }
+  // X labels, most important first: the last and first history month, then a year label every 5 years; any that would overlap one already placed is dropped.
+  const lblItems = [];
+  if (histPts.length > 0) [histPts.length-1, 0].forEach(i => lblItems.push({ x: xForHist(i), t: histPts[i].date.slice(0,7), fs: 8 }));
+  for (let mo=60; mo<=N; mo+=60) lblItems.push({ x: xForProj(mo), t: String(new Date(now.getFullYear(), now.getMonth()+mo).getFullYear()), fs: 8.5 });
+  const xLabels = nwPlaceLabels(lblItems, 40).map(l => `<text x="${l.x.toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="${l.fs}" fill="var(--chart-txt)">${l.t}</text>`);
 
   // Y ticks
-  const yTicks = [minV, (minV+maxV)/2, maxV].map(v =>
+  const yTicks = [minV, (minV+maxV)/2, maxV].filter(v => fireLineY === null || Math.abs(yS(v) - fireLineY) > 9).map(v =>   // a tick that would print over the FIRE label is left off (FIRE carries the number)
     `<text x="${padL-4}" y="${yS(v).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--chart-txt)" dominant-baseline="middle">${fmtAx(v)}</text>`
   ).join('');
 
@@ -12960,7 +13030,10 @@ function renderNwTrajectory() {
     : fireMonth===0 ? 'already reached 🎉'
     : `${Math.floor(fireMonth/12)}y ${fireMonth%12}m`;
 
+  const worst = badSnaps.slice().sort((a,b) => Math.abs(b.nw) - Math.abs(a.nw))[0];
+  const badBanner = badSnaps.length ? `<div class="banner warn" style="margin-bottom:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>⚠ ${badSnaps.length} saved snapshot${badSnaps.length===1?' looks':'s look'} wrong (for example ${fmtAx(worst.nw)} on ${esc(worst.date)} while your net worth is ${fmtAx(currentNW)}) and ${badSnaps.length===1?'is':'are'} left out of this chart.</span><button class="btn xs" data-action="nw-snap-remove" data-dates="${esc(badSnaps.map(p=>p.date).join(','))}">Remove ${badSnaps.length===1?'it':'them'}</button></div>` : '';
   wrap.innerHTML = `
+    ${badBanner}
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
       <span style="color:var(--ink3)">Current NW: <strong>${fmtAx(currentNW)}</strong></span>
       <span style="color:var(--ink3)">Avg monthly savings: <strong>${fmt(avgMonthlySavings)}</strong></span>
@@ -20749,6 +20822,50 @@ function runSmokeTest() {
       const mem = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; }, st = mem();
       expect(helpSeenIn(st), false, 'not seen at first'); helpMarkSeenIn(st); expect(helpSeenIn(st), true, 'seen afterwards'); expect(LS_HELP_SEEN, 'vf4_help_seen', 'same vf4_ naming as the other screen preferences');
       const blocked = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } }; expect(helpSeenIn(blocked), false, 'blocked storage → not seen, no error'); helpMarkSeenIn(blocked); expect(helpSeenIn(null) + '|' + helpSeenIn(undefined), 'false|false', 'no storage at all'); helpMarkSeenIn({});
+    });
+    // ── Getting started checklist ──
+    test('getting started: five steps, ticked only by real data — the default Cash account and the salary mirror do not count', () => {
+      const f = FRESH(), S = startedSteps(f); expect(S.map(s => s.id).join(), 'income,expense,account,goal,sync', 'five steps in order'); expect(S.map(s => s.done).join(), 'false,false,false,false,false', 'a brand-new vault has none ticked (the default Cash account does not count)');
+      expect(S.every(s => s.label.length > 5 && s.hint.length > 10), true, 'every step has a label and a hint'); expect(S.filter(s => s.go).map(s => s.go).join(), 'income,entries,settings', 'steps with a Go button');
+      const d = { incomes: { '2026-11': { amount: 3400 } }, entries: [{ id: 'm', type: 'income', isSalaryMirror: true, amount: 3400 }], accounts: [{ id: 'cash_default' }], savingsGoals: [], meta: { lastSync: null } };
+      expect(startedSteps(d).map(s => s.done).join(), 'true,false,false,false,false', 'income saved ticks step 1; its mirrored salary entry is not an expense, so step 2 stays open');
+      d.entries.push({ id: 'e', type: 'expense', amount: 5 }); d.accounts.push({ id: 'acc_1', name: 'Bank' }); d.savingsGoals.push({ id: 'g' }); d.meta.lastSync = '2026-11-20T10:00:00Z'; expect(startedSteps(d).every(s => s.done), true, 'all five tick from real data');
+      expect(startedSteps({ incomes: { '2026-11': { amount: 0 } } })[0].done, false, 'an income of 0 is not an income');
+    });
+    test('getting started: junk, missing or older data never throws, and the hide flag works with any storage', () => {
+      expect([undefined, null, {}, { entries: 'x', accounts: 5, savingsGoals: {}, incomes: 'y', meta: null }, { entries: [null, 3, {}], accounts: [null], incomes: { a: null } }].map(x => startedSteps(x).filter(s => s.done).length).join(), '0,0,0,0,0', 'wrong shapes count as empty');
+      const mem = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; }, st = mem();
+      expect(startedHiddenIn(st), false, 'visible at first'); startedHideIn(st); expect(startedHiddenIn(st), true, 'hidden afterwards'); expect(LS_STARTED_HIDE, 'vf4_started_hide', 'same vf4_ naming');
+      const blocked = { getItem() { throw new Error('x'); }, setItem() { throw new Error('x'); } }; expect(startedHiddenIn(blocked) + '|' + startedHiddenIn(null), 'false|false', 'blocked or missing storage → shown'); startedHideIn(blocked); startedHideIn({});
+    });
+    test('getting started: the connect-screen intro and setup guide exist for new visitors, and renderStarted copes with an empty vault', () => {
+      expect(!!document.getElementById('connect-intro') && !!document.getElementById('setup-guide') && !!document.getElementById('guide-arrow') && !!document.getElementById('guide-toggle') && !!document.getElementById('guide-label'), true, 'the intro, the guide, its toggle, label and arrow are in the page');
+      const t = document.getElementById('connect-intro').textContent; expectTrue(/private GitHub repository/.test(t) && /passphrase/.test(t) && /cannot be recovered/.test(t), 'the intro names the three things you need and the passphrase warning');
+      const keep = DATA; try { DATA = FRESH(); expect((() => { try { renderStarted(); return 'ok'; } catch (e) { return e.message; } })(), 'ok', 'rendering a brand-new vault does not throw'); } finally { DATA = keep; }
+    });
+    // ── Net worth trajectory chart ──
+    test('net worth chart: a snapshot that cannot be right is set aside, normal and large-but-real history is not', () => {
+      const spike = [{ date: '2026-06-30', nw: 0 }, { date: '2026-07-31', nw: 0 }, { date: '2026-08-31', nw: 3400000 }, { date: '2026-09-30', nw: 15000 }, { date: '2026-10-31', nw: 18000 }, { date: '2026-11-20', nw: 20000 }];
+      expect(nwBadSnapshots(spike, 20000).map(p => p.date + ':' + p.nw).join(), '2026-08-31:3400000', 'the €3.4M snapshot beside a €20k net worth is flagged, and only it');
+      expect(nwBadSnapshots([{ date: 'a', nw: 10000 }, { date: 'b', nw: 50000 }, { date: 'c', nw: 120000 }, { date: 'd', nw: 300000 }], 300000).length, 0, 'steady growth is not flagged');
+      expect(nwBadSnapshots([{ date: 'a', nw: 150000 }, { date: 'b', nw: 120000 }, { date: 'c', nw: 20000 }], 20000).length, 0, 'a real drop from a large net worth is not flagged either');
+      expect(nwBadSnapshots([{ date: '2026-08-31', nw: 3400000 }], 20000).length, 1, 'a lone absurd snapshot is flagged against today\'s value'); expect(nwBadSnapshots([{ date: '2026-08-31', nw: -5e6 }], 20000).length, 1, 'so is a huge negative one');
+      expect(nwBadSnapshots([{ date: 'a', nw: 0 }, { date: 'b', nw: 0 }], 0).length, 0, 'all zeros: nothing to flag'); expect(nwBadSnapshots([{ date: 'a', nw: 9000 }], 0).length, 0, 'small numbers are never flagged');
+      expect([undefined, null, 'x', [null, {}, { date: 1, nw: 5 }, { date: 'a', nw: 'q' }]].map(h => nwBadSnapshots(h, 100).length).join(), '0,0,0,0', 'junk is ignored, never thrown on'); expect(nwBadSnapshots(spike, undefined).length, 1, 'no current value given: still compares with the typical snapshot');
+    });
+    test('net worth chart: history is placed by real date in its own part of the chart, and axis labels never overlap', () => {
+      const now = Date.UTC(2026, 10, 20), xs = nwHistXs(['2026-06-30', '2026-09-30', '2026-11-20'], now, 58, 150);
+      expect(xs[0] + '|' + xs[2], '58|208', 'the oldest snapshot at the left edge of its box, today at the right edge'); expectTrue(xs[1] > xs[0] && xs[1] < xs[2], 'the middle one sits in between, by date'); expectClose(xs[1], 58 + 150 - (51 / 143) * 150, 0.001, 'in proportion to the days');
+      expect(nwHistXs(['2026-11-10'], now, 58, 150)[0], 58 + 150 - (10 / 30) * 150, 'one snapshot 10 days ago: placed against a 30-day minimum span, not stretched'); expect(nwHistXs(['2026-11-20'], now, 58, 150)[0], 208, 'a snapshot from today is at the right end');
+      expect(nwHistXs(['2027-01-01'], now, 58, 150)[0], 208, 'a date in the future never leaves the box'); expect(nwHistXs([], now, 58, 150).length, 0, 'no history → none');
+      expect(xs.every(x => x >= 58 && x <= 208), true, 'all inside the box');
+      expect(nwPlaceLabels([{ x: 60, t: 'a' }, { x: 70, t: 'b' }, { x: 200, t: 'c' }, { x: 215, t: 'd' }, { x: 300, t: 'e' }], 38).map(l => l.t).join(), 'a,c,e', 'the first of two close labels is kept (priority order), the second dropped'); expect(nwPlaceLabels([], 38).length, 0, 'none');
+    });
+    test('net worth chart: the current total counts accounts, EUR stocks and savings goals exactly as before', () => {
+      const keep = DATA; try {
+        DATA = { entries: [], accounts: [{ id: 'cash_default', name: 'Cash', balance: 20000 }, { id: 'b', name: 'Bank', balance: 1500.5 }], stocks: [], savingsGoals: [{ saved: 300 }, { saved: '50' }, {}] }; expect(nwCurrentTotal(), 20000 + 1500.5 + 350, 'accounts + goals saved');
+        DATA = { entries: [], accounts: [], savingsGoals: [] }; expect(nwCurrentTotal(), 0, 'an empty vault is 0, with no stocks key at all');
+      } finally { DATA = keep; }
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
