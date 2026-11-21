@@ -1407,7 +1407,7 @@ body.help-new .help-hint{display:block}
             <div class="fg" style="margin:0"><label>Peak</label><input type="text" inputmode="decimal" id="en-m-rate-peak" style="width:100%;font-family:var(--mono)" data-action-input="energy-month-calc"></div>
           </div>
           </div>
-          <div id="d-energy-month-preview"          <div id="d-energy-month-preview" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px"></div>
+          <div id="d-energy-month-preview" style="background:var(--s1);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn sm primary" id="en-m-save" data-action="energy-month-save">Save month</button><button class="btn sm ghost" data-action="energy-month-clear">Clear</button></div>
           <div id="d-energy-months"></div>
           <div id="d-energy-cmp"></div></details>
@@ -2331,7 +2331,7 @@ body.help-new .help-hint{display:block}
         <div class="card-title">Data health check
           <button class="btn xs ghost" data-action="set-render-health-check">↻ Scan</button>
         </div>
-        <div id="d-health"><div style="font-size:13px;color:var(--ink3)">Click Scan to check your data for issues.</div></div>
+        <div id="d-health"><div style="font-size:13px;color:var(--ink3)">Click Scan to check your data for issues and anomalies.</div></div>
       </div>
 
       <div class="card">
@@ -11012,7 +11012,7 @@ const HELP = {
       'Sync & auto-push: choose whether changes are pushed to GitHub automatically.',
       'Export data saves a readable copy of everything. It is not encrypted, so keep the file private.',
       'Point-in-time restore lists earlier saves. The preview tells you what would be removed or come back before you confirm.',
-      'Data health check, Self-test and Smoke test look for problems in your data and in the app.', 'Danger zone deletes data. Read each message before you confirm.'],
+      'Data health check also runs an anomaly scan: it lists values that look wrong, such as an impossible net worth snapshot or an amount with an extra zero, and Overview flags the serious ones. It changes nothing by itself. Self-test and Smoke test look for problems in the app.', 'Danger zone deletes data. Read each message before you confirm.'],
     tips: ['Your passphrase cannot be recovered. Keep it somewhere safe.'] },
 };
 const helpTopic = view => HELP_ORDER.includes(view) ? view : 'start';                          // the tab you are on → its help (anything unknown → Start here)
@@ -12867,7 +12867,7 @@ defineActions({
   'nw-snap-remove': t => {
     const want = String(t.dataset.dates || '').split(',').filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)), bad = new Set(nwBadSnapshots(DATA.nwHistory, nwCurrentTotal()).map(p => p.date)), dates = want.filter(x => bad.has(x));
     if (!dates.length) return;
-    commit('Wrong net worth snapshots removed', d => { d.nwHistory = (d.nwHistory || []).filter(p => !(p && dates.includes(p.date))); }, { touch: ['nwHistory'], render: () => renderNwTrajectory(), toast: `Removed ${dates.length} wrong snapshot${dates.length === 1 ? '' : 's'}` });
+    commit('Wrong net worth snapshots removed', d => { d.nwHistory = (d.nwHistory || []).filter(p => !(p && dates.includes(p.date))); }, { touch: ['nwHistory'], render: () => { renderNwTrajectory(); renderHealthCheck(); renderDash(); }, toast: `Removed ${dates.length} wrong snapshot${dates.length === 1 ? '' : 's'}` });
   },
 });
 
@@ -13326,8 +13326,96 @@ function renderHealthCheck() {
         <div class="health-text">${esc(iss.text)}</div>
         ${iss.sub ? `<div class="health-sub">${esc(iss.sub)}</div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`).join('')
+    + anomalyHtml(scanAnomalies(DATA, { currentNW: nwCurrentTotal(), fxRates: _fxRates }));   // the anomaly scan: values that look wrong anywhere in the vault
 }
+
+// ══════════════════════════════════════════
+// ANOMALY SCAN — read-only. Looks through the whole vault for values that are almost certainly wrong (a typo with extra zeros, a bad import, an old bug) so something like a €3.4M net worth snapshot
+// is found at once instead of by chance. It never changes anything. Two levels, with deliberately conservative limits so it stays quiet about normal life:
+//   high = practically certainly wrong (not a number, an impossible date, a shared id, an absurd amount or snapshot, stored mortgage or tariff figures that do not add up) → also flagged on Overview
+//   warn = odd, worth a look → only listed in Settings → Data health check
+// ══════════════════════════════════════════
+const _anMedian = a => { const s = a.slice().sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0; };
+// opts = { today?: 'YYYY-MM-DD', currentNW?: number (for the snapshot check), fxRates?: { USD, ILS, … } (to spot holdings left out of net worth) } → findings, high first
+function scanAnomalies(data, opts) {
+  data = data && typeof data === 'object' ? data : {}; opts = opts || {};
+  const out = [], arr = x => Array.isArray(x) ? x.filter(r => r && typeof r === 'object') : [], isNum = x => x !== null && x !== undefined && x !== '' && Number.isFinite(+x);
+  const today = _dbRealDate(opts.today) ? opts.today : ymd(), r2 = x => Math.round((x + Number.EPSILON) * 100) / 100;
+  const add = (id, level, area, title, detail, go, fix) => out.push({ id, level, area, title, detail, go: go || null, fix: fix || null });
+  const sample = (list, f, n = 3) => list.slice(0, n).map(f).join('; ') + (list.length > n ? ` … and ${list.length - n} more` : '');
+  const pl = (n, one, many) => `${n} ${n === 1 ? one : many}`, safe = f => { try { f(); } catch (e) { /* one odd record must never stop the scan */ } };
+  const GO = { entries: { view: 'entries', label: 'Entries' }, wealth: { view: 'wealth', label: 'Wealth' }, dash: { view: 'dash', label: 'Overview' }, fuel: { view: 'fuel', label: 'Fuel' }, settings: { view: 'settings', label: 'Settings' } };
+
+  safe(() => {                                                                  // ── Entries
+    const ents = arr(data.entries), accIds = new Set(arr(data.accounts).map(a => a.id)), d = e => `${e.date || 'no date'} · ${e.desc || 'no description'} · ${isNum(e.amount) ? fmt(+e.amount) : '“' + e.amount + '”'}`;
+    const seen = {}; ents.forEach(e => { if (e.id !== undefined) seen[e.id] = (seen[e.id] || 0) + 1; }); const dupIds = Object.keys(seen).filter(k => seen[k] > 1);
+    if (dupIds.length) add('entries:dup-ids', 'high', 'Entries', `${pl(dupIds.length, 'id is', 'ids are')} used by more than one entry`, 'Editing, deleting and syncing can hit the wrong entry. Example id: ' + dupIds[0], GO.entries);
+    const bad = ents.filter(e => !isNum(e.amount)); if (bad.length) add('entries:amount-nan', 'high', 'Entries', `${pl(bad.length, 'entry has', 'entries have')} an amount that is not a number`, sample(bad, d), GO.entries);
+    const big = ents.filter(e => isNum(e.amount) && Math.abs(+e.amount) > 1e6); if (big.length) add('entries:amount-absurd', 'high', 'Entries', `${pl(big.length, 'entry is', 'entries are')} over €1,000,000`, 'Probably an extra zero or a decimal mix-up: ' + sample(big, d), GO.entries);
+    const zero = ents.filter(e => isNum(e.amount) && +e.amount <= 0); if (zero.length) add('entries:amount-nonpositive', 'warn', 'Entries', `${pl(zero.length, 'entry has', 'entries have')} an amount of zero or less`, sample(zero, d), GO.entries);
+    const badDate = ents.filter(e => !_dbRealDate(e.date)); if (badDate.length) add('entries:date-invalid', 'high', 'Entries', `${pl(badDate.length, 'entry has', 'entries have')} no valid date`, sample(badDate, d), GO.entries);
+    const far = ents.filter(e => _dbRealDate(e.date) && (+e.date.slice(0, 4) < 2000 || +e.date.slice(0, 4) > +today.slice(0, 4) + 1)); if (far.length) add('entries:date-far', 'warn', 'Entries', `${pl(far.length, 'entry is', 'entries are')} dated before 2000 or more than a year ahead`, sample(far, d), GO.entries);
+    const byCat = {}; ents.filter(e => e.type === 'expense' && isNum(e.amount) && +e.amount > 0).forEach(e => { (byCat[e.category || '—'] = byCat[e.category || '—'] || []).push(e); });
+    Object.keys(byCat).forEach(c => { const l = byCat[c]; if (l.length < 8) return; const m = _anMedian(l.map(e => +e.amount)), odd = l.filter(e => +e.amount > 20 * m && +e.amount > 2000).sort((a, b) => b.amount - a.amount);
+      if (odd.length) add('entries:outlier:' + c, 'warn', 'Entries', `${pl(odd.length, 'expense is', 'expenses are')} more than 20× the usual size in “${c}”`, `The usual one is about ${fmt(m)}. ` + sample(odd, d), GO.entries); });
+    if (accIds.size) { const lost = ents.filter(e => e.accountId && !accIds.has(e.accountId)); if (lost.length) add('entries:no-account', 'warn', 'Entries', `${pl(lost.length, 'entry points', 'entries point')} at an account that no longer exists`, sample(lost, d), GO.entries); }
+  });
+  safe(() => {                                                                  // ── Net worth history
+    const bad = nwBadSnapshots(data.nwHistory, opts.currentNW);
+    if (bad.length) { const w = bad.slice().sort((a, b) => Math.abs(b.nw) - Math.abs(a.nw))[0]; add('nw:snapshots', 'high', 'Net worth', `${pl(bad.length, 'saved net worth snapshot looks', 'saved net worth snapshots look')} wrong`, `For example ${fmt(w.nw)} on ${w.date}` + (isNum(opts.currentNW) ? ` while your net worth is ${fmt(+opts.currentNW)}` : '') + '. They are left out of the chart.', GO.wealth, { action: 'nw-snap-remove', label: bad.length === 1 ? 'Remove it' : 'Remove them', dates: bad.map(p => p.date) }); }
+  });
+  safe(() => {                                                                  // ── Accounts, stocks, goals, debts
+    const accs = arr(data.accounts).filter(a => a.balance !== undefined && a.balance !== null && a.balance !== '');
+    const badAcc = accs.filter(a => !isNum(a.balance)); if (badAcc.length) add('accounts:balance-nan', 'high', 'Accounts', `${pl(badAcc.length, 'account has', 'accounts have')} a starting balance that is not a number`, sample(badAcc, a => a.name || a.id), GO.settings);
+    const hugeAcc = accs.filter(a => isNum(a.balance) && Math.abs(+a.balance) > 1e8); if (hugeAcc.length) add('accounts:balance-huge', 'warn', 'Accounts', `${pl(hugeAcc.length, 'account has', 'accounts have')} a starting balance over €100,000,000`, sample(hugeAcc, a => `${a.name || a.id}: ${fmt(+a.balance)}`), GO.settings);
+    const stocks = arr(data.stocks), nm = s => s.ticker || s.name || s.id, vals = [], noPrice = [], noRate = [];
+    stocks.forEach(s => { safe(() => { const sh = fifoTotalShares(s), p = +s.currentPrice; if (!(sh > 0)) return; if (!(p > 0)) { noPrice.push(s); return; }
+      const eur = s.currency === 'EUR' ? sh * p : (opts.fxRates && opts.fxRates[s.currency] ? sh * p * opts.fxRates[s.currency] : null); if (eur === null) { if (opts.fxRates && s.currency !== 'EUR') noRate.push(s); } else vals.push({ s, v: eur }); }); });
+    if (noPrice.length) add('stocks:no-price', 'warn', 'Stocks', `${pl(noPrice.length, 'holding has', 'holdings have')} no current price`, 'They count as €0 in net worth: ' + sample(noPrice, nm), GO.wealth);
+    if (noRate.length) add('stocks:no-rate', 'warn', 'Stocks', `${pl(noRate.length, 'holding is', 'holdings are')} not counted in net worth`, 'No exchange rate is available for: ' + sample(noRate, s => `${nm(s)} (${s.currency})`), GO.wealth);
+    if (vals.length >= 3) { const m = _anMedian(vals.map(x => x.v)), odd = vals.filter(x => x.v > 20 * m && x.v > 100000); if (odd.length) add('stocks:value-outlier', 'warn', 'Stocks', `${pl(odd.length, 'holding is', 'holdings are')} worth over 20× your typical holding`, sample(odd, x => `${nm(x.s)}: ${fmt(x.v)}`) + ' — check its price and number of shares.', GO.wealth); }
+    const goals = arr(data.savingsGoals), badGoal = goals.filter(g => (g.saved !== undefined && !isNum(g.saved)) || (isNum(g.saved) && (+g.saved < 0 || +g.saved > 1e7)) || (isNum(g.saved) && isNum(g.target) && +g.target > 0 && +g.saved > 5 * +g.target));
+    if (badGoal.length) add('goals:odd', badGoal.some(g => isNum(g.saved) && +g.saved > 1e7) ? 'high' : 'warn', 'Goals', `${pl(badGoal.length, 'savings goal has', 'savings goals have')} an odd saved amount`, sample(badGoal, g => `${g.name || g.id}: saved ${fmt(isNum(g.saved) ? +g.saved : 0)} of ${fmt(isNum(g.target) ? +g.target : 0)}`), GO.dash);
+    const debts = arr(data.debts), badDebt = debts.filter(x => !isNum(x.balance) || +x.balance < 0 || (x.rate !== undefined && x.rate !== '' && (!isNum(x.rate) || +x.rate < 0 || +x.rate > 60)));
+    if (badDebt.length) add('debts:odd', 'warn', 'Debts', `${pl(badDebt.length, 'debt has', 'debts have')} a balance or rate that looks wrong`, sample(badDebt, x => `${x.name || x.id}: balance ${x.balance}, rate ${x.rate}`), GO.wealth);
+  });
+  safe(() => {                                                                  // ── Mortgage: stored figures against a fresh calculation
+    const m = data.mortgage; if (!m || typeof m !== 'object' || !isNum(m.startBalance)) return;
+    const ps = arr(m.payments), fresh = mortgageRecompute(m.startBalance, ps), sorted = ps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const off = sorted.filter((p, i) => ['interest', 'principal', 'openingBalance', 'closingBalance'].some(k => !isNum(p[k]) || Math.abs(+p[k] - fresh[i][k]) > 0.011)); if (off.length) add('mortgage:chain', 'high', 'Mortgage', `${pl(off.length, 'mortgage payment does', 'mortgage payments do')} not match a fresh calculation`, 'The stored interest, principal or balances differ: ' + sample(off, p => `${p.date}`) + '. Editing and saving any payment recalculates the chain.', GO.wealth);
+    const early = ps.filter(p => m.startDate && String(p.date) < m.startDate); if (early.length) add('mortgage:before-start', 'warn', 'Mortgage', `${pl(early.length, 'payment is', 'payments are')} dated before the tracking start`, sample(early, p => p.date), GO.wealth);
+  });
+  safe(() => {                                                                  // ── Electricity
+    const en = data.energy; if (!en || typeof en !== 'object') return;
+    const odd = arr(en.bills).filter(b => isNum(b.kwh) && isNum(b.gross) && +b.kwh > 0 && +b.gross > 0 && (+b.gross / +b.kwh > 1.5 || +b.gross / +b.kwh < 0.03 || +b.kwh > 20000));
+    if (odd.length) add('energy:bill-odd', 'warn', 'Electricity', `${pl(odd.length, 'bill has', 'bills have')} an implausible price or amount`, sample(odd, b => `${b.from || '?'}: ${b.kwh} kWh for ${fmt(+b.gross)} = €${(b.gross / b.kwh).toFixed(2)}/kWh`), GO.dash);
+    const recs = arr(en.tariffHistory).filter(_enMonthRecOk), wrong = recs.filter(r => r.fixedPrice === true ? Math.abs(r.totalCost - r2(r.totalKwh * r.rate.off)) > 0.011 : (ENERGY_BANDS.some(b => Math.abs(r.cost[b] - r2(r.kwh[b] * r.rate[b])) > 0.011) || Math.abs(r.totalCost - r2(ENERGY_BANDS.reduce((s, b) => s + r.cost[b], 0))) > 0.011));
+    if (wrong.length) add('energy:tariff-math', 'high', 'Electricity', `${pl(wrong.length, 'tariff month has', 'tariff months have')} costs that do not equal kWh × rate`, sample(wrong, r => _enMLabel(r.year, r.month)) + '. Edit and save the month to recalculate it.', GO.dash);
+    const dear = recs.filter(r => ENERGY_BANDS.some(b => r.rate[b] > 1.5)); if (dear.length) add('energy:tariff-rate', 'warn', 'Electricity', `${pl(dear.length, 'tariff month has', 'tariff months have')} a rate above €1.50 per kWh`, sample(dear, r => _enMLabel(r.year, r.month)) + ' — check the unit (ct/kWh, not €).', GO.dash);
+  });
+  safe(() => {                                                                  // ── Fuel
+    const f = arr(data.fuel), tooMuch = f.filter(x => (isNum(x.liters) && (+x.liters <= 0 || +x.liters > 150)) || (isNum(x.ppl) && (+x.ppl < 0.3 || +x.ppl > 5)));
+    if (tooMuch.length) add('fuel:values', 'warn', 'Fuel', `${pl(tooMuch.length, 'refuel has', 'refuels have')} litres or a price per litre that looks wrong`, sample(tooMuch, x => `${x.date || '?'}: ${x.liters} L at ${x.ppl}`), GO.fuel);
+    const withOdo = f.filter(x => isNum(x.odo) && _dbRealDate(x.date)).sort((a, b) => a.date.localeCompare(b.date) || +a.odo - +b.odo), back = withOdo.filter((x, i) => i && +x.odo < +withOdo[i - 1].odo);
+    if (back.length) add('fuel:odometer', 'warn', 'Fuel', `${pl(back.length, 'refuel has', 'refuels have')} an odometer reading lower than the one before`, sample(back, x => `${x.date}: ${x.odo} km`), GO.fuel);
+  });
+  const rank = { high: 0, warn: 1 }; return out.sort((a, b) => rank[a.level] - rank[b.level]);
+}
+// Overview "Coming up": only the findings that are practically certainly wrong, as one line.
+function _anomalyReminders(data, today) {
+  if (!data || typeof data !== 'object') return [];
+  const hi = scanAnomalies(data, { today, currentNW: data === DATA ? nwCurrentTotal() : undefined, fxRates: data === DATA ? _fxRates : undefined }).filter(f => f.level === 'high'); if (!hi.length) return [];
+  return [{ id: 'data-anomalies', level: 'warn', icon: '🔎', date: today, link: null, title: `${hi.length} possible data problem${hi.length === 1 ? '' : 's'}`, text: `${hi[0].title}${hi.length > 1 ? ` — and ${hi.length - 1} more` : ''}. Open Settings → Data health check and press Scan.` }];
+}
+function anomalyHtml(findings) {
+  const head = `<div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px">Anomaly scan</div>`;
+  if (!findings.length) return head + `<div class="health-issue"><div class="health-icon ok">✓</div><div><div class="health-text">No anomalies found</div><div class="health-sub">Nothing looks wrong across entries, net worth, accounts, stocks, goals, debts, mortgage, electricity and fuel.</div></div></div>`;
+  return head + `<div style="font-size:12px;color:var(--ink3);margin-bottom:6px">${findings.filter(f => f.level === 'high').length} likely wrong · ${findings.filter(f => f.level === 'warn').length} worth a look. Nothing is changed unless you press a button.</div>`
+    + findings.map(f => `<div class="health-issue"><div class="health-icon warn">${f.level === 'high' ? '!' : '⚠'}</div><div style="flex:1;min-width:0"><div class="health-text">${esc(f.title)}${f.level === 'high' ? ' <span style="color:var(--Rm);font-size:11px;font-weight:600">· likely wrong</span>' : ''}</div><div class="health-sub">${esc(f.area)} — ${esc(f.detail)}</div>`
+      + `<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">${f.go ? `<button class="btn xs ghost" data-action="sh-anom-go" data-view="${esc(f.go.view)}">Go to ${esc(f.go.label)}</button>` : ''}${f.fix ? `<button class="btn xs" data-action="${esc(f.fix.action)}" data-dates="${esc(f.fix.dates.join(','))}">${esc(f.fix.label)}</button>` : ''}</div></div></div>`).join('');
+}
+defineActions({ 'sh-anom-go': t => nav(t.dataset.view) });
 
 // ══════════════════════════════════════════
 // YNAB CSV EXPORT
@@ -18617,6 +18705,7 @@ function computeReminders(data, today) {
   _warrantyReminders(data, today).forEach(r => out.push(r));
   _energyReminders(data, today).forEach(r => out.push(r));
   _mortgageReminders(data, today).forEach(r => out.push(r));
+  _anomalyReminders(data, today).forEach(r => out.push(r));
   const rank = { warn: 0, soon: 1, info: 2 };
   return out.sort((a, b) => rank[a.level] - rank[b.level] || a.date.localeCompare(b.date));
 }
@@ -20866,6 +20955,61 @@ function runSmokeTest() {
         DATA = { entries: [], accounts: [{ id: 'cash_default', name: 'Cash', balance: 20000 }, { id: 'b', name: 'Bank', balance: 1500.5 }], stocks: [], savingsGoals: [{ saved: 300 }, { saved: '50' }, {}] }; expect(nwCurrentTotal(), 20000 + 1500.5 + 350, 'accounts + goals saved');
         DATA = { entries: [], accounts: [], savingsGoals: [] }; expect(nwCurrentTotal(), 0, 'an empty vault is 0, with no stocks key at all');
       } finally { DATA = keep; }
+    });
+    // ── Anomaly scan ──
+    const anIds = (d, o) => scanAnomalies(d, o).map(f => f.level[0] + ':' + f.id).join();
+    const anClean = () => { const f = FRESH(); f.entries = [{ id: 'e1', type: 'expense', date: '2026-11-02', amount: 25, desc: 'Lunch', category: 'wants', tags: [] }, { id: 'e2', type: 'income', date: '2026-11-01', amount: 3400, desc: 'Salary', category: 'income', tags: [] }]; return f; };
+    test('anomaly scan: a normal vault — a brand-new one and an ordinary one — has no findings at all', () => {
+      expect(scanAnomalies(FRESH(), { today: '2026-11-20' }).length, 0, 'a brand-new vault is quiet'); expect(scanAnomalies(anClean(), { today: '2026-11-20', currentNW: 20000 }).length, 0, 'ordinary entries are quiet');
+      expect([undefined, null, 5, 'x', [], {}, { entries: 'x', accounts: 5, stocks: {}, nwHistory: 3, mortgage: 'm', energy: 7, fuel: null }, { entries: [null, 3, 'a', {}], debts: [null], savingsGoals: [[]] }].map(d => { try { return scanAnomalies(d).length; } catch (e) { return 'THROWS'; } }).slice(0, 7).join(), '0,0,0,0,0,0,0', 'junk of every shape: never throws');
+    });
+    test('anomaly scan: entries — impossible values are "high", odd ones "warn", and a normal big purchase is left alone', () => {
+      const d = anClean(); d.entries.push({ id: 'x1', type: 'expense', date: '2026-11-03', amount: 'abc', desc: 'Bad', category: 'wants' }, { id: 'x2', type: 'expense', date: '2026-11-03', amount: 5000000, desc: 'Typo', category: 'wants' }, { id: 'x3', type: 'expense', date: '2026-02-30', amount: 5, desc: 'NoDate', category: 'wants' },
+        { id: 'e1', type: 'expense', date: '2026-11-04', amount: 9, desc: 'Same id', category: 'wants' }, { id: 'x4', type: 'expense', date: '2026-11-05', amount: 0, desc: 'Zero', category: 'wants' }, { id: 'x5', type: 'expense', date: '1990-01-01', amount: 5, desc: 'Old', category: 'wants' }, { id: 'x6', type: 'expense', date: '2026-11-06', amount: 350000, desc: 'Car', category: 'needs' });
+      const f = scanAnomalies(d, { today: '2026-11-20' }), id = k => f.find(x => x.id === k);
+      expect(['entries:dup-ids', 'entries:amount-nan', 'entries:amount-absurd', 'entries:date-invalid'].every(k => id(k) && id(k).level === 'high'), true, 'duplicate id, non-number, over €1M and a bad date are all "high"');
+      expect(['entries:amount-nonpositive', 'entries:date-far'].every(k => id(k) && id(k).level === 'warn'), true, 'zero and a 1990 date are "warn"'); expect(f.slice(0, 4).every(x => x.level === 'high') && f.slice(4).every(x => x.level === 'warn'), true, 'high findings come first');
+      expect(f.some(x => /350/.test(x.detail) && x.id === 'entries:amount-absurd'), false, 'a real €350,000 purchase is not flagged'); expect(id('entries:amount-nan').detail.includes('“abc”'), true, 'the detail shows the bad value'); expect(f.every(x => x.title && x.detail && x.area && x.go), true, 'every finding explains itself and says where to go');
+    });
+    test('anomaly scan: an expense far above the usual size for its category is flagged — only with enough history, and never an income', () => {
+      const mk = n => Array.from({ length: n }, (_, i) => ({ id: 'f' + i, type: 'expense', date: '2026-10-' + String(1 + i).padStart(2, '0'), amount: 20 + (i % 5), desc: 'Food ' + i, category: 'food' }));
+      const d = { entries: [...mk(10), { id: 'big', type: 'expense', date: '2026-10-28', amount: 5000, desc: 'Oops', category: 'food' }] }; const f = scanAnomalies(d, { today: '2026-11-20' }).filter(x => x.id === 'entries:outlier:food');
+      expect(f.length + '|' + f[0].level + '|' + /5\.000|5,000|5000/.test(f[0].detail.replace(/\s/g, '')), '1|warn|true', 'one flagged, as a warning, naming the amount');
+      expect(scanAnomalies({ entries: [...mk(5), { id: 'big', type: 'expense', date: '2026-10-28', amount: 5000, desc: 'x', category: 'food' }] }, { today: '2026-11-20' }).length, 0, 'with fewer than 8 in the category there is no "usual" to compare with');
+      expect(scanAnomalies({ entries: [...mk(10), { id: 'inc', type: 'income', date: '2026-10-28', amount: 5000, desc: 'Bonus', category: 'food' }] }, { today: '2026-11-20' }).length, 0, 'income is never an expense outlier');
+      expect(scanAnomalies({ entries: [...mk(10), { id: 'm', type: 'expense', date: '2026-10-28', amount: 1500, desc: 'Fine', category: 'food' }] }, { today: '2026-11-20' }).length, 0, 'a larger but ordinary amount (under €2,000) is left alone');
+    });
+    test('anomaly scan: the net worth snapshot that started this — found, rated "high", with a Remove button — and healthy history is quiet', () => {
+      const d = { nwHistory: [{ date: '2026-08-31', nw: 3400000 }, { date: '2026-09-30', nw: 15000 }, { date: '2026-10-31', nw: 18000 }, { date: '2026-11-20', nw: 20000 }] }, f = scanAnomalies(d, { currentNW: 20000, today: '2026-11-20' });
+      expect(f.length + '|' + f[0].id + '|' + f[0].level + '|' + f[0].fix.action + '|' + f[0].fix.dates.join(), '1|nw:snapshots|high|nw-snap-remove|2026-08-31', 'one high finding that carries the fix for exactly that date'); expect(/3\.400\.000|3,400,000|3400000/.test(f[0].detail.replace(/\s/g, '')) && /20\.000|20,000|20000/.test(f[0].detail.replace(/\s/g, '')), true, 'it names the bad value and the real net worth');
+      expect(scanAnomalies({ nwHistory: [{ date: 'a', nw: 10000 }, { date: 'b', nw: 50000 }, { date: 'c', nw: 300000 }] }, { currentNW: 300000 }).length, 0, 'steady growth is quiet');
+    });
+    test('anomaly scan: accounts, stocks, goals and debts', () => {
+      const d = { accounts: [{ id: 'a', name: 'Bad', balance: 'x' }, { id: 'b', name: 'Huge', balance: 5e9 }, { id: 'c', name: 'Fine', balance: 100 }], stocks: [{ id: 's1', ticker: 'AAA', currency: 'EUR', currentPrice: 0, lots: [{ shares: 10 }] }, { id: 's2', ticker: 'BBB', currency: 'USD', currentPrice: 50, lots: [{ shares: 10 }] }, { id: 's3', ticker: 'CCC', currency: 'EUR', currentPrice: 10, lots: [{ shares: 100 }] }, { id: 's4', ticker: 'DDD', currency: 'EUR', currentPrice: 12, lots: [{ shares: 100 }] }, { id: 's5', ticker: 'EEE', currency: 'EUR', currentPrice: 9, lots: [{ shares: 100 }] }, { id: 's6', ticker: 'FFF', currency: 'EUR', currentPrice: 4000, lots: [{ shares: 1000 }] }],
+        savingsGoals: [{ id: 'g1', name: 'Trip', target: 100, saved: 900 }, { id: 'g2', name: 'Ok', target: 100, saved: 50 }], debts: [{ id: 'd1', name: 'Neg', balance: -5, rate: 5 }, { id: 'd2', name: 'Rate', balance: 100, rate: 400 }, { id: 'd3', name: 'Fine', balance: 100, rate: 5 }] };
+      const f = scanAnomalies(d, { today: '2026-11-20', fxRates: { USD: null, ILS: null } }), has = (id, lvl) => f.some(x => x.id === id && x.level === lvl);
+      expect([has('accounts:balance-nan', 'high'), has('accounts:balance-huge', 'warn'), has('stocks:no-price', 'warn'), has('stocks:no-rate', 'warn'), has('stocks:value-outlier', 'warn'), has('goals:odd', 'warn'), has('debts:odd', 'warn')].join(), 'true,true,true,true,true,true,true', 'each odd thing is found at the right level');
+      expect(f.find(x => x.id === 'debts:odd').detail.includes('Neg') && f.find(x => x.id === 'debts:odd').detail.includes('Rate') && !f.find(x => x.id === 'debts:odd').detail.includes('Fine'), true, 'only the two odd debts are named'); expect(scanAnomalies(d, { today: '2026-11-20' }).some(x => x.id === 'stocks:no-rate'), false, 'without exchange rates given, a foreign holding is not reported as missing one');
+      expect(scanAnomalies({ savingsGoals: [{ id: 'g', name: 'x', target: 5, saved: 5e8 }] }).find(x => x.id === 'goals:odd').level, 'high', 'an absurd saved amount is "high"');
+    });
+    test('anomaly scan: mortgage and electricity figures that no longer add up are "high"; consistent ones are quiet', () => {
+      const d = anClean(); mortgageSetStart(d, { startDate: '2026-11-01', startBalance: '100000', rate: '12' }); mortgageAddPayment(d, { date: '2026-11-15', paymentAmount: '2000', annualRate: '12' }, 'p1'); mortgageAddPayment(d, { date: '2026-12-15', paymentAmount: '2000', annualRate: '12' }, 'p2');
+      expect(scanAnomalies(d, { today: '2026-11-20' }).length, 0, 'a consistent mortgage is quiet'); d.mortgage.payments[1].closingBalance += 500; expect(anIds(d, { today: '2026-11-20' }), 'h:mortgage:chain', 'a tampered closing balance is found'); d.mortgage.payments[1].closingBalance -= 500;
+      d.mortgage.payments.push({ id: 'p0', date: '2026-10-01', paymentAmount: 5, annualRate: 12, interest: 0, principal: 0, openingBalance: 0, closingBalance: 0 }); expect(scanAnomalies(d, { today: '2026-11-20' }).some(x => x.id === 'mortgage:before-start' && x.level === 'warn'), true, 'a payment before the start date is a warning');
+      const e = { energy: { bills: [{ id: 'b', from: '2026-10-01', kwh: 100, gross: 450 }, { id: 'ok', from: '2026-09-01', kwh: 150, gross: 71.48 }] } }; energySetMonthRecord(e, mkM('2026-11', [100, 50, 50], [20, 20, 20], 'gross'), null, 't1'); energySetMonthRecord(e, mkF('2026-12', 200, 30, 'net'), null, 't2');
+      expect(anIds(e, { today: '2026-11-20' }), 'w:energy:bill-odd', 'only the €4.50/kWh bill is flagged; consistent tariff months (band and fixed) are quiet'); e.energy.tariffHistory[0].cost.off = 2000; expect(scanAnomalies(e, { today: '2026-11-20' }).some(x => x.id === 'energy:tariff-math' && x.level === 'high'), true, 'a tampered band cost is found');
+      e.energy.tariffHistory[0].cost.off = 20; e.energy.tariffHistory[1].totalCost = 999; expect(scanAnomalies(e, { today: '2026-11-20' }).filter(x => x.id === 'energy:tariff-math').length, 1, 'and so is a fixed month whose total is not kWh × rate');
+      const r = { energy: { tariffHistory: [{ id: 't', year: 2026, month: 11, kwh: { off: 1, shoulder: 1, peak: 1 }, rate: { off: 30, shoulder: 30, peak: 30 }, cost: { off: 30, shoulder: 30, peak: 30 }, totalKwh: 3, totalCost: 90 }] } }; expect(scanAnomalies(r).some(x => x.id === 'energy:tariff-rate'), true, 'a rate entered in cents as if it were euros is a warning');
+    });
+    test('anomaly scan: fuel, the Overview nudge (serious findings only), and the scan changes nothing', () => {
+      const d = { fuel: [{ id: 'f1', date: '2026-09-01', liters: 40, ppl: 1.6, odo: 10000 }, { id: 'f2', date: '2026-10-01', liters: 500, ppl: 1.6, odo: 9000 }, { id: 'f3', date: '2026-11-01', liters: 40, ppl: 25, odo: 11000 }] }, f = scanAnomalies(d);
+      expect(f.map(x => x.id).sort().join(), 'fuel:odometer,fuel:values', 'odometer going backwards and absurd litres / price per litre'); expect(f.every(x => x.level === 'warn'), true, 'fuel findings are warnings only');
+      const w = { entries: [{ id: 'z', type: 'expense', date: '2026-11-03', amount: 0, desc: 'zero', category: 'wants' }] }; expect(_anomalyReminders(w, '2026-11-20').length, 0, 'warnings alone never reach Overview');
+      const h = { entries: [{ id: 'a', type: 'expense', date: '2026-11-03', amount: 'x', desc: 'a', category: 'wants' }, { id: 'b', type: 'expense', date: '2026-11-03', amount: 9e9, desc: 'b', category: 'wants' }] }, R = _anomalyReminders(h, '2026-11-20');
+      expect(R.length + '|' + R[0].id + '|' + R[0].level + '|' + R[0].title, '1|data-anomalies|warn|2 possible data problems', 'serious findings become one Coming-up line with the count'); expect(/and 1 more/.test(R[0].text) && /Settings/.test(R[0].text), true, 'saying where to look'); expect(_anomalyReminders(undefined, '2026-11-20').length + '|' + _anomalyReminders(anClean(), '2026-11-20').length, '0|0', 'nothing for no data or clean data');
+      const before = JSON.stringify([d, w, h]); scanAnomalies(d); scanAnomalies(w); scanAnomalies(h); anomalyHtml(scanAnomalies(h)); expect(JSON.stringify([d, w, h]), before, 'the scan never modifies the vault');
+      expect(JSON.stringify(scanAnomalies(h, { today: '2026-11-20' }).map(x => x.id)), JSON.stringify(scanAnomalies(h, { today: '2026-11-20' }).map(x => x.id)), 'same input, same findings in the same order');
+      expectTrue(anomalyHtml([]).includes('No anomalies found') && anomalyHtml(scanAnomalies(h)).includes('likely wrong') && anomalyHtml([{ level: 'warn', id: 'x', area: 'A', title: '<b>t</b>', detail: '<i>d</i>', go: null, fix: null }]).indexOf('<b>t</b>') < 0, 'the list shows the clean state, marks serious ones, and escapes text');
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
