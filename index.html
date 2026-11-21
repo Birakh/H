@@ -532,6 +532,12 @@ body.help-new .help-hint{display:block}
 /* Connect screen, first visit only: the setup guide's toggle becomes a clear call to action (the guide itself stays closed until tapped) */
 .guide-cta{display:flex!important;align-items:center;gap:8px;width:100%;padding:11px 14px!important;font-size:13px!important;font-weight:600;color:var(--B)!important;background:var(--Bbg)!important;border:1px solid var(--B)!important;border-radius:var(--rs);text-align:left;cursor:pointer;white-space:normal!important;line-height:1.35;justify-content:flex-start;box-sizing:border-box}
 .guide-cta.pulse{animation:guidePulse 2s ease-out infinite}
+.guide-cta.pulse{animation:guidePulse 2s ease-out infinite}
+/* Connect screen on a device that already knows its vault: just the token and passphrase, above the fold */
+.vault-line,.pat-short{display:none}
+.connect-card.returning .vault-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 10px;font-size:13px;color:var(--ink2)}
+.connect-card.returning .pat-short{display:block;font-size:11px;color:var(--ink3);margin-top:4px}
+.connect-card.returning #c-ownerrepo,.connect-card.returning .sec-title,.connect-card.returning .pat-note{display:none}
 @keyframes guidePulse{0%{box-shadow:0 0 0 0 rgba(42,108,203,.45)}70%{box-shadow:0 0 0 9px rgba(42,108,203,0)}100%{box-shadow:0 0 0 0 rgba(42,108,203,0)}}
 @media (prefers-reduced-motion:reduce){.guide-cta.pulse{animation:none}}
 .help-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
@@ -948,16 +954,18 @@ body.help-new .help-hint{display:block}
 
   <div class="sec-title">Private vault repository</div>
 
-  <div class="g2" style="margin-bottom:10px">
+  <div class="g2" id="c-ownerrepo" style="margin-bottom:10px">
     <div class="fg" style="margin:0"><label>GitHub owner</label><input type="text" id="c-owner" placeholder="your-username" autocomplete="off" autocapitalize="none"></div>
     <div class="fg" style="margin:0"><label>Private repo name</label><input type="text" id="c-repo" placeholder="v-store" autocomplete="off" autocapitalize="none"></div>
   </div>
 
+  <div class="vault-line" id="c-vaultline"><span>Vault: <strong id="c-vaultname"></strong></span><button class="btn xs ghost" data-action="sh-change-vault">Change</button></div>
   <div class="sec-title" style="margin-top:14px">Access token</div>
 
   <div class="fg">
     <label>Fine-grained Personal Access Token</label>
     <input type="password" id="c-pat" placeholder="github_pat_…" autocomplete="off">
+    <div style="margin-top:6px"><button class="btn xs" data-action="sh-paste-pat">Paste from clipboard</button></div>
     <div class="pat-note">⚿ Held <strong>in memory only</strong> for this session — never written to disk, never sent anywhere except the GitHub API. Scope it to your private vault repo only (Contents: read &amp; write). Re-enter each session.</div>
   </div>
 
@@ -965,7 +973,9 @@ body.help-new .help-hint{display:block}
 
   <div class="fg">
     <label>Vault passphrase</label>
-    <input type="password" id="c-pass" placeholder="Five random words or 20+ characters…" autocomplete="new-password">
+    <input type="text" id="c-user" name="username" autocomplete="username" autocapitalize="none" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+    <input type="password" id="c-pass" name="password" placeholder="Five random words or 20+ characters…" autocomplete="new-password">
+    <div class="pat-short">⚿ The token stays in memory only. The passphrase never leaves this device.</div>
     <div class="pat-note">🔑 Used <strong>only for local encryption</strong> — never transmitted. Independent of your token; rotating or revoking the token does not lock you out of your data. Use a unique passphrase stored in a password manager.<br><span style="color:var(--Am);font-weight:500">Existing vault?</span> Leave blank to open with your old token as key, then migrate in Settings → Sync.</div>
   </div>
 
@@ -4315,10 +4325,31 @@ function _disconnectCore() {
   el('screen-app').style.display = 'none';
   el('screen-connect').style.display = 'flex';
   el('c-pat').value = ''; el('c-pass').value = ''; el('btn-enter').disabled = true;
+  applyReturningUi();
   cStatus('ok', 'Disconnected — PAT and passphrase cleared from memory');
 }
 
-el('c-pat').addEventListener('keydown', e => { if (e.key==='Enter') testConn(); });
+// ── Faster unlock (nothing new is stored: the token and passphrase still live in memory only; owner/repo were already remembered) ──
+// "Open vault" no longer waits for a separate "Test connection" — opening pulls from GitHub anyway, and shows the reason if the token or repo is wrong. A phone's password manager can fill the
+// passphrase (existing-password field + a hidden username), Enter moves on / opens, a Paste button reads the clipboard, and on a device that already knows its vault only the essentials are shown.
+const connectReady = (owner, repo, pat, pass) => [owner, repo, pat, pass].every(v => typeof v === 'string' && v.trim() !== '');
+function connectIsReturning(raw) { try { const c = JSON.parse(raw); return !!(c && typeof c.owner === 'string' && c.owner.trim() && typeof c.repo === 'string' && c.repo.trim()); } catch (e) { return false; } }
+function syncConnectUi() {
+  const v = id => (el(id).value || ''); el('btn-enter').disabled = !connectReady(v('c-owner'), v('c-repo'), v('c-pat'), v('c-pass'));
+  const u = el('c-user'); if (u) u.value = `${v('c-owner').trim()}/${v('c-repo').trim()}`;             // the name the password manager files the passphrase under
+}
+function applyReturningUi() {
+  let raw = null; try { raw = localStorage.getItem(LS_CFG); } catch (e) { /* blocked storage: treated as a new device */ }
+  const returning = connectIsReturning(raw), card = document.querySelector('.connect-card'); if (!card) return;
+  card.classList.toggle('returning', returning); el('c-pass').setAttribute('autocomplete', returning ? 'current-password' : 'new-password');   // a new device is offered a NEW password, a known one its saved one
+  if (returning) { const c = JSON.parse(raw); el('c-vaultname').textContent = `${c.owner}/${c.repo}`; }
+  syncConnectUi();
+}
+['c-owner', 'c-repo', 'c-pat', 'c-pass'].forEach(id => ['input', 'change'].forEach(ev => el(id).addEventListener(ev, syncConnectUi)));
+el('c-pat').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (el('c-pass').value) { if (!el('btn-enter').disabled) enterApp(); } else el('c-pass').focus(); } });
+el('c-pass').addEventListener('keydown', e => { if (e.key === 'Enter' && !el('btn-enter').disabled) { e.preventDefault(); enterApp(); } });
+setInterval(() => { if (el('screen-connect').style.display !== 'none') syncConnectUi(); }, 700);          // some autofill fills a field without firing an event
+applyReturningUi();
 
 // ══════════════════════════════════════════
 // GITHUB API
@@ -11073,6 +11104,10 @@ defineActions({
   'sh-started-go':   t => { const g = t.dataset.go; if (g === 'income') { const i = el('d-income'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } } else if (g === 'entries') { nav('entries'); setTimeout(() => { el('qa-desc')?.focus() || el('ef-desc')?.focus(); }, 60); } else if (g === 'settings') nav('settings'); },
   'sh-started-hide': () => { startedHideIn(localStorage); renderStarted(); },
   'sh-started-help': () => openHelp('start'),
+});
+defineActions({
+  'sh-paste-pat':   async () => { try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return cStatus('err', 'The clipboard is empty.'); el('c-pat').value = t; syncConnectUi(); el('c-pass').focus(); } catch (e) { cStatus('err', 'Could not read the clipboard — press and hold the token field and choose Paste.'); } },
+  'sh-change-vault': () => { document.querySelector('.connect-card').classList.remove('returning'); el('c-owner').focus(); },
 });
 (function () {                                                                   // first-time visitor on this device: say what this is (the setup guide itself stays closed until they open it)
   const on = () => { try { if (localStorage.getItem(LS_CFG)) return; } catch (e) { /* blocked storage counts as a first visit */ }
@@ -21010,6 +21045,15 @@ function runSmokeTest() {
       const before = JSON.stringify([d, w, h]); scanAnomalies(d); scanAnomalies(w); scanAnomalies(h); anomalyHtml(scanAnomalies(h)); expect(JSON.stringify([d, w, h]), before, 'the scan never modifies the vault');
       expect(JSON.stringify(scanAnomalies(h, { today: '2026-11-20' }).map(x => x.id)), JSON.stringify(scanAnomalies(h, { today: '2026-11-20' }).map(x => x.id)), 'same input, same findings in the same order');
       expectTrue(anomalyHtml([]).includes('No anomalies found') && anomalyHtml(scanAnomalies(h)).includes('likely wrong') && anomalyHtml([{ level: 'warn', id: 'x', area: 'A', title: '<b>t</b>', detail: '<i>d</i>', go: null, fix: null }]).indexOf('<b>t</b>') < 0, 'the list shows the clean state, marks serious ones, and escapes text');
+    });
+    // ── Faster unlock ──
+    test('faster unlock: "Open vault" needs owner, repo, token and passphrase — and nothing else', () => {
+      expect([connectReady('me', 'v-store', 'github_pat_x', 'pass phrase'), connectReady('me', 'v-store', 'github_pat_x', ''), connectReady('me', 'v-store', '', 'p'), connectReady('', 'v', 't', 'p'), connectReady('me', '  ', 't', 'p'), connectReady('me', 'v', 't', undefined), connectReady(null, null, null, null)].join(), 'true,false,false,false,false,false,false', 'only the full set opens it; blanks and missing values do not');
+      expect(connectReady(' me ', ' v ', ' t ', ' p '), true, 'surrounding spaces do not matter');
+      const btn = document.getElementById('btn-enter'); expect(!!btn && btn.getAttribute('data-action'), 'sh-enter-app', 'the button still opens the vault'); expect(!!document.getElementById('c-user') && !!document.querySelector('[data-action="sh-paste-pat"]') && !!document.getElementById('c-vaultline') && !!document.getElementById('c-ownerrepo'), true, 'the username field, Paste button, vault line and owner/repo row exist');
+    });
+    test('faster unlock: a device is "returning" only when a vault is saved on it', () => {
+      expect([connectIsReturning('{"owner":"me","repo":"v-store","path":"budget.enc"}'), connectIsReturning('{"owner":"me"}'), connectIsReturning('{"owner":" ","repo":"v"}'), connectIsReturning('{}'), connectIsReturning('not json'), connectIsReturning(null), connectIsReturning(undefined), connectIsReturning('{"owner":5,"repo":6}')].join(), 'true,false,false,false,false,false,false,false', 'needs both an owner and a repo; junk means a new device');
     });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
