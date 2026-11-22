@@ -4,7 +4,7 @@
 // only fall back to whatever was last cached when there's no connection.
 // The cache name below is a PLACEHOLDER: `node release.js` stamps release/sw.js with a name derived from the content, so it changes exactly
 // when the app changes (and old caches are evicted). Do not edit it by hand.
-const CACHE_NAME = 'vault-finance-fe84e1e2';
+const CACHE_NAME = 'vault-finance-1480b880';
 const APP_SHELL  = ['./', './index.html', './manifest.webmanifest'];
 // Third-party libraries the app depends on at runtime (currently just the Excel
 // export library). Cached separately from APP_SHELL and best-effort per-file —
@@ -44,7 +44,8 @@ self.addEventListener('fetch', event => {
         return res;
       })
       .catch(() =>
-        caches.match(event.request).then(cached => cached || caches.match('./index.html'))
+        // a page may fall back to the cached app; a script, stylesheet or image must not be answered with index.html (the browser would try to run HTML as code) — it simply fails
+        caches.match(event.request).then(cached => cached || (event.request.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
       )
   );
 });
