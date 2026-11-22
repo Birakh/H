@@ -959,6 +959,7 @@ body.help-new .help-hint{display:block}
     <div class="fg" style="margin:0"><label>Private repo name</label><input type="text" id="c-repo" placeholder="v-store" autocomplete="off" autocapitalize="none"></div>
   </div>
 
+  <button class="btn primary" id="c-bio" data-action="sh-bio-unlock" style="display:none;width:100%;margin:6px 0 4px;padding:12px;justify-content:center">🔓 Unlock with fingerprint / Face ID</button>
   <div class="vault-line" id="c-vaultline"><span>Vault: <strong id="c-vaultname"></strong></span><button class="btn xs ghost" data-action="sh-change-vault">Change</button></div>
   <div class="sec-title" style="margin-top:14px">Access token</div>
 
@@ -966,7 +967,7 @@ body.help-new .help-hint{display:block}
     <label>Fine-grained Personal Access Token</label>
     <input type="password" id="c-pat" placeholder="github_pat_…" autocomplete="off">
     <div style="margin-top:6px"><button class="btn xs" data-action="sh-paste-pat">Paste from clipboard</button></div>
-    <div class="pat-note">⚿ Held <strong>in memory only</strong> for this session — never written to disk, never sent anywhere except the GitHub API. Scope it to your private vault repo only (Contents: read &amp; write). Re-enter each session.</div>
+    <div class="pat-note">⚿ Held <strong>in memory only</strong> for this session — never written to disk (unless you turn on fingerprint unlock in Settings), never sent anywhere except the GitHub API. Scope it to your private vault repo only (Contents: read &amp; write). Re-enter each session.</div>
   </div>
 
   <div class="sec-title" style="margin-top:14px">Vault encryption</div>
@@ -975,7 +976,7 @@ body.help-new .help-hint{display:block}
     <label>Vault passphrase</label>
     <input type="text" id="c-user" name="username" autocomplete="username" autocapitalize="none" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     <input type="password" id="c-pass" name="password" placeholder="Five random words or 20+ characters…" autocomplete="new-password">
-    <div class="pat-short">⚿ The token stays in memory only. The passphrase never leaves this device.</div>
+    <div class="pat-short">⚿ The token and passphrase stay in memory only — unless you turn on fingerprint unlock in Settings. The passphrase never leaves this device.</div>
     <div class="pat-note">🔑 Used <strong>only for local encryption</strong> — never transmitted. Independent of your token; rotating or revoking the token does not lock you out of your data. Use a unique passphrase stored in a password manager.<br><span style="color:var(--Am);font-weight:500">Existing vault?</span> Leave blank to open with your old token as key, then migrate in Settings → Sync.</div>
   </div>
 
@@ -986,6 +987,20 @@ body.help-new .help-hint{display:block}
 
   <div class="status-row" id="c-status">
     <span id="c-ind" class="dot"></span><span id="c-msg"></span>
+  </div>
+  <div id="c-quick" style="display:none;margin-top:14px;padding-top:12px;border-top:.5px solid var(--bdr)">
+    <button class="btn" data-action="sh-quick-toggle" style="width:100%;justify-content:center">⚡ Quick add — no unlock needed</button>
+    <div id="c-quick-form" style="display:none;margin-top:10px">
+      <div class="g2" style="margin-bottom:8px">
+        <div class="fg" style="margin:0"><label>Amount (€)</label><input type="text" inputmode="decimal" id="c-q-amt" autocomplete="off" placeholder="12,50" style="font-family:var(--mono)"></div>
+        <div class="fg" style="margin:0"><label>Category</label><select id="c-q-cat"><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></div>
+      </div>
+      <div class="fg" style="margin:0 0 8px"><label>Description</label><input type="text" id="c-q-desc" autocomplete="off" placeholder="Coffee" maxlength="120"></div>
+      <button class="btn primary" data-action="sh-quick-save">Save, locked</button>
+      <div id="c-quick-msg" style="font-size:12px;margin-top:6px"></div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5">Saved sealed on this phone — nobody can read it without your unlocked vault. It is added when you next open the vault.</div>
+    </div>
+    <div id="c-quick-count" style="font-size:12px;color:var(--ink3);margin-top:6px"></div>
   </div>
 </div>
 </div>
@@ -2240,6 +2255,11 @@ body.help-new .help-hint{display:block}
           <span>% of Needs / Wants (100% always alerts too)</span>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:8px">Once per threshold per month to avoid spam.</div>
+      </div>
+
+      <div class="card" id="quick-card">
+        <div class="card-title">Quick unlock &amp; quick add</div>
+        <div id="d-quick"></div>
       </div>
 
       <div class="card">
@@ -4285,6 +4305,7 @@ async function enterApp() {
     el('screen-connect').style.display = 'none';
     el('screen-app').style.display = 'flex';
     boot(); nav(VIEW);
+    capAfterUnlock();                                                          // quick add: make sure the key exists, then add what was jotted down while locked
     // Manifest shortcuts (long-press the app icon on Android) land here via a
     // query param — route to the right tab and focus the first useful field,
     // then clean the URL so a later refresh doesn't re-trigger the shortcut.
@@ -4325,7 +4346,7 @@ function _disconnectCore() {
   el('screen-app').style.display = 'none';
   el('screen-connect').style.display = 'flex';
   el('c-pat').value = ''; el('c-pass').value = ''; el('btn-enter').disabled = true;
-  applyReturningUi();
+  applyReturningUi(); applyCaptureUi();
   cStatus('ok', 'Disconnected — PAT and passphrase cleared from memory');
 }
 
@@ -4350,6 +4371,154 @@ el('c-pat').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preven
 el('c-pass').addEventListener('keydown', e => { if (e.key === 'Enter' && !el('btn-enter').disabled) { e.preventDefault(); enterApp(); } });
 setInterval(() => { if (el('screen-connect').style.display !== 'none') syncConnectUi(); }, 700);          // some autofill fills a field without firing an event
 applyReturningUi();
+
+// ══════════════════════════════════════════
+// QUICK UNLOCK & QUICK ADD — both optional, both device-level, both removable with "Forget this device". NOTHING readable is ever stored:
+//  • Fingerprint / Face ID unlock (C): a passkey's secret (WebAuthn PRF output — it never leaves the secure chip and needs your fingerprint / Face ID every time) is turned into a key that locks the
+//    sign-in details in vf4_bio. Without your fingerprint the box is just random bytes.
+//  • Quick add (D): while the vault is locked you can still jot down an expense. It is sealed to a PUBLIC key (vf4_cap_pub) and parked in vf4_cap_q; only the private key — which lives inside your
+//    encrypted vault (DATA.capture) — can open it, so it is added the next time you unlock. The queue shows only how many are waiting, never what they are.
+// ══════════════════════════════════════════
+const LS_BIO = 'vf4_bio', LS_CAP_PUB = 'vf4_cap_pub', LS_CAP_Q = 'vf4_cap_q', CAP_CATS = ['needs', 'wants', 'savings', 'income'], CAP_QUEUE_MAX = 200;
+const _b64u = {
+  enc: buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+  dec: s => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(String(s).length / 4) * 4, '=')), c => c.charCodeAt(0)),
+};
+const _rand = n => crypto.getRandomValues(new Uint8Array(n)), _utf8 = s => new TextEncoder().encode(s);
+async function _hkdfAes(ikm, info) {
+  const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: _utf8('vault-finance-v1'), info: _utf8(info) }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function _aesSeal(key, obj) { const iv = _rand(12); return { iv: _b64u.enc(iv), ct: _b64u.enc(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, _utf8(JSON.stringify(obj)))) }; }
+async function _aesOpen(key, box) { return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _b64u.dec(box.iv) }, key, _b64u.dec(box.ct)))); }
+
+// ── C: fingerprint / Face ID ──
+async function bioSupported() { try { return !!(window.isSecureContext && navigator.credentials && window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } }
+function bioStored() { try { const b = JSON.parse(localStorage.getItem(LS_BIO)); return b && b.v === 1 && typeof b.cid === 'string' && typeof b.salt === 'string' && typeof b.iv === 'string' && typeof b.ct === 'string' ? b : null; } catch (e) { return null; } }
+async function _bioPrf(credId, salt) {
+  const got = await navigator.credentials.get({ publicKey: { challenge: _rand(32), rpId: location.hostname, allowCredentials: [{ type: 'public-key', id: credId }], userVerification: 'required', extensions: { prf: { eval: { first: salt } } } } });
+  const r = got.getClientExtensionResults(); if (!(r.prf && r.prf.results && r.prf.results.first)) throw new Error('This device did not return the secure key needed for fingerprint unlock.');
+  return r.prf.results.first;
+}
+async function bioEnable(secret) {                                              // secret = { pat, pass }
+  if (!(await bioSupported())) throw new Error('This device or browser cannot use fingerprint / Face ID unlock.');
+  const salt = _rand(32), cred = await navigator.credentials.create({ publicKey: { rp: { name: 'Vault Finance', id: location.hostname }, user: { id: _rand(16), name: 'vault', displayName: 'Vault Finance' }, challenge: _rand(32),
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' }, extensions: { prf: { eval: { first: salt } } } } });
+  const ext = cred.getClientExtensionResults(); if (!(ext.prf && ext.prf.enabled !== false && (ext.prf.enabled || ext.prf.results))) throw new Error('This device or browser does not support the secure key needed for fingerprint unlock (WebAuthn PRF). Updating the browser or the system may help.');
+  const out = (ext.prf.results && ext.prf.results.first) || await _bioPrf(cred.rawId, salt), box = await _aesSeal(await _hkdfAes(out, 'bio-unlock'), { pat: secret.pat, pass: secret.pass });
+  localStorage.setItem(LS_BIO, JSON.stringify({ v: 1, cid: _b64u.enc(cred.rawId), salt: _b64u.enc(salt), iv: box.iv, ct: box.ct, at: new Date().toISOString() }));
+}
+async function bioUnlockSecret() {
+  const b = bioStored(); if (!b) throw new Error('Fingerprint unlock is not set up on this device.');
+  const out = await _bioPrf(_b64u.dec(b.cid), _b64u.dec(b.salt)); let s; try { s = await _aesOpen(await _hkdfAes(out, 'bio-unlock'), b); } catch (e) { throw new Error('The saved sign-in could not be unlocked. Turn fingerprint unlock off and on again in Settings.'); }
+  if (!(s && typeof s.pat === 'string' && typeof s.pass === 'string')) throw new Error('The saved sign-in is damaged. Turn fingerprint unlock off and on again in Settings.'); return s;
+}
+
+// ── D: quick add ──
+// raw = { amount, desc, cat } as typed → { error } | { ok, item:{ id, ts, date, amount, desc, cat } }   (the day is today)
+function capValidate(raw, now) {
+  raw = raw || {}; const amount = _mgNum(raw.amount), desc = String(raw.desc === undefined || raw.desc === null ? '' : raw.desc).trim();
+  if (!(amount >= 0.01 && amount <= 1e6)) return { error: 'Enter an amount between 0.01 and 1,000,000.' };
+  if (desc.length > 120) return { error: 'The description is too long (120 characters at most).' };
+  if (!CAP_CATS.includes(raw.cat)) return { error: 'Pick Needs, Wants, Savings or Income.' };
+  const d = now instanceof Date ? now : new Date(); return { ok: true, item: { id: 'q' + uid() + _b64u.enc(_rand(5)).replace(/[-_]/g, 'x'), ts: d.toISOString(), date: ymdOf(d), amount: Math.round((amount + Number.EPSILON) * 100) / 100, desc, cat: raw.cat } };
+}
+// the entry exactly as the quick-add row in Entries would build it
+const capEntryFrom = c => ({ id: c.id, loggedAt: c.ts, date: c.date, desc: c.desc, amount: c.amount, formula: null, type: c.cat === 'income' ? 'income' : c.cat === 'savings' ? 'savings' : 'expense', category: c.cat, tags: [], recurId: null });
+const _capShape = c => !!c && typeof c.id === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.date) && Number.isFinite(+c.amount) && +c.amount > 0 && +c.amount <= 1e6 && typeof c.desc === 'string' && CAP_CATS.includes(c.cat) && typeof c.ts === 'string';
+// keys live in DATA.capture.keys = [{ id, created, pub, priv }]; every device uses the OLDEST one, so devices converge, and old keys are kept so nothing ever becomes unreadable
+function capPickKey(cap) { const ks = (cap && Array.isArray(cap.keys) ? cap.keys : []).filter(k => k && typeof k.id === 'string' && k.pub && k.priv); return ks.slice().sort((a, b) => String(a.created).localeCompare(String(b.created)) || a.id.localeCompare(b.id))[0] || null; }
+function mergeCaptureKeys(local, remote) { const seen = new Set(), out = []; [...(Array.isArray(local) ? local : []), ...(Array.isArray(remote) ? remote : [])].forEach(k => { if (k && typeof k.id === 'string' && !seen.has(k.id)) { seen.add(k.id); out.push(k); } }); return out; }
+const _ecdh = { name: 'ECDH', namedCurve: 'P-256' };
+async function capGenKey() { const kp = await crypto.subtle.generateKey(_ecdh, true, ['deriveBits']); return { id: 'k' + uid(), created: new Date().toISOString(), pub: await crypto.subtle.exportKey('jwk', kp.publicKey), priv: await crypto.subtle.exportKey('jwk', kp.privateKey) }; }
+async function capSeal(pubJwk, kid, c) {
+  const pub = await crypto.subtle.importKey('jwk', pubJwk, _ecdh, false, []), eph = await crypto.subtle.generateKey(_ecdh, true, ['deriveBits']);
+  const box = await _aesSeal(await _hkdfAes(await crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, eph.privateKey, 256), 'capture'), c);
+  return { id: c.id, kid, epk: await crypto.subtle.exportKey('jwk', eph.publicKey), iv: box.iv, ct: box.ct };
+}
+async function capOpen(privJwk, item) {
+  const priv = await crypto.subtle.importKey('jwk', privJwk, _ecdh, false, ['deriveBits']), epk = await crypto.subtle.importKey('jwk', item.epk, _ecdh, false, []);
+  return _aesOpen(await _hkdfAes(await crypto.subtle.deriveBits({ name: 'ECDH', public: epk }, priv, 256), 'capture'), item);
+}
+function capPubStored() { try { const p = JSON.parse(localStorage.getItem(LS_CAP_PUB)); return p && typeof p.kid === 'string' && p.jwk ? p : null; } catch (e) { return null; } }
+function capQueueRead() { try { const q = JSON.parse(localStorage.getItem(LS_CAP_Q) || '[]'); return Array.isArray(q) ? q.filter(x => x && typeof x.id === 'string' && typeof x.kid === 'string' && x.epk && typeof x.iv === 'string' && typeof x.ct === 'string') : []; } catch (e) { return []; } }
+const capQueueWrite = q => localStorage.setItem(LS_CAP_Q, JSON.stringify(q));
+function capPublishPub() { const k = capPickKey(DATA && DATA.capture); if (!k) return; try { localStorage.setItem(LS_CAP_PUB, JSON.stringify({ kid: k.id, jwk: k.pub })); } catch (e) { /* blocked storage: quick add simply stays off */ } }
+async function capEnsureKey() {
+  if (capPickKey(DATA.capture)) return; const k = await capGenKey();
+  commit('Quick-add key created', d => { d.capture = d.capture || { keys: [] }; if (!capPickKey(d.capture)) d.capture.keys.push(k); }, { touch: ['capture'], toast: null, render: false });
+}
+// After unlocking: open what was jotted down while locked and add it as ordinary entries. An item whose key is not in this vault yet stays queued; an unreadable (damaged) one stays too.
+// The queue is only cleared AFTER the entries have been saved locally, and an id that is already an entry is never added twice.
+async function capImportQueue() {
+  const q = capQueueRead(); if (!q.length) return { added: 0, left: 0 };
+  const keys = (DATA.capture && DATA.capture.keys) || [], have = new Set((DATA.entries || []).map(e => e.id)), good = [], done = new Set();
+  for (const item of q) {
+    const k = keys.find(x => x.id === item.kid); if (!k) continue;
+    try { const c = await capOpen(k.priv, item); if (c && c.id === item.id && _capShape(c)) { done.add(item.id); if (!have.has(c.id)) { have.add(c.id); good.push(c); } } } catch (e) { /* damaged: stays queued */ }
+  }
+  if (good.length) {
+    good.sort((a, b) => a.ts.localeCompare(b.ts));
+    commit('Quick entries added', d => { good.forEach(c => d.entries.unshift(capEntryFrom(c))); }, { touch: ['entries'], toast: null, render: () => { renderEntries(); renderDash(); } });
+    try { await saveLocalNow(); } catch (e) { /* the entries are in memory and will save on the next change */ }
+    toast(`${good.length} quick ${good.length === 1 ? 'entry' : 'entries'} added`);
+  }
+  capQueueWrite(q.filter(i => !done.has(i.id))); return { added: good.length, left: q.length - done.size };
+}
+async function capAfterUnlock() { try { if (!(window.crypto && crypto.subtle)) return; await capEnsureKey(); capPublishPub(); await capImportQueue(); } catch (e) { console.warn('[quick add]', e); } finally { renderQuick(); applyCaptureUi(); } }
+
+// ── UI ──
+function applyCaptureUi() {
+  const bio = el('c-bio'); if (bio) bio.style.display = bioStored() ? '' : 'none';
+  const qa = el('c-quick'); if (qa) { qa.style.display = capPubStored() ? '' : 'none'; const n = capQueueRead().length, c = el('c-quick-count'); if (c) c.textContent = n ? `${n} waiting — added when you unlock` : ''; }
+}
+let _bioSupport = null;
+function renderQuick() {
+  const box = el('d-quick'); if (!box) return;
+  if (_bioSupport === null) { _bioSupport = undefined; bioSupported().then(v => { _bioSupport = v; renderQuick(); }); }
+  const on = !!bioStored(), unlocked = !!(PAT && PASS), n = capQueueRead().length, ready = !!capPubStored(), row = (h, p, btn) => `<div style="padding:10px 0;border-bottom:.5px solid var(--bdr)"><div style="font-size:13px;font-weight:600;margin-bottom:3px">${h}</div><div style="font-size:12px;color:var(--ink2);line-height:1.55">${p}</div>${btn ? `<div style="margin-top:7px">${btn}</div>` : ''}</div>`;
+  box.innerHTML = row('Fingerprint / Face ID unlock', _bioSupport === false ? 'Not available on this device or browser.' : on ? 'On. Your sign-in details are kept on this device, locked by your fingerprint or Face ID — without it they are unreadable.' : 'Off. You type the token and passphrase each time. When on, one touch opens the vault.',
+      _bioSupport === false ? '' : on ? '<button class="btn xs" data-action="sh-bio-disable">Turn off</button>' : `<button class="btn xs primary" data-action="sh-bio-enable"${unlocked ? '' : ' disabled'}>Turn on</button>${unlocked ? '' : ' <span style="font-size:11px;color:var(--ink3)">Open the vault with your token and passphrase first.</span>'}`)
+    + row('Quick add without unlocking', ready ? `Ready. On the lock screen you can log an expense without the passphrase; it is stored locked on this phone and added to your vault when you next unlock.${n ? ` <strong>${n} waiting now.</strong>` : ''}` : 'It switches on by itself after the vault has been opened once on this phone.', ready ? '<button class="btn xs" data-action="sh-quick-off">Turn off</button>' : '')
+    + row('Forget this device', 'Removes the locked sign-in, the quick-add key and anything still waiting in the queue from this phone. Your vault and your data are not touched.', '<button class="btn xs danger" data-action="sh-quick-forget">Forget this device</button>')
+    + `<div style="font-size:11px;color:var(--ink3);margin-top:8px;line-height:1.5">Nothing readable is stored on this device: the token and passphrase are locked by your fingerprint, and quick entries are sealed so that only your unlocked vault can read them.</div>`;
+}
+async function bioEnableUi() {
+  if (!(PAT && PASS)) return toast('Open the vault with your token and passphrase first.', 1);
+  try { await bioEnable({ pat: PAT, pass: PASS }); toast('Fingerprint / Face ID unlock is on'); } catch (e) { toast(e && e.name === 'NotAllowedError' ? 'Cancelled — nothing was saved' : (e.message || 'Could not turn it on'), 1); }
+  renderQuick(); applyCaptureUi();
+}
+function quickForget(which) {
+  const n = capQueueRead().length, what = which === 'quick' ? 'quick add' : 'this device';
+  const go = () => { try { if (which !== 'quick') localStorage.removeItem(LS_BIO); localStorage.removeItem(LS_CAP_PUB); localStorage.removeItem(LS_CAP_Q); } catch (e) { /* nothing to remove */ } renderQuick(); applyCaptureUi(); toast(which === 'quick' ? 'Quick add is off' : 'This device was forgotten'); };
+  showConfirm(which === 'quick' ? 'Turn off quick add?' : 'Forget this device?', n ? `${n} quick entr${n === 1 ? 'y is' : 'ies are'} still waiting and will be lost. Unlock the vault first to add them, or continue.` : `The ${which === 'quick' ? 'quick-add key' : 'locked sign-in and the quick-add key'} will be removed from this phone. ${which === 'quick' ? 'It switches on again after the next unlock.' : ''}`, go);
+}
+async function quickSave() {
+  const msg = (t, bad) => { const m = el('c-quick-msg'); if (m) { m.textContent = t; m.style.color = bad ? 'var(--Rm)' : 'var(--Gm)'; } };
+  const pub = capPubStored(); if (!pub) return msg('Quick add is not ready on this phone yet.', true);
+  const v = capValidate({ amount: el('c-q-amt').value, desc: el('c-q-desc').value, cat: el('c-q-cat').value }); if (v.error) return msg(v.error, true);
+  const q = capQueueRead(); if (q.length >= CAP_QUEUE_MAX) return msg('Too many are waiting — unlock the vault to add them first.', true);
+  try { q.push(await capSeal(pub.jwk, pub.kid, v.item)); capQueueWrite(q); } catch (e) { return msg('Could not save it on this phone.', true); }
+  el('c-q-amt').value = ''; el('c-q-desc').value = ''; el('c-q-amt').focus(); msg('Saved — locked on this phone.'); applyCaptureUi();
+}
+defineActions({
+  'sh-bio-unlock': async () => {
+    try {
+      cStatus('loading', 'Waiting for your fingerprint / Face ID…'); const s = await bioUnlockSecret(); el('c-pat').value = s.pat; el('c-pass').value = s.pass; syncConnectUi(); await enterApp();
+      if (el('screen-app').style.display === 'none') { const m = el('c-msg').textContent; el('c-pat').value = ''; el('c-pass').value = ''; syncConnectUi(); cStatus('err', `${m} — if the saved sign-in is out of date, type it once and turn fingerprint unlock off and on again in Settings.`); }
+    } catch (e) { cStatus('err', e && e.name === 'NotAllowedError' ? 'Cancelled — type the token and passphrase instead.' : (e.message || 'Could not unlock with fingerprint / Face ID.')); }
+  },
+  'sh-bio-enable': () => bioEnableUi(),
+  'sh-bio-disable': () => { try { localStorage.removeItem(LS_BIO); } catch (e) { /* ok */ } renderQuick(); applyCaptureUi(); toast('Fingerprint unlock is off'); },
+  'sh-quick-off': () => quickForget('quick'), 'sh-quick-forget': () => quickForget('all'),
+  'sh-quick-toggle': () => { const f = el('c-quick-form'); f.style.display = f.style.display === 'none' ? '' : 'none'; if (f.style.display !== 'none') el('c-q-amt').focus(); },
+  'sh-quick-save': () => quickSave(),
+});
+(function () {
+  const on = () => { applyCaptureUi(); if (new URLSearchParams(location.search).get('shortcut') === 'quick-add' && capPubStored() && el('c-quick-form')) { el('c-quick-form').style.display = ''; el('c-q-amt').focus(); } };
+  ['c-q-amt', 'c-q-desc'].forEach(id => el(id) && el(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); quickSave(); } }));
+  document.getElementById('c-quick') ? on() : document.addEventListener('DOMContentLoaded', on);
+})();
 
 // ══════════════════════════════════════════
 // GITHUB API
@@ -10920,6 +11089,7 @@ defineActions({
 
 
 function renderSettings() {
+  renderQuick();
   renderVarsUI();
   renderHousingUI();
   renderRateAlertUI();
@@ -10997,7 +11167,8 @@ const HELP = {
       'Made a mistake? Most changes show an Undo button in the message that appears at the bottom.'],
     bar: ['🔍 — search everything (⌘K or Ctrl+K)', '🗓 — month setup wizard', '🧾 — quick receipt entry (R)', '↓ Pull / ↑ Push — get your data from GitHub / save it to GitHub', 'Sun / moon — switch dark mode'],
     tips: ['Your passphrase cannot be recovered. If you lose it, your data cannot be opened.', 'Settings → Export data saves a readable copy of everything. It is not encrypted, so keep that file private.',
-      'Settings → Point-in-time restore lists earlier saves. Its preview shows what would be removed or come back before you confirm.'] },
+      'Settings → Point-in-time restore lists earlier saves. Its preview shows what would be removed or come back before you confirm.',
+      'Settings → Quick unlock & quick add: turn on fingerprint / Face ID unlock, and log an expense from the lock screen without unlocking. Only locked data is kept on the phone, and Forget this device removes it.'] },
   dash: { label: 'Overview', title: 'Overview', nav: 'dash',
     what: 'A picture of your money, calculated from your entries. Most cards update by themselves when you add or change an entry.',
     how: ['The Getting started card at the top ticks itself as you set things up. Press Hide when you no longer need it.',
@@ -11043,7 +11214,7 @@ const HELP = {
       'Sync & auto-push: choose whether changes are pushed to GitHub automatically.',
       'Export data saves a readable copy of everything. It is not encrypted, so keep the file private.',
       'Point-in-time restore lists earlier saves. The preview tells you what would be removed or come back before you confirm.',
-      'Data health check also runs an anomaly scan: it lists values that look wrong, such as an impossible net worth snapshot or an amount with an extra zero, and Overview flags the serious ones. It changes nothing by itself. Self-test and Smoke test look for problems in the app.', 'Danger zone deletes data. Read each message before you confirm.'],
+      'Data health check also runs an anomaly scan: it lists values that look wrong, such as an impossible net worth snapshot or an amount with an extra zero, and Overview flags the serious ones. It changes nothing by itself. Self-test and Smoke test look for problems in the app.', 'Quick unlock & quick add: fingerprint / Face ID unlock for this phone, and a way to log expenses before you unlock. Forget this device removes both.', 'Danger zone deletes data. Read each message before you confirm.'],
     tips: ['Your passphrase cannot be recovered. Keep it somewhere safe.'] },
 };
 const helpTopic = view => HELP_ORDER.includes(view) ? view : 'start';                          // the tab you are on → its help (anything unknown → Start here)
@@ -21055,6 +21226,34 @@ function runSmokeTest() {
     test('faster unlock: a device is "returning" only when a vault is saved on it', () => {
       expect([connectIsReturning('{"owner":"me","repo":"v-store","path":"budget.enc"}'), connectIsReturning('{"owner":"me"}'), connectIsReturning('{"owner":" ","repo":"v"}'), connectIsReturning('{}'), connectIsReturning('not json'), connectIsReturning(null), connectIsReturning(undefined), connectIsReturning('{"owner":5,"repo":6}')].join(), 'true,false,false,false,false,false,false,false', 'needs both an owner and a repo; junk means a new device');
     });
+    // ── Quick unlock & quick add ──
+    test('quick add: input is validated, ids are unique, and the entry is built exactly like the Entries quick-add row', () => {
+      const ok = capValidate({ amount: '12,50', desc: '  Coffee  ', cat: 'wants' }, new Date(2026, 10, 20, 8, 0)).item;
+      expect([ok.amount, ok.desc, ok.cat, ok.date].join(), '12.5,Coffee,wants,2026-11-20', 'comma decimals, trimmed text, today\'s local date'); expect(/^q[0-9a-z]{9,}/.test(ok.id) && !!ok.ts, true, 'an id and a timestamp');
+      const bad = r => !!capValidate(r).error; expect([bad({ amount: '', desc: 'x', cat: 'needs' }), bad({ amount: 'abc', cat: 'needs' }), bad({ amount: '0', cat: 'needs' }), bad({ amount: '-5', cat: 'needs' }), bad({ amount: '1000001', cat: 'needs' }), bad({ amount: '5', desc: 'x'.repeat(121), cat: 'needs' }), bad({ amount: '5', cat: 'transfer' }), bad({ amount: '5' }), bad(undefined)].join(), 'true,true,true,true,true,true,true,true,true', 'bad amounts, a long description and an unknown category are refused');
+      expect([bad({ amount: '0,01', cat: 'income' }), bad({ amount: '1000000', cat: 'savings', desc: '' }), bad({ amount: 5, cat: 'needs', desc: 'x'.repeat(120) })].join(), 'false,false,false', 'the edges are allowed'); expect(new Set(Array.from({ length: 300 }, () => capValidate({ amount: 1, cat: 'needs' }).item.id)).size, 300, '300 captures, 300 different ids');
+      const e = capEntryFrom(ok); expect(Object.keys(e).sort().join(), 'amount,category,date,desc,formula,id,loggedAt,recurId,tags,type', 'the same fields as an entry from the quick-add row'); expect(e.id + '|' + e.formula + '|' + e.recurId + '|' + e.tags.length + '|' + e.category, ok.id + '|null|null|0|wants', 'id kept, no formula or recurrence');
+      expect(CAP_CATS.map(c => capEntryFrom({ ...ok, cat: c }).type).join(), 'expense,expense,savings,income', 'Needs/Wants are expenses; Savings and Income keep their type');
+    });
+    test('quick add: keys — every device picks the oldest, the merge keeps all of them, and a vault with none gets none', () => {
+      const k = (id, created) => ({ id, created, pub: { x: id }, priv: { d: id } });
+      expect([capPickKey({ keys: [k('b', '2026-02-01'), k('a', '2026-01-01'), k('c', '2026-01-01')] }).id, capPickKey({ keys: [k('b', '2026-02-01')] }).id, capPickKey(undefined), capPickKey({ keys: 'x' }), capPickKey({ keys: [null, { id: 'z' }, { id: 'y', pub: 1 }] })].join(), 'a,b,,,', 'oldest first, ties by id; junk and incomplete keys are ignored');
+      const L = { entries: [], capture: { keys: [k('a', '2026-01-01'), k('b', '2026-02-01')] } }, R = { entries: [], capture: { keys: [k('c', '2026-01-15'), k('a', '2026-01-01')] } }, Ls = JSON.stringify(L), Rs = JSON.stringify(R), m = mergeVaultData(L, R).capture.keys;
+      expect(m.map(x => x.id).join(), 'a,b,c', 'union by id, this device first, no duplicate'); expect(JSON.stringify(L) + JSON.stringify(R), Ls + Rs, 'inputs not modified'); expect(capPickKey({ keys: m }).id, 'a', 'and both devices then pick the same key');
+      expect(mergeVaultData({ entries: [] }, R).capture.keys.length + '|' + mergeVaultData(L, { entries: [] }).capture.keys.length, '2|2', 'an older vault without keys neither loses nor blocks them'); expect('capture' in mergeVaultData({ entries: [] }, { entries: [] }), false, 'no keys anywhere → no key created'); expect(mergeCaptureKeys(undefined, undefined).length, 0, 'nothing to merge');
+    });
+    test('quick unlock: stored blobs and the queue are read defensively, base64url round-trips, and the lock-screen controls exist', () => {
+      const keep = { b: localStorage.getItem(LS_BIO), p: localStorage.getItem(LS_CAP_PUB), q: localStorage.getItem(LS_CAP_Q) };
+      try {
+        const put = (k, v) => v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
+        [null, 'junk', '{}', '{"v":2}', '{"v":1,"cid":"a"}'].forEach(v => put(LS_BIO, v)); expect(bioStored(), null, 'an incomplete or unknown-version blob is ignored'); put(LS_BIO, '{"v":1,"cid":"a","salt":"b","iv":"c","ct":"d"}'); expect(bioStored().cid, 'a', 'a complete blob is read');
+        ['junk', '{}', '{"kid":"k"}', 'null'].forEach(v => { put(LS_CAP_PUB, v); expect(capPubStored(), null, 'an incomplete public key is ignored: ' + v); }); put(LS_CAP_PUB, '{"kid":"k","jwk":{"x":1}}'); expect(capPubStored().kid, 'k', 'a complete one is read');
+        put(LS_CAP_Q, '[null,3,{"id":"a"},{"id":"b","kid":"k","epk":{},"iv":"i","ct":"c"}]'); expect(capQueueRead().map(x => x.id).join(), 'b', 'only well-formed queue items count'); ['junk', '{"a":1}', 'null', null].forEach(v => { put(LS_CAP_Q, v); expect(capQueueRead().length, 0, 'a damaged queue is an empty queue: ' + v); });
+      } finally { [[LS_BIO, keep.b], [LS_CAP_PUB, keep.p], [LS_CAP_Q, keep.q]].forEach(([k, v]) => v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); }
+      const all = new Uint8Array(256).map((_, i) => i); expect(_b64u.dec(_b64u.enc(all)).join() === all.join() && _b64u.dec(_b64u.enc(new Uint8Array(0))).length === 0, true, 'every byte value survives base64url, and empty is empty'); expect(/^[A-Za-z0-9_-]*$/.test(_b64u.enc(all)), true, 'URL-safe alphabet only');
+      expect(['c-bio', 'c-quick', 'c-quick-form', 'c-q-amt', 'c-q-desc', 'c-q-cat', 'c-quick-msg', 'c-quick-count', 'd-quick', 'quick-card'].every(i => !!document.getElementById(i)), true, 'the unlock button, the quick-add form and the Settings card exist');
+      expect(Array.from(document.getElementById('c-q-cat').options).map(o => o.value).join(), CAP_CATS.join(), 'the quick-add categories are exactly the ones the validator accepts');
+    });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
       const base = () => ({ entries: [], savingsGoals: [{ id: 'g1', name: 'Holiday', target: 1000, saved: 100, contribution: { amount: 200, day: 5 } },
@@ -21969,6 +22168,8 @@ function mergeVaultData(local, remote) {
   if (local.tagBudgets || remote.tagBudgets) merged.tagBudgets = { ...(remote.tagBudgets || {}), ...(local.tagBudgets || {}) };
   // Mortgage (optional): setup stays as on this device, payments are unioned by id (same date + amount = same payment) and the balance chain is recomputed.
   if (local.mortgage || remote.mortgage) merged.mortgage = mergeMortgage(local.mortgage, remote.mortgage);
+  // Quick-add keys (optional): union by id, so a key made on one device never replaces another's and nothing queued becomes unreadable.
+  if ((local.capture || {}).keys || (remote.capture || {}).keys) merged.capture = { keys: mergeCaptureKeys((local.capture || {}).keys, (remote.capture || {}).keys) };
   // Electricity (optional): bills are unioned by id like the other lists; the rates and the recurring link stay as on this device.
   if (local.energy || remote.energy) merged.energy = { ...(remote.energy||{}), ...(local.energy||{}), bills: mergeById((local.energy||{}).bills, (remote.energy||{}).bills) };
   // Monthly tariff history (optional): unioned by id and by year+month, this device wins; other-shaped records are carried along.
