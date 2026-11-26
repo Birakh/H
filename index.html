@@ -71,7 +71,6 @@ input[type=password]{font-family:var(--mono);letter-spacing:.06em}
 input:focus,select:focus,textarea:focus{border-color:var(--Bm);box-shadow:0 0 0 3px rgba(40,104,200,.13)}
 input[type=checkbox]{width:auto;accent-color:var(--Bm)}
 input[type=date],input[type=month]{width:auto}
-input[type=range]{padding:0;border:none;background:var(--s2);box-shadow:none;border-radius:100px}
 textarea{resize:vertical;min-height:52px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .g2-span{grid-column:1/-1}
@@ -219,8 +218,6 @@ tr:hover td.sticky-end{background:var(--s0)}
 .split-fill{height:100%;border-radius:100px;transition:width .3s}
 .goal-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .goal-row label{min-width:90px;margin:0;font-size:12px;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:400}
-.acct-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--bdr)}
-.acct-row:last-child{border-bottom:none}
 
 /* rate alert banner */
 #rate-alert-bar{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--Gbg);
@@ -243,9 +240,6 @@ tr:hover td.sticky-end{background:var(--s0)}
 .mort-sub-title{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;
   letter-spacing:.07em;margin-bottom:10px}
 /* offline badge upgrade */
-#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:500;
-  background:var(--Abg);color:var(--Am);font-size:12px;font-weight:500;
-  text-align:center;padding:5px 12px;border-bottom:.5px solid rgba(176,110,20,.25)}
 #offline-bar.show{display:flex;align-items:center;justify-content:center;gap:8px}
 #offline-bar .ob-dot{width:7px;height:7px;border-radius:50%;background:var(--Am);
   animation:pulse 1.4s ease-in-out infinite}
@@ -274,14 +268,7 @@ tr:hover td.sticky-end{background:var(--s0)}
 hr.sep{border:none;border-top:.5px solid var(--bdr);margin:14px 0}
 
 @media(max-width:680px){
-  header{padding:0 10px;gap:6px}
-  .tab{padding:4px 8px;font-size:12px}
-  main{padding:12px 8px}
-  .g2,.g3,.g4{grid-template-columns:1fr}
-  th,td{padding:7px 9px;font-size:12px}
-  .stat-grid{grid-template-columns:1fr 1fr}
-  .h-right .sync-badge{display:none}
-}
+              }
 
 /* confirm modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
@@ -343,7 +330,7 @@ input[type=checkbox].row-sel{width:15px;height:15px;cursor:pointer;accent-color:
 .wi-slider-wrap{margin-bottom:14px}
 .wi-slider-wrap label{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .wi-slider-wrap label span{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
-input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:100px;background:var(--s2);outline:none;border:none;padding:0;cursor:pointer}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:100px;background:var(--s2);outline:none;border:none;padding:0;box-shadow:none;cursor:pointer}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--ink);cursor:pointer;border:2px solid var(--s0);box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .wi-result{background:var(--s1);border-radius:var(--rs);padding:14px 16px;margin-top:14px;text-align:center}
 .wi-result-val{font-size:26px;font-weight:600;font-family:var(--mono);color:var(--Gm);letter-spacing:-.02em}
@@ -517,7 +504,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 /* ── KEYBOARD SHORTCUT OVERLAY ── */
 .keys-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
 .keys-overlay.open{display:flex}
-.keys-overlay.open{display:flex}
 /* Help: the pill, its first-visit pulse and bubble, and the sheet */
 .help-pill{display:inline-flex;align-items:center;gap:5px;font-weight:600;text-transform:none;letter-spacing:0}
 .help-pill .hp-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--B);color:#fff;font-size:10px;line-height:1}
@@ -531,7 +517,6 @@ body.help-new .help-hint{display:block}
 .help-box{width:min(640px,100%);max-height:88vh}
 /* Connect screen, first visit only: the setup guide's toggle becomes a clear call to action (the guide itself stays closed until tapped) */
 .guide-cta{display:flex!important;align-items:center;gap:8px;width:100%;padding:11px 14px!important;font-size:13px!important;font-weight:600;color:var(--B)!important;background:var(--Bbg)!important;border:1px solid var(--B)!important;border-radius:var(--rs);text-align:left;cursor:pointer;white-space:normal!important;line-height:1.35;justify-content:flex-start;box-sizing:border-box}
-.guide-cta.pulse{animation:guidePulse 2s ease-out infinite}
 .guide-cta.pulse{animation:guidePulse 2s ease-out infinite}
 /* Connect screen on a device that already knows its vault: just the token and passphrase, above the fold */
 .vault-line,.pat-short{display:none}
@@ -748,7 +733,6 @@ body.help-new .help-hint{display:block}
 .fuel-tbl{max-height:70vh;overflow-y:auto}
 .fuel-tbl th{position:sticky;top:0;z-index:1}
 .fuel-tbl th.sticky-end{z-index:2}
-.fuel-tbl th.sticky-end{z-index:2}
 /* Entries and Grocery scroll inside their own box too, header row visible — "All months" no longer makes the page endless */
 .tbl-scroll{max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .tbl-scroll th{position:sticky;top:0;z-index:1}
@@ -905,6 +889,8 @@ body.help-new .help-hint{display:block}
 .ov-row .ov-name{flex:1;min-width:0}
 .ov-row .ov-off{color:var(--ink3);text-decoration:line-through}
 .ov-row button{min-width:34px;min-height:30px}
+/* the checkbox/radio labels that used to repeat the same inline style five times */
+label.chk-label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0}
 </style>
 </head>
 <body>
@@ -1802,7 +1788,7 @@ body.help-new .help-hint{display:block}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" data-action="ef-add">Add entry</button>
           <button class="btn xs info" id="split-btn" data-action="ef-split-toggle">⊕ Split</button>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+          <label class="chk-label">
             <input type="checkbox" id="ef-recur"> Save as recurring
           </label>
           <select id="ef-recur-freq" style="width:auto;font-size:12px;padding:4px 8px;color:var(--ink2)">
@@ -1811,10 +1797,10 @@ body.help-new .help-hint{display:block}
             <option value="biweekly">Bi-weekly</option>
             <option value="quarterly">Quarterly</option>
           </select>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+          <label class="chk-label">
             <input type="checkbox" id="ef-inst" data-action-change="ef-inst-toggle"> Pay in installments
           </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+          <label class="chk-label">
             <input type="checkbox" id="ef-warr" data-action-change="ef-warr-toggle"> Track warranty
           </label>
           <span id="ef-warr-wrap" style="display:none;align-items:center;gap:4px;font-size:12px;color:var(--ink2)">
@@ -2245,7 +2231,7 @@ body.help-new .help-hint{display:block}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn sm" data-action="set-request-notif-permission">Enable notifications</button>
           <button class="btn sm ghost" data-action="set-test-budget-notif">Send test</button>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+          <label class="chk-label">
             <input type="checkbox" id="notif-enabled" data-action-change="set-save-notif-pref"> Send budget alerts
           </label>
         </div>
@@ -3164,7 +3150,7 @@ body.help-new .help-hint{display:block}
               <span id="fuel-level-hint" style="font-size:11px;font-family:var(--mono);color:var(--Gm)"></span>
             </div>
           </div>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);font-weight:400;text-transform:none;letter-spacing:0;margin:0">
+          <label class="chk-label">
             <input type="checkbox" id="fuel-add-entry" data-action-change="car-add-entry-toggle"> Also add as expense entry
           </label>
           <div id="fuel-entry-acct-wrap" style="display:none;margin-top:8px">
@@ -3755,7 +3741,14 @@ const CX = (() => {
 // ══════════════════════════════════════════
 const el   = id => document.getElementById(id);
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-const ymd  = () => new Date().toISOString().slice(0, 10);
+// ── Dates: ONE set of helpers. A date is the string 'YYYY-MM-DD' and stays one: today is the day on the USER'S clock (not UTC — in Vienna an entry made after midnight was dated
+// yesterday until 01:00 / 02:00), adding days and counting days are plain UTC arithmetic (always exactly 24 h, so daylight-saving changes cannot move a date), and a Date made from a
+// date string is local NOON, so it can never slip to the neighbouring day.
+const ymdLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const ymd      = () => ymdLocal(new Date());
+const parseYmd = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s)); return m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : new Date(NaN); };
+const ymdAdd   = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const ymdDays  = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
 const ym   = d  => (d||'').slice(0, 7);
 const fmt  = n  => '€' + Math.abs(+n||0).toLocaleString('de-AT', { minimumFractionDigits:2, maximumFractionDigits:2 });
 // Same formatting as fmt() but without the € prefix — for spots where the
@@ -4340,9 +4333,12 @@ function disconnect() {
   _disconnectCore();
 }
 
+// The AI key lives only in its password field, and the assistant's answer is about your money: Lock empties both (and the question), not just the in-memory vault.
+function clearAiFields() { ['ai-apikey', 'ai-question', 'ai-response', 'ai-error'].forEach(id => { const x = document.getElementById(id); if (!x) return; if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') x.value = ''; else x.innerHTML = ''; }); }
 function _disconnectCore() {
   clearTimeout(_st);           // cancel any pending encrypted save
   PAT = PASS = DATA = SALT = null;
+  clearAiFields();
   el('screen-app').style.display = 'none';
   el('screen-connect').style.display = 'flex';
   el('c-pat').value = ''; el('c-pass').value = ''; el('btn-enter').disabled = true;
@@ -6182,7 +6178,7 @@ function hmHide() { el('d-heatmap-tip').style.display = 'none'; }
 //   items = what happened that day [{kind:'entry'|'installment'|'recurring'|'planned'|'variable', name, amount (signed)}] — for the day popover.
 //   noIncome = nothing comes in during the whole window (an empty vault, or no planned income / recurring income / future income entry).
 // ══════════════════════════════════════════
-const _cfAddDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const _cfAddDays = ymdAdd;
 const _cfR2 = n => Math.round(n * 100) / 100;
 function _cfLiquidIds(data) {
   return new Set(((data && data.accounts) || []).filter(a => (a.name || '').trim().toLowerCase() !== 'cash').map(a => a.id));
@@ -6263,7 +6259,7 @@ function computeRunway(data, today) {
 
 // ── Overview: the cash-flow card (90 daily bars, day popover, "Can I afford this?") and the Runway tile ──
 let _cfPick = null;                                     // the date whose popover is open
-const _cfFmtDay = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const _cfFmtDay = iso => parseYmd(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const _cfKind = { entry: 'Planned entry', installment: 'Installment', recurring: 'Recurring', planned: 'Planned income', variable: 'Variable baseline' };
 function renderCashflow() {
   const box = el('d-cashflow'); if (!box) return;
@@ -7606,7 +7602,6 @@ function makeAcctEditable(td, entryId) {
   });
 
   td.textContent = '';
-  td.onclick = null;   // disable td's click handler while select is active
   td.appendChild(sel);
   sel.focus();
 }
@@ -7623,7 +7618,6 @@ function restoreAcctCell(td, entryId) {
     ? `<span style="font-size:11px;color:var(--ink2)">${esc(acct.name)}</span>`
     : `<span class="muted" style="font-size:11px">—</span>`;
   td.style.cursor = 'pointer';
-  td.onclick = () => makeAcctEditable(td, entryId);
 }
 
 async function commitAcctEdit(entryId, acctId, td) {
@@ -8784,9 +8778,12 @@ defineActions({
 // CONFIRM MODAL  —  replaces native confirm()
 // ══════════════════════════════════════════
 let _confirmCb = null;
-function showConfirm(title, body, onOk) {
+function showConfirm(title, body, onOk, opts) {
+  opts = opts || {};                                                             // { ok: button text, notice: true → no Cancel }
   el('confirm-title').textContent = title;
   el('confirm-body').textContent  = body;
+  el('confirm-ok').textContent = opts.ok || 'Confirm';
+  const cancel = document.querySelector('#confirm-overlay [data-action="sh-confirm-close"]'); if (cancel) cancel.style.display = opts.notice ? 'none' : '';
   _confirmCb = onOk;
   el('confirm-overlay').classList.add('open');
   el('confirm-ok').focus();
@@ -9368,7 +9365,7 @@ async function explainInsights() {
 const _rcnR2 = n => Math.round(n * 100) / 100;
 const _rcnNear = (a, b) => Math.abs(a - b) < 0.005;
 const _rcnNorm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-const _rcnDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const _rcnDays = ymdDays;
 // signed effect of an entry on THIS account's balance (0 if it does not touch it)
 function _rcnEffect(e, acctId) {
   if (e.type === 'transfer') return (e.accountId === acctId ? -e.amount : 0) + (e.accountIdTo === acctId ? e.amount : 0);
@@ -10719,8 +10716,8 @@ function validateDebt(f) {
 }
 
 // ── Wealth tab: the Debts card ──
-const _dbMonthYear = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-const _dbDay = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const _dbMonthYear = iso => parseYmd(iso).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+const _dbDay = iso => parseYmd(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const _DB_STRAT = [['snowball', 'Snowball', 'smallest balance first'], ['avalanche', 'Avalanche', 'highest rate first'], ['custom', 'Custom', 'the order of your list']];
 function renderDebts() {
   const box = el('d-debts'); if (!box) return;
@@ -13677,7 +13674,7 @@ function renderWeeklySummary() {
   const sun  = new Date(mon); sun.setDate(mon.getDate() + 6);
 
   const pad    = n => String(n).padStart(2,'0');
-  const toYMD  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const toYMD  = ymdLocal;
   const monStr = toYMD(mon), sunStr = toYMD(sun), todayStr = toYMD(now);
 
   const lMon = new Date(mon); lMon.setDate(mon.getDate() - 7);
@@ -13727,7 +13724,7 @@ function renderWeeklySummary() {
 
   const grid = days.map(({date, name}) => {
     const amt   = byDay[date] || 0;
-    const lDate = toYMD(new Date(new Date(date+'T00:00:00').getTime() - 7*86400000));
+    const lDate = ymdAdd(date, -7);
     const lAmt  = lByDay[lDate] || 0;
     const isToday  = date === todayStr;
     const isFuture = date > todayStr;
@@ -13797,8 +13794,8 @@ const ECB_MEETINGS = [
 ];
 
 // Pure helpers for the Settings → "Yearly checks" card and the "estimated" labels.
-const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const _isoDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / MS_PER_DAY);
+const ymdOf = ymdLocal;
+const _isoDays = ymdDays;
 // A date beyond what was last checked against the ECB calendar is only an estimate.
 function ecbIsEstimated(iso, through = ECB_VERIFIED.through) { return String(iso) > through; }
 // How far the meeting list reaches. status: 'ok' | 'soon' (list ends within 180 days) | 'expired' (no future date left).
@@ -14257,13 +14254,9 @@ function checkDuplicate() {
   const dateV  = el('ef-date')?.value;
   if (!amt || !dateV) { warn.style.display = 'none'; return; }
 
-  const d      = new Date(dateV + 'T00:00:00');
-  const window3= 3 * 24 * 60 * 60 * 1000; // 3 days in ms
-
   const matches = DATA.entries.filter(e => {
     if (Math.abs(e.amount - amt) > 0.01) return false; // different amount
-    const ed = new Date(e.date + 'T00:00:00');
-    if (Math.abs(ed - d) > window3) return false;       // outside 3-day window
+    if (Math.abs(ymdDays(e.date, dateV)) > 3) return false;   // outside the 3-day window (whole days: a daylight-saving change used to make 3 days look like 71 or 73 hours)
     // Optional: also flag if description is similar (>60% words match)
     if (desc && e.desc) {
       const aWords = new Set(desc.split(/\s+/));
@@ -14439,7 +14432,7 @@ function odoAnomalies(fuel) {
   // Why can't `f` follow `ref`? (null = it can)
   const problem = (f, ref) => {
     if (f.odo < ref.odo) return `lower than ${n(ref.odo)} km on ${ref.date}`;
-    const days = Math.max(1, Math.round((new Date(f.date + 'T00:00:00') - new Date(ref.date + 'T00:00:00')) / 86400000));
+    const days = Math.max(1, ymdDays(ref.date, f.date));
     return (f.odo - ref.odo) / days > 1500 ? `${n(f.odo - ref.odo)} km in ${days} day${days === 1 ? '' : 's'}` : null;
   };
   // Each reading is judged against the last TRUSTED one, so a typo is flagged itself and the
@@ -14474,7 +14467,7 @@ function syncLegacyTyreFields() {
 // ── Tyre sets: screens ──────────────────────────────────────────────────────
 const TYRE_SEASON = { summer:'☀ Summer', winter:'❄ Winter', all:'All-season' };
 const _tn   = x => Math.round(x).toLocaleString('de-AT');
-const _tdt  = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('de-AT', { day:'numeric', month:'short', year:'numeric' }) : '—';
+const _tdt  = d => d ? parseYmd(d).toLocaleDateString('de-AT', { day:'numeric', month:'short', year:'numeric' }) : '—';
 const _tcol = lvl => lvl === 'over' ? 'var(--Rm)' : lvl === 'soon' ? 'var(--Am)' : 'var(--Gm)';
 
 // Logs a tread reading against a set. setKm = km driven on that set so far, which is what
@@ -15538,7 +15531,7 @@ function renderFuelHeatmap() {
   // Build weekday × month grid of avg ppl
   const grid = {};  // grid[mon][day] = [ppl, ...]
   records.forEach(f => {
-    const d   = new Date(f.date + 'T12:00:00');
+    const d   = parseYmd(f.date);
     const mon = d.getMonth();       // 0–11
     const day = (d.getDay() + 6) % 7; // 0=Mon … 6=Sun
     if (!grid[mon]) grid[mon] = {};
@@ -15706,7 +15699,7 @@ function renderFuelSmartStats(records) {
   // Annual fuel spend projection (last 90 days extrapolated)
   const now = new Date();
   const cutoff = new Date(now); cutoff.setDate(cutoff.getDate()-90);
-  const recent = records.filter(f => new Date(f.date+'T12:00:00') >= cutoff);
+  const recent = records.filter(f => parseYmd(f.date) >= cutoff);
   const recentCost = recent.reduce((s,f)=>s+f.total,0);
   const annualProj = recentCost > 0 ? Math.round(recentCost / 90 * 365) : null;
 
@@ -15894,8 +15887,8 @@ function renderFuelEcbChart(records) {
   const fRange= fMax-fMin||0.01;
   const dates = sorted.map(f=>f.date);
   const dMin  = dates[0], dMax = dates[dates.length-1];
-  const dSpan = Math.max(1, new Date(dMax+'T12:00:00')-new Date(dMin+'T12:00:00'));
-  const xD    = d => padL + ((new Date(d+'T12:00:00')-new Date(dMin+'T12:00:00'))/dSpan)*cW;
+  const dSpan = Math.max(1, parseYmd(dMax)-parseYmd(dMin));
+  const xD    = d => padL + ((parseYmd(d)-parseYmd(dMin))/dSpan)*cW;
   const yF    = v => padT + cH - ((v-fMin)/fRange)*cH;
 
   // Fuel polyline
@@ -16546,7 +16539,7 @@ function renderFuelSeasonal() {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const byMonth = {};
   pairs.forEach(p => {
-    const mo = new Date(p.to.date+'T12:00:00').getMonth();
+    const mo = parseYmd(p.to.date).getMonth();
     if (!byMonth[mo]) byMonth[mo] = [];
     byMonth[mo].push(p.eff);
   });
@@ -16622,7 +16615,7 @@ function renderFuelPredictor() {
   if (pairs.length >= 2) {
     const avgKmPerFill = pairs.reduce((s,p)=>s+p.km,0) / pairs.length;
     const lastFill     = sorted.filter(f=>f.odo).slice(-1)[0];
-    const lastDate     = lastFill ? new Date(lastFill.date+'T12:00:00') : null;
+    const lastDate     = lastFill ? parseYmd(lastFill.date) : null;
     if (lastDate && lastFill.odo) {
       const daysSinceFill = Math.round((new Date()-lastDate)/MS_PER_DAY);
       const avgDaysPerFill= pairs.length>=2
@@ -16646,7 +16639,7 @@ function renderFuelPredictor() {
   // ── Monthly cost forecast ─────────────────────────────────────────────────
   const now      = new Date();
   const cutoff90 = new Date(now.getTime()-90*MS_PER_DAY);
-  const recent   = sorted.filter(f=>new Date(f.date+'T12:00:00')>=cutoff90);
+  const recent   = sorted.filter(f=>parseYmd(f.date)>=cutoff90);
   if (recent.length >= 2) {
     const days90cost = recent.reduce((s,f)=>s+f.total,0);
     const dailyCost  = days90cost / 90;
@@ -17360,12 +17353,12 @@ function renderTransitComparison() {
   const avgCostPerKm = pairs.reduce((s,p)=>s+p.costPerKm,0)/pairs.length;
   const now    = new Date();
   const cut90  = new Date(now.getTime()-90*MS_PER_DAY);
-  const recent = (DATA.fuel||[]).filter(f=>new Date(f.date+'T12:00:00')>=cut90);
+  const recent = (DATA.fuel||[]).filter(f=>parseYmd(f.date)>=cut90);
   const monthlyFuelCost = recent.reduce((s,f)=>s+f.total,0)/3;
 
   // km/month from last 3 months odo delta
   const sorted = [...(DATA.fuel||[])].filter(f=>f.odo).sort((a,b)=>a.date.localeCompare(b.date));
-  const recentOdo = sorted.filter(f=>new Date(f.date+'T12:00:00')>=cut90);
+  const recentOdo = sorted.filter(f=>parseYmd(f.date)>=cut90);
   const kmPerMonth = recentOdo.length>=2
     ? (recentOdo.slice(-1)[0].odo - recentOdo[0].odo) / 3
     : null;
@@ -18079,7 +18072,7 @@ function renderDuplicates() {
     for (let j = i+1; j < sorted.length; j++) {
       const f = sorted[j];
       if (used.has(f.id)) continue;
-      const dayDiff = Math.abs(new Date(e.date) - new Date(f.date)) / MS_PER_DAY;
+      const dayDiff = Math.abs(ymdDays(e.date, f.date));
       if (dayDiff > 3) break; // sorted by date — no further matches possible
       if (Math.abs(e.amount - f.amount) < 0.01 &&
           (e.desc||'').toLowerCase() === (f.desc||'').toLowerCase() &&
@@ -18658,7 +18651,7 @@ const CARCOST_BUCKETS = [
   { key: 'other',     label: 'Other car costs',           tags: ['car', 'auto'] },
 ];
 const CARCOST_FUEL_TAGS = ['fuel', 'tanken'];
-const _ccDays = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const _ccDays = ymdDays;
 // odometer at a date: the reading on/before it, or a straight line between the readings around it
 function _ccOdoAt(readings, date) {
   let before = null, after = null;
@@ -18669,7 +18662,7 @@ function _ccOdoAt(readings, date) {
   return span === 0 ? before.odo : before.odo + (after.odo - before.odo) * _ccDays(before.date, date) / span;
 }
 
-const _ccAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const _ccAddDays = ymdAdd;
 // A period as [lower bound EXCLUSIVE, upper bound INCLUSIVE] — the same (from, to] convention the costs use, so "last month" is exactly
 // 1st … last day of that month and 'ytd' includes 1 January. Returns null for an unusable custom range.
 function _ccPeriod(period, today, custom) {
@@ -18787,8 +18780,8 @@ const REMINDER_LINKS = {
   tax:       { url: 'https://www.bmf.gv.at/themen/steuern/fristen-verfahren/fristen-faelligkeiten.html', label: 'BMF: deadlines' },
 };
 const _remPICKERL_NEW_RULES = '2027-05-19';
-const _remAdd  = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-const _remDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const _remAdd = ymdAdd;
+const _remDiff = ymdDays;
 const _remMonthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
 const _remValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(Date.parse(s));
 
@@ -21254,6 +21247,34 @@ function runSmokeTest() {
       expect(['c-bio', 'c-quick', 'c-quick-form', 'c-q-amt', 'c-q-desc', 'c-q-cat', 'c-quick-msg', 'c-quick-count', 'd-quick', 'quick-card'].every(i => !!document.getElementById(i)), true, 'the unlock button, the quick-add form and the Settings card exist');
       expect(Array.from(document.getElementById('c-q-cat').options).map(o => o.value).join(), CAP_CATS.join(), 'the quick-add categories are exactly the ones the validator accepts');
     });
+    // ── Hardening: dates, merge report, AI fields ──
+    test('dates: "today" is the local day, and one set of helpers does all the date arithmetic', () => {
+      expect([ymdLocal(new Date(2026, 10, 21, 0, 30)), ymdLocal(new Date(2026, 10, 20, 23, 59)), ymdLocal(new Date(2026, 0, 5, 12)), ymdLocal(new Date(2026, 11, 31, 23, 59, 59))].join(), '2026-11-21,2026-11-20,2026-01-05,2026-12-31', 'local fields, zero-padded: an entry made at 00:30 on the 21st is the 21st, whatever UTC says');
+      expect(ymd(), ymdLocal(new Date()), 'ymd() is today in this time zone'); expect(ymdOf === ymdLocal, true, 'ymdOf is the same function, not a copy');
+      expect([ymdAdd('2026-03-28', 1), ymdAdd('2026-03-28', 2), ymdAdd('2026-10-24', 2), ymdAdd('2028-02-28', 1), ymdAdd('2026-12-31', 1), ymdAdd('2026-03-01', -1), ymdAdd('2026-03-31', -7)].join(), '2026-03-29,2026-03-30,2026-10-26,2028-02-29,2027-01-01,2026-02-28,2026-03-24', 'adding days is exact across both daylight-saving changes, a leap day and a year end');
+      expect([ymdDays('2026-03-28', '2026-03-30'), ymdDays('2026-10-24', '2026-10-26'), ymdDays('2026-01-01', '2027-01-01'), ymdDays('2026-05-10', '2026-05-03'), ymdDays('2026-05-10', '2026-05-10')].join(), '2,2,365,-7,0', 'days between are whole days, also across daylight-saving changes, negative backwards');
+      let bad = 0; for (let i = 0; i < 3000; i++) { const base = Date.UTC(2020, 0, 1) + Math.floor(Math.random() * 3000) * 864e5, a = new Date(base).toISOString().slice(0, 10), n = Math.floor(Math.random() * 801) - 400, b = new Date(base + n * 864e5).toISOString().slice(0, 10); if (ymdAdd(a, n) !== b || ymdDays(a, b) !== n) bad++; } expect(bad, 0, '3,000 random dates: add and difference always agree with each other and with plain UTC arithmetic');
+      const p = parseYmd('2026-10-25'); expect(p.getHours() + '|' + p.getDate() + '|' + p.getMonth(), '12|25|9', 'a parsed date is local noon: it can never slip to another day, even on a daylight-saving change'); expect(isNaN(parseYmd('nope')) && isNaN(parseYmd('')) && isNaN(parseYmd(undefined)), true, 'junk gives an invalid date, not today');
+      expect(parseYmd('2026-03-29').toLocaleDateString('en-GB') === '29/03/2026' && parseYmd('2026-10-25').toLocaleDateString('en-GB') === '25/10/2026', true, 'formatting a parsed date shows the same day, also on the changeover days');
+      expect(_cfAddDays === ymdAdd && _ccAddDays === ymdAdd && _remAdd === ymdAdd && _rcnDays === ymdDays && _ccDays === ymdDays && _remDiff === ymdDays && _isoDays === ymdDays, true, 'the seven private copies are now aliases of the two shared helpers');
+    });
+    test('merge report: says what a merge added from the other device and where this device\'s version was kept', () => {
+      const e = (id, amt) => ({ id, type: 'expense', date: '2026-11-01', amount: amt, desc: id, category: 'wants', tags: [] });
+      const L = { entries: [e('a', 1), e('b', 2)], debts: [{ id: 'd1', name: 'Loan', balance: 5 }], tagBudgets: { food: { amount: 100 } } }, R = { entries: [e('b', 99), e('c', 3), e('d', 4)], debts: [], tagBudgets: { food: { amount: 100 }, fun: { amount: 20 } } };
+      const M = mergeVaultData(L, R), rep = mergeReport(L, R, M), Ls = JSON.stringify(L), Rs = JSON.stringify(R);
+      expect(rep.added.map(x => x.join(':')).join(), 'entries:2,tag budgets:1', 'two entries and a tag budget came from the other device'); expect(rep.kept.map(x => x.join(':')).join(), 'entries:1', 'one entry was edited on both devices and this device\'s version was kept');
+      expect(rep.addedTotal + '|' + rep.keptTotal + '|' + rep.total, '3|1|4', 'totals'); expect(/added from the other device \(entries: 2, tag budgets: 1\)/.test(rep.summary) && /this device's version kept \(entries: 1\)/.test(rep.summary), true, 'a one-line summary for the sync log'); expectTrue(/deleted something here on purpose/.test(rep.body) && /entries: 2/.test(rep.body), 'the message warns that a deletion may have come back');
+      expect(JSON.stringify(L) + JSON.stringify(R), Ls + Rs, 'building the report modifies neither vault'); const same = mergeReport(L, L, mergeVaultData(L, L)); expect(same.total + '|' + same.summary + '|' + same.body, '0||', 'identical vaults: nothing to report');
+      expect(mergeReport(undefined, undefined, undefined).total + '|' + mergeReport({}, {}, {}).total + '|' + mergeReport(null, 5, 'x').total, '0|0|0', 'junk never throws');
+    });
+    test('AI key: the key, the question and the assistant\'s answer are wiped by one function', () => {
+      const ids = ['ai-apikey', 'ai-question', 'ai-response', 'ai-error'], els = ids.map(i => document.getElementById(i)), keep = els.map(x => x && (x.value !== undefined && x.tagName !== 'DIV' ? x.value : x.innerHTML));
+      try {
+        els.forEach((x, i) => { if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') x.value = 'secret ' + i; else x.innerHTML = '<b>answer about my money ' + i + '</b>'; });
+        clearAiFields(); expect(els.map(x => (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') ? x.value : x.innerHTML).join('|'), '|||', 'all four are empty afterwards');
+      } finally { els.forEach((x, i) => { if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') x.value = keep[i] || ''; else x.innerHTML = keep[i] || ''; }); }
+      expect(typeof clearAiFields, 'function', 'the lock calls it'); expect(_disconnectCore.toString().includes('clearAiFields()'), true, 'and Lock really does');
+    });
     test('goals: recurring contributions — idempotent, entry is the log, undo, skips, clamping, validation', () => {
       let n = 0; const mk = () => `gc${++n}`;
       const base = () => ({ entries: [], savingsGoals: [{ id: 'g1', name: 'Holiday', target: 1000, saved: 100, contribution: { amount: 200, day: 5 } },
@@ -22130,6 +22151,16 @@ function runSmokeTest() {
 // without touching the network. Union arrays by id (local wins on conflict),
 // local wins for scalar per-month maps, notifFired is unioned (fired on
 // either device = don't re-fire). Does not mutate either input.
+// What a merge did, in plain words. Merging unions both devices by id, so something deleted on THIS device comes back if the other device still has it (a deletion cannot be told from
+// "never had it"), and where both devices edited the same item this device's version wins. Tombstones would fix the first but touch every delete path and Undo; until then, say it.
+function mergeReport(local, remote, merged) {
+  const tally = (d, k) => [...d.lists.map(l => [l.label, l[k].length]), ['income months', d.incomes[k].length], ...d.maps.map(m => [m.label, m[k].length])].filter(x => x[1] > 0);
+  let added = [], kept = []; try { added = tally(diffVaults(local || {}, merged || {}), 'regained'); kept = tally(diffVaults(remote || {}, merged || {}), 'changed'); } catch (e) { /* a report must never break a merge */ }
+  const sum = a => a.reduce((t, x) => t + x[1], 0), txt = a => a.map(([l, n]) => `${l}: ${n}`).join(', '), total = sum(added) + sum(kept);
+  return { added, kept, addedTotal: sum(added), keptTotal: sum(kept), total,
+    summary: [added.length ? `added from the other device (${txt(added)})` : '', kept.length ? `this device's version kept (${txt(kept)})` : ''].filter(Boolean).join('; '),
+    body: total ? [added.length ? `Added from the other device (${txt(added)}).` : '', kept.length ? `Edited on both devices — this device's version was kept (${txt(kept)}).` : '', 'If you deleted something here on purpose, it may be among the items added — delete it again (and on your other devices). A merge cannot tell a deletion from something this device never had.'].filter(Boolean).join(' ') : '' };
+}
 function mergeVaultData(local, remote) {
   const mergeById = (l, r) => {
     const map = new Map();
@@ -22199,6 +22230,7 @@ async function mergeAndPush() {
 
     // 2. Merge — union by ID (local wins on conflict), local wins on scalar maps
     const merged = mergeVaultData(DATA, remoteData);
+    const mrep = mergeReport(DATA, remoteData, merged);   // BEFORE DATA = merged
     merged.meta.sha = j.sha; // use remote SHA for the push
 
     // 3. Push merged result
@@ -22211,13 +22243,14 @@ async function mergeAndPush() {
     if (!pr.ok) { const e = await pr.json(); throw new Error(e.message || `Merge push failed: ${pr.status}`); }
     const pj = await pr.json();
     DATA.meta.sha = pj.content.sha;
-    auditRecord('merge', `merged ${merged.entries.length} entries from 2 devices`);
+    auditRecord('merge', `merged ${merged.entries.length} entries from 2 devices${mrep.summary ? ' — ' + mrep.summary : ''}`);
     await saveLocalNow();
     render();
     markClean();
     updateLastSync();
     setSyncBadge('');
     toast(`Merged — ${merged.entries.length} entries from both devices`);
+    if (mrep.total) showConfirm('Merged with the other device', mrep.body, () => {}, { ok: 'OK', notice: true });   // a notice, not a question
   } catch(e) { toast(e.message || 'Merge failed.', 1); setSyncBadge('error'); }
 }
 
